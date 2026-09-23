@@ -21,6 +21,14 @@ import VenueTick from '../../components/ui/VenueTick'
 
 const GREEN_SHADES = ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
 
+const getNiceRevenueMax = (dataMax) => {
+  if (!dataMax || dataMax <= 0) return 10
+  const raw = dataMax * 1.1
+  if (raw <= 100) return Math.ceil(raw / 10) * 10
+  if (raw <= 500) return Math.ceil(raw / 50) * 50
+  return Math.ceil(raw / 100) * 100
+}
+
 export default function DashboardPage() {
   // KPI: today's bookings
   const today = todayString()
@@ -132,7 +140,7 @@ export default function DashboardPage() {
                   <YAxis
                     tick={{ fontSize: 11, fill: '#9ca3af' }}
                     tickFormatter={(v) => `RM${v}`}
-                    domain={[0, (dataMax) => (dataMax === 0 ? 10 : Math.ceil(dataMax * 1.1))]} allowDecimals={false} tickCount={6}
+                    domain={[0, getNiceRevenueMax]} allowDecimals={false} tickCount={6}
                   />
                   <Tooltip formatter={(v) => [formatCurrency(v), 'Revenue']}
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
