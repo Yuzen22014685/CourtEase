@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { register } from '../../api/auth'
 import PasswordInput from '../../components/ui/PasswordInput'
+import PasswordChecklist, { checkPasswordValidity } from '../../components/ui/PasswordChecklist'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
 
@@ -24,20 +25,11 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
 
   // Password rules validation
-  const hasMinLength = form.password.length >= 8
-  const hasLetter    = /[a-zA-Z]/.test(form.password)
-  const hasNumber    = /[0-9]/.test(form.password)
-  const isPasswordValid = hasMinLength && hasLetter && hasNumber
+  const { isValid: isPasswordValid } = checkPasswordValidity(form.password)
 
   const hasTypedConfirm = form.confirmPassword.length > 0
   const passwordsMatch  = hasTypedConfirm && form.password === form.confirmPassword
   const showMismatch    = hasTypedConfirm && form.password !== form.confirmPassword
-
-  const rules = [
-    { label: 'At least 8 characters', met: hasMinLength },
-    { label: 'Contains a letter', met: hasLetter },
-    { label: 'Contains a number', met: hasNumber },
-  ]
 
   const isFormValid =
     Boolean(form.fullName.trim()) &&
@@ -150,19 +142,7 @@ export default function RegisterPage() {
                 />
 
                 {/* Password Strength Checklist */}
-                <ul className="mt-2 space-y-1 text-xs">
-                  {rules.map((rule) => (
-                    <li
-                      key={rule.label}
-                      className={`flex items-center gap-1.5 transition-colors duration-150 ${
-                        rule.met ? 'text-emerald-600 font-medium' : 'text-gray-400'
-                      }`}
-                    >
-                      <span className="font-bold text-xs">{rule.met ? '✓' : '•'}</span>
-                      <span>{rule.label}</span>
-                    </li>
-                  ))}
-                </ul>
+                <PasswordChecklist password={form.password} />
               </div>
 
               {/* Confirm Password with Eye Toggle */}

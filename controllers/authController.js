@@ -1,7 +1,11 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { sendVerificationEmail } = require('../utils/emailService');
+const {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
+} = require('../utils/emailService');
 const { validatePassword } = require('../utils/validatePassword');
 
 /**
@@ -276,6 +280,104 @@ const updateProfile = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// POST /api/auth/forgot-password
+// ---------------------------------------------------------------------------
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const genericResponse = {
+      success: true,
+      message: 'If an account exists for this email, a password reset link has been sent.',
+    };
+
+    if (!email || typeof email !== 'string') {
+      return res.status(200).json(genericResponse);
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() }).select(
+      '+passwordResetTokenHash +passwordResetExpires +passwordResetSentAt'
+    );
+
+    if (user) {
+      const now = Date.now();
+      const lastSent = user.passwordResetSentAt ? new Date(user.passwordResetSentAt).getTime() : 0;
+      const cooldownMs = 60 * 1000; // 60 seconds
+
+      if (now - lastSent >= cooldownMs) {
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        user.passwordResetTokenHash = hashToken(rawToken);
+        user.passwordResetExpires = new Date(now + 30 * 60 * 1000); // 30 minutes
+        user.passwordResetSentAt = new Date(now);
+
+        await user.save();
+
+        try {
+          await sendPasswordResetEmail(user, rawToken);
+        } catch (mailErr) {
+          console.error('❌ Failed to send password reset email:', mailErr.message);
+        }
+      }
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/auth/reset-password/:token
+// ---------------------------------------------------------------------------
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Reset link is invalid or has expired.' });
+    }
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.isValid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
+    }
+
+    const hashedToken = hashToken(token);
+
+    const user = await User.findOne({
+      passwordResetTokenHash: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    }).select('+passwordResetTokenHash +passwordResetExpires +passwordResetSentAt');
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Reset link is invalid or has expired.' });
+    }
+
+    user.password = password;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordResetSentAt = undefined;
+    user.passwordChangedAt = new Date(Date.now() - 1000);
+    user.isEmailVerified = true;
+
+    await user.save();
+
+    try {
+      await sendPasswordChangedEmail(user);
+    } catch (mailErr) {
+      console.warn('⚠️ Failed to send password changed confirmation email:', mailErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Password updated! You can now log in with your new password.',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -283,4 +385,6 @@ module.exports = {
   updateProfile,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
 };

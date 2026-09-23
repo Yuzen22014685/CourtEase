@@ -167,6 +167,14 @@ export default function LoginPage() {
                 className={error ? 'input-error' : ''}
                 placeholder="••••••••"
               />
+              <div className="flex justify-end mt-1.5">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
 
             <button

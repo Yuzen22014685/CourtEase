@@ -8,6 +8,8 @@ const {
   updateProfile,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 
@@ -45,6 +47,28 @@ const resendLimiter = rateLimit({
   },
 });
 
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many password reset requests from this IP, please try again after 15 minutes.',
+  },
+});
+
+const resetPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many password reset attempts from this IP, please try again after 15 minutes.',
+  },
+});
+
 // POST /api/auth/register
 router.post('/register', registerLimiter, register);
 
@@ -56,6 +80,12 @@ router.get('/verify-email/:token', verifyEmail);
 
 // POST /api/auth/resend-verification
 router.post('/resend-verification', resendLimiter, resendVerification);
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+
+// POST /api/auth/reset-password/:token
+router.post('/reset-password/:token', resetPasswordLimiter, resetPassword);
 
 // GET  /api/auth/profile  — fetch current player's profile (protected)
 router.get('/profile', protect, getProfile);

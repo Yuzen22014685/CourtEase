@@ -89,9 +89,107 @@ const sendVerificationEmail = async (user, rawToken) => {
   });
 };
 
+/**
+ * Send password reset email with 30-minute expiry
+ */
+const sendPasswordResetEmail = async (user, rawToken) => {
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const resetUrl = `${clientUrl}/reset-password/${rawToken}`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="font-size: 42px;">🏸</span>
+        <h1 style="color: #111827; font-size: 24px; margin-top: 8px; margin-bottom: 4px;">Reset your CourtEase password</h1>
+        <p style="color: #6b7280; font-size: 14px; margin: 0;">Penang's badminton court booking platform</p>
+      </div>
+
+      <p style="color: #374151; font-size: 16px; line-height: 24px;">
+        Hello <strong>${user.fullName}</strong>,
+      </p>
+
+      <p style="color: #374151; font-size: 15px; line-height: 24px;">
+        We received a request to reset the password for your CourtEase account. Click the button below to set a new password:
+      </p>
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${resetUrl}"
+           style="background-color: #16a34a; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">
+          Reset my password
+        </a>
+      </div>
+
+      <p style="color: #6b7280; font-size: 13px; line-height: 20px;">
+        Or copy and paste this link into your browser:<br/>
+        <a href="${resetUrl}" style="color: #16a34a; word-break: break-all;">${resetUrl}</a>
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+
+      <p style="color: #9ca3af; font-size: 12px; line-height: 18px; margin: 0;">
+        ⏱️ This link expires in 30 minutes.<br/>
+        If you did not request this, you can ignore this email — your password will not change.
+      </p>
+    </div>
+  `;
+
+  return await sendEmail({
+    to: user.email,
+    subject: 'Reset your CourtEase password',
+    html,
+  });
+};
+
+/**
+ * Send short confirmation email after password reset
+ */
+const sendPasswordChangedEmail = async (user) => {
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+  const forgotUrl = `${clientUrl}/forgot-password`;
+
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <span style="font-size: 42px;">🏸</span>
+        <h1 style="color: #111827; font-size: 24px; margin-top: 8px; margin-bottom: 4px;">Security Notice</h1>
+        <p style="color: #6b7280; font-size: 14px; margin: 0;">CourtEase account security</p>
+      </div>
+
+      <p style="color: #374151; font-size: 16px; line-height: 24px;">
+        Hello <strong>${user.fullName}</strong>,
+      </p>
+
+      <p style="color: #374151; font-size: 15px; line-height: 24px;">
+        Your CourtEase password was changed. If this wasn't you, reset your password immediately.
+      </p>
+
+      <div style="text-align: center; margin: 32px 0;">
+        <a href="${forgotUrl}"
+           style="background-color: #dc2626; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block;">
+          Reset password immediately
+        </a>
+      </div>
+
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+
+      <p style="color: #9ca3af; font-size: 12px; line-height: 18px; margin: 0;">
+        CourtEase Security Team
+      </p>
+    </div>
+  `;
+
+  return await sendEmail({
+    to: user.email,
+    subject: 'Your CourtEase password was changed',
+    html,
+  });
+};
+
 module.exports = {
   transporter,
   verifySMTP,
   sendEmail,
   sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendPasswordChangedEmail,
 };

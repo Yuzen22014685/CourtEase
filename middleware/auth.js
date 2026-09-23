@@ -20,6 +20,14 @@ const protect = async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
+
+    if (req.user.passwordChangedAt) {
+      const tokenIssuedAtMs = decoded.iat * 1000;
+      if (tokenIssuedAtMs < req.user.passwordChangedAt.getTime()) {
+        return res.status(401).json({ success: false, message: 'Your password was changed. Please log in again.' });
+      }
+    }
+
     next();
   } catch (err) {
     return res.status(401).json({ success: false, message: 'Token invalid or expired' });
