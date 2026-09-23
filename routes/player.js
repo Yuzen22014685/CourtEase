@@ -9,6 +9,7 @@ const {
   createBooking,
   getMyBookings,
   cancelBooking,
+  rescheduleBooking,
   uploadReceipt,
 } = require('../controllers/playerController');
 const {
@@ -26,6 +27,7 @@ router.get('/venues/:id/availability', getVenueAvailability);
 router.post('/bookings', protect, createBooking);
 router.get('/bookings/me', protect, getMyBookings);
 router.patch('/bookings/:id/cancel', protect, cancelBooking);
+router.patch('/bookings/:id/reschedule', protect, rescheduleBooking);
 router.post('/bookings/:id/upload-receipt', protect, upload.single('receipt'), uploadReceipt);
 
 // Notification routes (protected)

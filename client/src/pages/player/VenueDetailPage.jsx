@@ -752,19 +752,20 @@ function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPayment
           <li className="flex items-start gap-2">
             <span className="mt-0.5 text-primary-500 shrink-0">✓</span>
             <span>
-              <span className="font-medium text-gray-800">Full refund eligible:</span>{' '}
-              You may cancel any booking and receive a full refund, provided the cancellation
-              is made <span className="font-medium text-gray-800">more than 1 hour</span> before
+              <span className="font-medium text-gray-800">Cancel or reschedule:</span>{' '}
+              You may cancel any booking for a full refund, or reschedule once, provided the
+              change is made{' '}
+              <span className="font-medium text-gray-800">more than 24 hours</span> before
               the session's start time.
             </span>
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-0.5 text-red-400 shrink-0">✕</span>
             <span>
-              <span className="font-medium text-gray-800">No refund:</span>{' '}
-              Cancellations made <span className="font-medium text-gray-800">less than 1 hour</span>{' '}
-              before the session start time are <span className="font-medium text-gray-800">not
-              eligible for a refund</span>. The booking fee will be forfeited.
+              <span className="font-medium text-gray-800">No changes within 24 hours:</span>{' '}
+              Bookings cannot be cancelled or rescheduled within 24 hours of the session. The
+              booking fee will be{' '}
+              <span className="font-medium text-gray-800">forfeited</span>.
             </span>
           </li>
         </ul>

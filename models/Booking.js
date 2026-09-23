@@ -27,6 +27,13 @@ const bookingSchema = new mongoose.Schema({
   receiptImage: { type: String },
   receiptReminderSent: { type: Boolean, default: false },
   rejectionReason: { type: String, trim: true, maxlength: 300 },
+  rescheduleCount: { type: Number, default: 0 },
+  rescheduledFrom: {
+    date:      { type: String },
+    startTime: { type: String },
+    endTime:   { type: String },
+    courtId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

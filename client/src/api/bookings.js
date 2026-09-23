@@ -6,6 +6,8 @@ export const getMyBookings = () => api.get('/bookings/me')
 
 export const cancelBooking = (id) => api.patch(`/bookings/${id}/cancel`)
 
+export const rescheduleBooking = (id, data) => api.patch(`/bookings/${id}/reschedule`, data)
+
 export const uploadReceipt = (id, formData) => api.post(`/bookings/${id}/upload-receipt`, formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 })

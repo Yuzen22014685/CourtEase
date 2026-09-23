@@ -233,6 +233,11 @@ export default function AdminBookingsPage() {
                     <td className="uppercase text-xs text-gray-500">{b.paymentMethod}</td>
                     <td>
                       <Badge status={b.status} />
+                      {b.rescheduleCount > 0 && (
+                        <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                          Rescheduled
+                        </span>
+                      )}
                       {b.status === 'pending' && (
                         <div className="mt-2">
                           <button
@@ -331,6 +336,15 @@ export default function AdminBookingsPage() {
                   <span className="text-gray-400 block mb-0.5">Status</span>
                   <Badge status={reviewBooking.status} />
                 </div>
+                {reviewBooking.rescheduleCount > 0 && reviewBooking.rescheduledFrom && (
+                  <div className="col-span-2">
+                    <span className="text-gray-400 block mb-0.5">Rescheduled from</span>
+                    <span className="font-medium text-gray-800">
+                      {formatDate(reviewBooking.rescheduledFrom.date)},{' '}
+                      {formatTime(reviewBooking.rescheduledFrom.startTime)}–{formatTime(reviewBooking.rescheduledFrom.endTime)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

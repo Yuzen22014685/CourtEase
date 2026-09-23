@@ -1,6 +1,13 @@
 const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Booking = require('../models/Booking');
+const Notification = require('../models/Notification');
+const {
+  CHANGE_CUTOFF_HOURS,
+  SLOT_BLOCKING_STATUSES,
+  getSessionStart,
+  getBookingPermissions,
+} = require('../config/bookingPolicy');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -63,6 +70,7 @@ const getVenueById = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 // GET /api/venues/:id/availability?date=YYYY-MM-DD
 // Returns a slot matrix: for each court → each hourly slot → booked or available
+// Only SLOT_BLOCKING_STATUSES count as occupying a slot (cancelled & rejected are free).
 // ---------------------------------------------------------------------------
 const getVenueAvailability = async (req, res, next) => {
   try {
@@ -78,7 +86,7 @@ const getVenueAvailability = async (req, res, next) => {
     const bookings = await Booking.find({
       venueId: venue._id,
       date,
-      status: { $ne: 'cancelled' },
+      status: { $in: SLOT_BLOCKING_STATUSES },
     });
 
     const slots = generateSlots(venue.operatingHours.open, venue.operatingHours.close);
@@ -123,8 +131,6 @@ const createBooking = async (req, res, next) => {
     }
 
     // ── Past-slot guard ──────────────────────────────────────────────────────
-    // Build the slot's start as a Malaysia-time (UTC+8) Date and compare to now.
-    // Uses the same pattern as the cancellation policy check in cancelBooking.
     const slotStart = new Date(`${date}T${startTime}:00+08:00`);
     if (slotStart <= new Date()) {
       return res.status(400).json({
@@ -140,11 +146,11 @@ const createBooking = async (req, res, next) => {
     const court = await Court.findOne({ _id: courtId, venueId, status: 'active' });
     if (!court) return res.status(404).json({ success: false, message: 'Court not found or under maintenance' });
 
-    // Conflict check
+    // Conflict check — only SLOT_BLOCKING_STATUSES count (cancelled & rejected do not block)
     const conflict = await Booking.findOne({
       courtId,
       date,
-      status: { $ne: 'cancelled' },
+      status: { $in: SLOT_BLOCKING_STATUSES },
       $or: [
         { startTime: { $lt: endTime }, endTime: { $gt: startTime } },
       ],
@@ -179,6 +185,7 @@ const createBooking = async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // GET /api/bookings/me
+// Appends canCancel and canReschedule so the frontend never recalculates the rule.
 // ---------------------------------------------------------------------------
 const getMyBookings = async (req, res, next) => {
   try {
@@ -186,7 +193,14 @@ const getMyBookings = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate('venueId', 'name area address')
       .populate('courtId', 'courtNumber');
-    res.json({ success: true, count: bookings.length, data: bookings });
+
+    const data = bookings.map((b) => {
+      const plain = b.toObject();
+      const { canCancel, canReschedule } = getBookingPermissions(plain);
+      return { ...plain, canCancel, canReschedule };
+    });
+
+    res.json({ success: true, count: data.length, data });
   } catch (err) {
     next(err);
   }
@@ -194,7 +208,7 @@ const getMyBookings = async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // PATCH /api/bookings/:id/cancel
-// Cancellation policy: only if current time is > 1 hour before startTime
+// Cancellation policy: only if more than CHANGE_CUTOFF_HOURS (24h) before start.
 // ---------------------------------------------------------------------------
 const cancelBooking = async (req, res, next) => {
   try {
@@ -210,16 +224,11 @@ const cancelBooking = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Only pending or confirmed bookings can be cancelled' });
     }
 
-    // Build Date object from booking date + startTime (Malaysia time UTC+8)
-    const bookingStart = new Date(`${booking.date}T${booking.startTime}:00+08:00`);
-    const now = new Date();
-    const diffMs = bookingStart - now;
-    const diffHours = diffMs / (1000 * 60 * 60);
-
-    if (diffHours <= 1) {
+    const { canCancel } = getBookingPermissions(booking);
+    if (!canCancel) {
       return res.status(400).json({
         success: false,
-        message: `Cancellation not allowed. Bookings can only be cancelled more than 1 hour before the start time. The session begins at ${booking.startTime} on ${booking.date}.`,
+        message: 'Bookings can only be cancelled more than 24 hours before the session starts.',
       });
     }
 
@@ -228,6 +237,141 @@ const cancelBooking = async (req, res, next) => {
     await booking.save();
 
     res.json({ success: true, message: 'Booking cancelled and refund initiated', data: booking });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PATCH /api/bookings/:id/reschedule
+// Body: { date, startTime, courtId }
+// Validates: ownership, canReschedule, new slot validity, conflict, 24h window.
+// ---------------------------------------------------------------------------
+const rescheduleBooking = async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.id).populate('venueId');
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    // Ownership check
+    if (booking.playerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorised to reschedule this booking' });
+    }
+
+    // Policy check
+    const { canReschedule } = getBookingPermissions(booking);
+    if (!canReschedule) {
+      if ((booking.rescheduleCount || 0) >= 1) {
+        return res.status(400).json({
+          success: false,
+          message: 'Bookings can only be rescheduled once.',
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: 'Bookings can only be rescheduled more than 24 hours before the session starts.',
+      });
+    }
+
+    const { date: newDate, startTime: newStart, courtId: newCourtId } = req.body;
+
+    // Basic format validation
+    if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
+      return res.status(400).json({ success: false, message: 'date must be YYYY-MM-DD' });
+    }
+    if (!newStart || !/^\d{2}:\d{2}$/.test(newStart)) {
+      return res.status(400).json({ success: false, message: 'startTime must be HH:MM' });
+    }
+    if (!newCourtId) {
+      return res.status(400).json({ success: false, message: 'courtId is required' });
+    }
+
+    // Derive new end time using same duration as original booking
+    const durationMins = toMinutes(booking.endTime) - toMinutes(booking.startTime);
+    const newEndMins = toMinutes(newStart) + durationMins;
+    const newEndH = String(Math.floor(newEndMins / 60)).padStart(2, '0');
+    const newEndM = String(newEndMins % 60).padStart(2, '0');
+    const newEnd = `${newEndH}:${newEndM}`;
+
+    // New slot must not be in the past
+    const newSlotStart = new Date(`${newDate}T${newStart}:00+08:00`);
+    if (newSlotStart <= new Date()) {
+      return res.status(400).json({ success: false, message: 'The new time slot has already passed.' });
+    }
+
+    // New slot must be more than CHANGE_CUTOFF_HOURS away (cannot move into no-change window)
+    const hoursUntilNew = (newSlotStart - new Date()) / (1000 * 60 * 60);
+    if (hoursUntilNew <= CHANGE_CUTOFF_HOURS) {
+      return res.status(400).json({
+        success: false,
+        message: `You can only reschedule to a slot that is more than ${CHANGE_CUTOFF_HOURS} hours away.`,
+      });
+    }
+
+    // New court must belong to the same venue and be active
+    const newCourt = await Court.findOne({ _id: newCourtId, venueId: booking.venueId._id, status: 'active' });
+    if (!newCourt) {
+      return res.status(404).json({ success: false, message: 'Court not found or not available at this venue' });
+    }
+
+    // New slot must fit within venue operating hours
+    const venue = booking.venueId;
+    if (
+      toMinutes(newStart) < toMinutes(venue.operatingHours.open) ||
+      newEndMins > toMinutes(venue.operatingHours.close)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Slot must be within venue operating hours (${venue.operatingHours.open}–${venue.operatingHours.close}).`,
+      });
+    }
+
+    // Conflict check — exclude the booking being rescheduled, only SLOT_BLOCKING_STATUSES count
+    const conflict = await Booking.findOne({
+      _id: { $ne: booking._id },
+      courtId: newCourtId,
+      date: newDate,
+      status: { $in: SLOT_BLOCKING_STATUSES },
+      $or: [
+        { startTime: { $lt: newEnd }, endTime: { $gt: newStart } },
+      ],
+    });
+    if (conflict) {
+      return res.status(409).json({ success: false, message: 'That time slot is no longer available.' });
+    }
+
+    // Save old values for rescheduledFrom
+    const oldValues = {
+      date:      booking.date,
+      startTime: booking.startTime,
+      endTime:   booking.endTime,
+      courtId:   booking.courtId,
+    };
+
+    // Apply changes
+    booking.rescheduledFrom = oldValues;
+    booking.date      = newDate;
+    booking.startTime = newStart;
+    booking.endTime   = newEnd;
+    booking.courtId   = newCourtId;
+    booking.rescheduleCount = (booking.rescheduleCount || 0) + 1;
+    await booking.save();
+
+    // Create notification
+    const venueName = venue.name;
+    const message = `Your booking at ${venueName} was moved to ${newDate} at ${newStart}.`;
+    try {
+      await Notification.create({
+        playerId: booking.playerId,
+        bookingId: booking._id,
+        type: 'booking_rescheduled',
+        message,
+      });
+    } catch (notifErr) {
+      // Notification creation failure should not fail the reschedule
+      console.error('Failed to create reschedule notification:', notifErr.message);
+    }
+
+    res.json({ success: true, message: 'Booking rescheduled successfully', data: booking });
   } catch (err) {
     next(err);
   }
@@ -262,4 +406,4 @@ const uploadReceipt = async (req, res, next) => {
   }
 };
 
-module.exports = { getVenues, getVenueById, getVenueAvailability, createBooking, getMyBookings, cancelBooking, uploadReceipt };
+module.exports = { getVenues, getVenueById, getVenueAvailability, createBooking, getMyBookings, cancelBooking, rescheduleBooking, uploadReceipt };
