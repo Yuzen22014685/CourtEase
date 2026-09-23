@@ -9,7 +9,7 @@ import ErrorMessage from '../../components/ui/ErrorMessage'
 import { SkeletonText } from '../../components/ui/SkeletonCard'
 import { formatCurrency, formatDate, formatTime, todayString } from '../../utils/format'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine, LabelList
 } from 'recharts'
 import {
   CalendarDaysIcon,
@@ -17,6 +17,7 @@ import {
   XCircleIcon,
   ChartBarIcon,
 } from '@heroicons/react/24/outline'
+import VenueTick from '../../components/ui/VenueTick'
 
 const GREEN_SHADES = ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
 
@@ -48,8 +49,8 @@ export default function DashboardPage() {
     useCallback(() => getAllBookings({}), [])
   )
 
-  const todayCount     = todayData?.data?.length ?? 0
-  const monthRevenue   = revenueMonthData?.grandTotalRevenue ?? 0
+  const todayCount = todayData?.data?.length ?? 0
+  const monthRevenue = revenueMonthData?.grandTotalRevenue ?? 0
   const cancelledCount = (bookingsData?.data ?? []).filter(b => b.status === 'cancelled').length
   const recentBookings = (bookingsData?.data ?? []).slice(0, 10)
 
@@ -64,7 +65,7 @@ export default function DashboardPage() {
     bookings: d.bookings,
   }))
 
-  const avgBookings = peakChartData.length > 0 
+  const avgBookings = peakChartData.length > 0
     ? (peakChartData.reduce((sum, d) => sum + d.bookings, 0) / peakChartData.length).toFixed(1)
     : 0
 
@@ -83,12 +84,12 @@ export default function DashboardPage() {
             bg="bg-blue-50"
             label="Today's Bookings"
             value={todayLoading ? <Spinner size="sm" /> : todayCount}
-            sub={`${(todayData?.data ?? []).filter(b=>b.status==='confirmed').length} confirmed`}
+            sub={`${(todayData?.data ?? []).filter(b => b.status === 'confirmed').length} confirmed`}
           />
           <KpiCard
             icon={<CurrencyDollarIcon className="h-6 w-6 text-primary-600" />}
             bg="bg-primary-50"
-            label="Revenue This Month"
+            label="Revenue (30 Days)"
             value={revMonthLoading ? <Spinner size="sm" /> : formatCurrency(monthRevenue)}
             sub="Last 30 days"
           />
@@ -120,17 +121,32 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-400 text-center py-10">No revenue data yet.</p>
             ) : (
               <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={revenueChartData} margin={{ top: 0, right: 4, left: -10, bottom: 0 }}>
+                <BarChart data={revenueChartData} margin={{ top: 20, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }}
-                         tickFormatter={(v) => `RM${v}`} />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    height={40}
+                    tick={<VenueTick />}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: '#9ca3af' }}
+                    tickFormatter={(v) => `RM${v}`}
+                    domain={[0, (dataMax) => (dataMax === 0 ? 10 : Math.ceil(dataMax * 1.1))]} allowDecimals={false} tickCount={6}
+                  />
                   <Tooltip formatter={(v) => [formatCurrency(v), 'Revenue']}
-                           contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} />
                   <Bar dataKey="revenue" radius={[6, 6, 0, 0]}>
                     {revenueChartData.map((entry, i) => (
                       <Cell key={i} fill={entry.fill} />
                     ))}
+                    <LabelList
+                      dataKey="revenue"
+                      position="top"
+                      fontSize={11}
+                      fill="#6b7280"
+                      formatter={(v) => `RM${Math.round(v)}`}
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -160,7 +176,7 @@ export default function DashboardPage() {
                 ))}
               </select>
             </div>
-            
+
             {peakLoading ? (
               <div className="h-48 flex items-center justify-center">
                 <Spinner size="lg" />
@@ -176,7 +192,7 @@ export default function DashboardPage() {
                   <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} interval={1} />
                   <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
-                           formatter={(v) => [v, 'Bookings']} />
+                    formatter={(v) => [v, 'Bookings']} />
                   <ReferenceLine y={Number(avgBookings)} stroke="#f59e0b" strokeDasharray="3 3" label={{ position: 'top', value: `Average: ${avgBookings}/hr`, fill: '#d97706', fontSize: 10 }} />
                   <Bar dataKey="bookings" fill="#16a34a" radius={[4, 4, 0, 0]} />
                 </BarChart>
