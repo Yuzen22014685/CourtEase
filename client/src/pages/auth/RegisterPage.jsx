@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { register } from '../../api/auth'
+import PasswordInput from '../../components/ui/PasswordInput'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
 
@@ -11,6 +12,7 @@ const INITIAL = {
   address: '',
   email: '',
   password: '',
+  confirmPassword: '',
   skillLevel: 'Beginner',
 }
 
@@ -21,6 +23,29 @@ export default function RegisterPage() {
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Password rules validation
+  const hasMinLength = form.password.length >= 8
+  const hasLetter    = /[a-zA-Z]/.test(form.password)
+  const hasNumber    = /[0-9]/.test(form.password)
+  const isPasswordValid = hasMinLength && hasLetter && hasNumber
+
+  const hasTypedConfirm = form.confirmPassword.length > 0
+  const passwordsMatch  = hasTypedConfirm && form.password === form.confirmPassword
+  const showMismatch    = hasTypedConfirm && form.password !== form.confirmPassword
+
+  const rules = [
+    { label: 'At least 8 characters', met: hasMinLength },
+    { label: 'Contains a letter', met: hasLetter },
+    { label: 'Contains a number', met: hasNumber },
+  ]
+
+  const isFormValid =
+    Boolean(form.fullName.trim()) &&
+    Boolean(form.email.trim()) &&
+    Boolean(form.gender) &&
+    isPasswordValid &&
+    passwordsMatch
+
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
     if (error) setError('')
@@ -28,10 +53,14 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!isFormValid) return
+
     setLoading(true)
     setError('')
     try {
-      await register(form)
+      // Exclude confirmPassword so it is never sent to the backend
+      const { confirmPassword: _, ...payload } = form
+      await register(payload)
       navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.')
@@ -107,18 +136,60 @@ export default function RegisterPage() {
                        className="input" placeholder="you@example.com" />
               </div>
 
+              {/* Password with Eye Toggle */}
               <div className="col-span-2">
                 <label htmlFor="reg-password" className="label">Password</label>
-                <input id="reg-password" name="password" type="password" required autoComplete="new-password"
-                       value={form.password} onChange={handleChange}
-                       className="input" placeholder="Min. 8 characters" />
+                <PasswordInput
+                  id="reg-password"
+                  name="password"
+                  required
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={handleChange}
+                  placeholder="Min. 8 characters"
+                />
+
+                {/* Password Strength Checklist */}
+                <ul className="mt-2 space-y-1 text-xs">
+                  {rules.map((rule) => (
+                    <li
+                      key={rule.label}
+                      className={`flex items-center gap-1.5 transition-colors duration-150 ${
+                        rule.met ? 'text-emerald-600 font-medium' : 'text-gray-400'
+                      }`}
+                    >
+                      <span className="font-bold text-xs">{rule.met ? '✓' : '•'}</span>
+                      <span>{rule.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Confirm Password with Eye Toggle */}
+              <div className="col-span-2">
+                <label htmlFor="reg-confirm-password" className="label">Confirm password</label>
+                <PasswordInput
+                  id="reg-confirm-password"
+                  name="confirmPassword"
+                  required
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Repeat password"
+                  className={showMismatch ? 'input-error' : ''}
+                />
+                {showMismatch && (
+                  <p className="mt-1.5 text-xs text-red-500 font-medium animate-fadeIn">
+                    Passwords do not match
+                  </p>
+                )}
               </div>
             </div>
 
             <button
               id="register-submit"
               type="submit"
-              disabled={loading || !form.fullName || !form.email || !form.password || !form.gender}
+              disabled={loading || !isFormValid}
               className="btn-primary w-full btn-lg mt-2"
             >
               {loading ? <Spinner size="sm" /> : null}
@@ -137,3 +208,4 @@ export default function RegisterPage() {
     </div>
   )
 }
+

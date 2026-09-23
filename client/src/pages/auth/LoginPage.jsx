@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { login, resendVerification } from '../../api/auth'
 import { checkProfileComplete } from '../../utils/format'
+import PasswordInput from '../../components/ui/PasswordInput'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
 
@@ -156,15 +157,14 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="label">Password</label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
                 value={form.password}
                 onChange={handleChange}
-                className={`input ${error ? 'input-error' : ''}`}
+                className={error ? 'input-error' : ''}
                 placeholder="••••••••"
               />
             </div>

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { sendVerificationEmail } = require('../utils/emailService');
+const { validatePassword } = require('../utils/validatePassword');
 
 /**
  * Generate a signed JWT for a given user id
@@ -21,6 +22,12 @@ const hashToken = (token) =>
 const register = async (req, res, next) => {
   try {
     const { fullName, gender, address, phone, email, password, skillLevel } = req.body;
+
+    // Validate password strength
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.isValid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
+    }
 
     const exists = await User.findOne({ email });
     if (exists) {
