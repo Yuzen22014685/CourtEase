@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import { getMyBookings, cancelBooking } from '../../api/bookings'
 import Layout from '../../components/layout/Layout'
@@ -23,9 +24,17 @@ import {
 
 export default function MyBookingsPage() {
   const [activeTab, setActiveTab] = useState('upcoming')
+  const [highlightedBookingId, setHighlightedBookingId] = useState(null)
+  const [uploadModalBookingId, setUploadModalBookingId] = useState(null)
+  const [infoToast, setInfoToast] = useState('')
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const uploadReceiptParam = searchParams.get('uploadReceipt')
+  const highlightParam = searchParams.get('highlight')
+
   const { data, loading, error, refetch } = useApi(() => getMyBookings(), [])
 
-  const bookings = data?.data ?? []
+  const bookings = useMemo(() => data?.data ?? [], [data])
   const upcoming = bookings.filter(
     (b) => b.status !== 'cancelled' && isUpcoming(b.date, b.startTime)
   )
@@ -33,7 +42,62 @@ export default function MyBookingsPage() {
     (b) => b.status === 'cancelled' || !isUpcoming(b.date, b.startTime)
   )
 
+  useEffect(() => {
+    if (loading) return
+    if (!uploadReceiptParam && !highlightParam) return
+
+    // Handle receipt upload deep link
+    if (uploadReceiptParam) {
+      const target = bookings.find((b) => b._id === uploadReceiptParam)
+      if (target) {
+        const isTargetUpcoming = target.status !== 'cancelled' && isUpcoming(target.date, target.startTime)
+        setActiveTab(isTargetUpcoming ? 'upcoming' : 'past')
+
+        if (target.receiptImage) {
+          setInfoToast('Receipt already uploaded')
+          setTimeout(() => setInfoToast(''), 3500)
+        } else {
+          setUploadModalBookingId(target._id)
+        }
+      }
+    }
+
+    // Handle booking highlight deep link
+    if (highlightParam) {
+      const target = bookings.find((b) => b._id === highlightParam)
+      if (target) {
+        const isTargetUpcoming = target.status !== 'cancelled' && isUpcoming(target.date, target.startTime)
+        setActiveTab(isTargetUpcoming ? 'upcoming' : 'past')
+
+        setHighlightedBookingId(target._id)
+        setTimeout(() => {
+          const el = document.getElementById(`booking-${target._id}`)
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 150)
+        setTimeout(() => {
+          setHighlightedBookingId(null)
+        }, 3000)
+      }
+    }
+
+    // Remove params from URL (replace, not push) so refresh does not re-trigger
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('uploadReceipt')
+        next.delete('highlight')
+        return next
+      },
+      { replace: true }
+    )
+  }, [loading, bookings, uploadReceiptParam, highlightParam, setSearchParams])
+
   const displayed = activeTab === 'upcoming' ? upcoming : past
+  const uploadTargetBooking = uploadModalBookingId
+    ? bookings.find((b) => b._id === uploadModalBookingId)
+    : null
 
   return (
     <Layout>
@@ -94,8 +158,71 @@ export default function MyBookingsPage() {
         ) : (
           <div className="grid gap-4">
             {displayed.map((booking) => (
-              <BookingCard key={booking._id} booking={booking} onCancelled={refetch} />
+              <BookingCard
+                key={booking._id}
+                booking={booking}
+                isHighlighted={highlightedBookingId === booking._id}
+                onCancelled={refetch}
+                onOpenUpload={setUploadModalBookingId}
+              />
             ))}
+          </div>
+        )}
+
+        {/* Page-level Upload Receipt Modal */}
+        <Modal
+          isOpen={Boolean(uploadModalBookingId)}
+          onClose={() => setUploadModalBookingId(null)}
+          title="Upload Proof of Payment"
+          size="lg"
+        >
+          {uploadModalBookingId && (
+            <>
+              {uploadTargetBooking && (
+                <div className="bg-gray-50 border border-gray-200/80 rounded-lg p-3 text-sm space-y-2 mb-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-gray-900">
+                      {uploadTargetBooking.venueId?.name ?? '—'} · Court {uploadTargetBooking.courtId?.courtNumber ?? '—'}
+                    </span>
+                    <span className="font-semibold text-primary-600 shrink-0">
+                      {formatCurrency(uploadTargetBooking.amount)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-gray-600">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
+                        <span>{formatDate(uploadTargetBooking.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <ClockIcon className="h-4 w-4 text-gray-400" />
+                        <span>{formatTime(uploadTargetBooking.startTime)} – {formatTime(uploadTargetBooking.endTime)}</span>
+                      </div>
+                    </div>
+                    {uploadTargetBooking.receiptId && (
+                      <span className="text-xs text-gray-400">
+                        Receipt: <span className="font-mono text-gray-600">{uploadTargetBooking.receiptId}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              <UploadReceiptPanel 
+                bookingIds={[uploadModalBookingId]} 
+                onSuccess={() => {
+                  setUploadModalBookingId(null)
+                  refetch()
+                }} 
+              />
+            </>
+          )}
+        </Modal>
+
+        {/* Info Toast */}
+        {infoToast && (
+          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gray-900/95 backdrop-blur text-white text-sm px-4 py-3 rounded-xl shadow-xl border border-gray-800 animate-fadeIn">
+            <CheckCircleIcon className="h-5 w-5 text-emerald-400 shrink-0" />
+            <span>{infoToast}</span>
           </div>
         )}
       </div>
@@ -104,13 +231,12 @@ export default function MyBookingsPage() {
 }
 
 /* ── Booking Card ──────────────────────────────────────────────── */
-function BookingCard({ booking, onCancelled }) {
+function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload }) {
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState('')
   const [cancelSuccess, setCancelSuccess] = useState(false)
 
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [uploadOpen, setUploadOpen] = useState(false)
 
   const upcoming = booking.status !== 'cancelled' && isUpcoming(booking.date, booking.startTime)
   const venueName = booking.venueId?.name ?? '—'
@@ -136,7 +262,12 @@ function BookingCard({ booking, onCancelled }) {
   }
 
   return (
-    <div className="card p-5 animate-fadeIn">
+    <div
+      id={`booking-${booking._id}`}
+      className={`card p-5 animate-fadeIn transition-all duration-500 ${
+        isHighlighted ? 'ring-2 ring-emerald-500 ring-offset-2 shadow-lg' : ''
+      }`}
+    >
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
         {/* Left: info */}
         <div className="flex-1 space-y-3">
@@ -189,7 +320,7 @@ function BookingCard({ booking, onCancelled }) {
 
           {isPendingWithoutReceipt && (
             <button
-              onClick={() => setUploadOpen(true)}
+              onClick={() => onOpenUpload(booking._id)}
               className="btn-primary btn-sm flex items-center gap-1.5"
             >
               <ArrowUpTrayIcon className="h-4 w-4" />
@@ -236,21 +367,6 @@ function BookingCard({ booking, onCancelled }) {
         onConfirm={executeCancel}
         onCancel={() => setConfirmOpen(false)}
       />
-
-      <Modal
-        isOpen={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        title="Upload Proof of Payment"
-        size="lg"
-      >
-        <UploadReceiptPanel 
-          bookingIds={[booking._id]} 
-          onSuccess={() => {
-            setUploadOpen(false)
-            onCancelled() // Parent passes refetch here
-          }} 
-        />
-      </Modal>
     </div>
   )
 }

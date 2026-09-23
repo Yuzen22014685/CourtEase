@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowRightOnRectangleIcon, UserCircleIcon, BellIcon } from '@heroicons/react/24/outline'
+import { ArrowRightOnRectangleIcon, UserCircleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import { getUnreadCount, getNotifications, markNotificationRead } from '../../api/notifications'
 import { formatDistanceToNow } from 'date-fns'
 
 export default function Navbar() {
   const { user, logoutUser, isAdmin } = useAuth()
   const navigate = useNavigate()
-  
+
   const [unreadCount, setUnreadCount] = useState(0)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
@@ -53,6 +53,8 @@ export default function Navbar() {
   }
 
   const handleNotificationClick = async (notif) => {
+    if (notif.type === 'feedback_request') return
+
     if (!notif.isRead) {
       try {
         await markNotificationRead(notif._id)
@@ -62,6 +64,21 @@ export default function Navbar() {
         console.error('Failed to mark as read', err)
       }
     }
+
+    setIsDropdownOpen(false)
+
+    const bookingId = notif.bookingId?._id || notif.bookingId
+
+    let targetUrl = '/my-bookings'
+    if (notif.type === 'receipt_reminder') {
+      targetUrl = bookingId ? `/my-bookings?uploadReceipt=${bookingId}` : '/my-bookings'
+    } else if (['booking_approved', 'booking_rejected', 'reminder'].includes(notif.type)) {
+      targetUrl = bookingId ? `/my-bookings?highlight=${bookingId}` : '/my-bookings'
+    } else if (bookingId) {
+      targetUrl = `/my-bookings?highlight=${bookingId}`
+    }
+
+    navigate(targetUrl)
   }
 
   const homeLink = isAdmin ? '/admin/dashboard' : '/venues'
@@ -85,17 +102,17 @@ export default function Navbar() {
           {!isAdmin && user && (
             <nav className="hidden sm:flex items-center gap-1">
               <Link to="/venues"
-                    className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg
+                className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg
                                hover:text-primary-700 hover:bg-primary-50 transition-colors">
                 Venues
               </Link>
               <Link to="/my-bookings"
-                    className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg
+                className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg
                                hover:text-primary-700 hover:bg-primary-50 transition-colors">
                 My Bookings
               </Link>
               <Link to="/profile"
-                    className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg
+                className="px-3 py-2 text-sm font-medium text-gray-600 rounded-lg
                                hover:text-primary-700 hover:bg-primary-50 transition-colors">
                 Profile
               </Link>
@@ -131,29 +148,38 @@ export default function Navbar() {
                             No notifications yet
                           </div>
                         ) : (
-                          notifications.map(notif => (
-                            <button
-                              key={notif._id}
-                              onClick={() => handleNotificationClick(notif)}
-                              className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 flex gap-3 ${
-                                !notif.isRead ? 'bg-blue-50/50' : ''
-                              }`}
-                            >
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm ${!notif.isRead ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
-                                  {notif.message}
-                                </p>
-                                <p className={`text-xs mt-1 ${!notif.isRead ? 'text-primary-600 font-medium' : 'text-gray-400'}`}>
-                                  {formatDistanceToNow(new Date(notif.sentAt), { addSuffix: true })}
-                                </p>
-                              </div>
-                              {!notif.isRead && (
-                                <div className="flex-shrink-0 mt-1.5">
-                                  <div className="w-2 h-2 bg-primary-600 rounded-full"></div>
+                          notifications.map(notif => {
+                            const isClickable = notif.type !== 'feedback_request'
+                            const Component = isClickable ? 'button' : 'div'
+                            return (
+                              <Component
+                                key={notif._id}
+                                onClick={isClickable ? () => handleNotificationClick(notif) : undefined}
+                                className={`w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 flex items-center gap-3 transition-colors ${!notif.isRead ? 'bg-blue-50/50' : ''
+                                  } ${isClickable
+                                    ? 'cursor-pointer hover:bg-gray-50 group'
+                                    : 'cursor-default'
+                                  }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm ${!notif.isRead ? 'font-medium text-gray-900' : 'text-gray-600'}`}>
+                                    {notif.message}
+                                  </p>
+                                  <p className={`text-xs mt-1 ${!notif.isRead ? 'text-primary-600 font-medium' : 'text-gray-400'}`}>
+                                    {formatDistanceToNow(new Date(notif.sentAt), { addSuffix: true })}
+                                  </p>
                                 </div>
-                              )}
-                            </button>
-                          ))
+                                {!notif.isRead && (
+                                  <div className="flex-shrink-0">
+                                    <div className="w-2 h-2 bg-primary-600 rounded-full"></div>
+                                  </div>
+                                )}
+                                {isClickable && (
+                                  <ChevronRightIcon className="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                                )}
+                              </Component>
+                            )
+                          })
                         )}
                       </div>
                     </div>
