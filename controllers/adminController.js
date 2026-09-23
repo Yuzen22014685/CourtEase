@@ -15,11 +15,14 @@ const toMinutes = (timeStr) => {
 // Includes only active bookings (pending / confirmed / completed),
 // within [sinceStr, todayStr] on the booking date field.
 // ---------------------------------------------------------------------------
-const buildAnalyticsBookingFilter = (venueId, sinceStr, todayStr) => ({
-  venueId,
-  status: { $in: ['pending', 'confirmed', 'completed'] },
-  date: { $gte: sinceStr, $lte: todayStr },
-});
+const buildAnalyticsBookingFilter = (venueId, sinceStr, todayStr) => {
+  const filter = {
+    status: { $in: ['pending', 'confirmed', 'completed'] },
+    date: { $gte: sinceStr, $lte: todayStr },
+  };
+  if (venueId) filter.venueId = venueId;
+  return filter;
+};
 
 // ---------------------------------------------------------------------------
 // GET /api/admin/bookings?status=&venueId=&date=
@@ -98,25 +101,23 @@ const getRevenueAnalytics = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/analytics/peak-hours?days=14
+// GET /api/admin/analytics/peak-hours?days=30
 // Returns booking count bucketed by hour of day
 // ---------------------------------------------------------------------------
 const getPeakHours = async (req, res, next) => {
   try {
-    const days = parseInt(req.query.days) || 14;
+    const days = parseInt(req.query.days) || 30;
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     const since = new Date();
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
 
-    const query = {
-      status: { $ne: 'cancelled' },
-      date: { $gte: sinceStr },
-    };
-    if (req.query.venueId) {
-      query.venueId = req.query.venueId;
-    }
-
-    const bookings = await Booking.find(query).select('startTime endTime');
+    // venueId is optional — pass undefined when absent so the helper omits it
+    const venueId = req.query.venueId || undefined;
+    const bookings = await Booking.find(
+      buildAnalyticsBookingFilter(venueId, sinceStr, todayStr)
+    ).select('startTime endTime');
 
     // Count bookings per hour bucket
     const hourCounts = Array.from({ length: 24 }, (_, i) => ({

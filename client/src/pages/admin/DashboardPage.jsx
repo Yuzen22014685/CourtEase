@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
   // Peak hours chart
   const { data: peakData, loading: peakLoading, error: peakError } = useApi(
-    useCallback(() => getPeakHours(14, peakVenueId), [peakVenueId]),
+    useCallback(() => getPeakHours(30, peakVenueId), [peakVenueId]),
     [peakVenueId]
   )
   // Recent bookings
@@ -146,7 +146,7 @@ export default function DashboardPage() {
                   <h2 className="font-semibold text-gray-900 text-sm">Peak Booking Hours</h2>
                 </div>
                 <p className="text-xs text-gray-400">
-                  Last 14 days · Peak: {peakData?.peakHour ?? '—'}
+                  Last 30 days · Peak: {peakData?.peakHour ?? '—'}
                 </p>
               </div>
               <select
