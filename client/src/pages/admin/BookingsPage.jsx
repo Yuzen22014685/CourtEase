@@ -5,13 +5,12 @@ import { getVenues } from '../../api/venues'
 import AdminLayout from '../../components/layout/AdminLayout'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
-import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
 import { formatCurrency, formatDate, formatTime } from '../../utils/format'
-import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, PhotoIcon } from '@heroicons/react/24/outline'
+import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
 const PAGE_SIZE = 20
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
@@ -21,8 +20,13 @@ export default function AdminBookingsPage() {
   const [page, setPage]       = useState(1)
   const [actionMessage, setActionMessage] = useState(null)
   const [actionError, setActionError]     = useState(null)
-  const [confirmState, setConfirmState] = useState({ isOpen: false, type: null, id: null })
-  const [receiptViewer, setReceiptViewer] = useState({ isOpen: false, imageUrl: null })
+
+  // Review modal state
+  const [reviewBooking, setReviewBooking] = useState(null)
+  const [reviewMode, setReviewMode]       = useState('default') // 'default' | 'confirm-approve' | 'reject-form'
+  const [rejectReason, setRejectReason]   = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+  const [modalError, setModalError]       = useState(null)
 
   // Venues for filter dropdown
   const { data: venuesData } = useApi(useCallback(() => getVenues(), []))
@@ -52,40 +56,58 @@ export default function AdminBookingsPage() {
     setPage(1)
   }
 
-  const handleApproveClick = (id) => setConfirmState({ isOpen: true, type: 'approve', id })
-  const handleRejectClick = (id) => setConfirmState({ isOpen: true, type: 'reject', id })
+  const openReview = (b) => {
+    setReviewBooking(b)
+    setReviewMode('default')
+    setRejectReason('')
+    setModalError(null)
+  }
 
-  const executeApprove = async (id) => {
-    setActionError(null)
-    setActionMessage(null)
+  const closeReview = () => {
+    if (actionLoading) return
+    setReviewBooking(null)
+    setReviewMode('default')
+    setRejectReason('')
+    setModalError(null)
+  }
+
+  const handleExecuteApprove = async () => {
+    if (!reviewBooking) return
+    setActionLoading(true)
+    setModalError(null)
     try {
-      await approveBooking(id)
+      await approveBooking(reviewBooking._id)
       setActionMessage('Booking approved successfully!')
       refetch()
+      closeReview()
       setTimeout(() => setActionMessage(null), 4000)
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Failed to approve booking')
+      setModalError(err.response?.data?.message || 'Failed to approve booking')
+    } finally {
+      setActionLoading(false)
     }
   }
 
-  const executeReject = async (id) => {
-    setActionError(null)
-    setActionMessage(null)
+  const handleExecuteReject = async () => {
+    if (!reviewBooking) return
+    const trimmed = rejectReason.trim()
+    if (trimmed.length < 5) {
+      setModalError('Rejection reason must be at least 5 characters.')
+      return
+    }
+    setActionLoading(true)
+    setModalError(null)
     try {
-      await rejectBooking(id)
+      await rejectBooking(reviewBooking._id, trimmed)
       setActionMessage('Booking rejected and refunded successfully!')
       refetch()
+      closeReview()
       setTimeout(() => setActionMessage(null), 4000)
     } catch (err) {
-      setActionError(err.response?.data?.message || 'Failed to reject booking')
+      setModalError(err.response?.data?.message || 'Failed to reject booking')
+    } finally {
+      setActionLoading(false)
     }
-  }
-
-  const handleConfirm = () => {
-    const { type, id } = confirmState
-    setConfirmState({ isOpen: false, type: null, id: null })
-    if (type === 'approve') executeApprove(id)
-    if (type === 'reject') executeReject(id)
   }
 
   const hasFilters = filters.venueId || filters.date || filters.status
@@ -212,33 +234,19 @@ export default function AdminBookingsPage() {
                     <td>
                       <Badge status={b.status} />
                       {b.status === 'pending' && (
-                        <div className="flex flex-col gap-1.5 mt-2">
+                        <div className="mt-2">
                           <button
-                            onClick={() => handleApproveClick(b._id)}
-                            className="btn-primary py-1 px-2 text-xs w-full"
+                            onClick={() => openReview(b)}
+                            className="btn-primary py-1 px-3 text-xs w-full"
                           >
-                            Approve
+                            Review
                           </button>
-                          <button
-                            onClick={() => handleRejectClick(b._id)}
-                            className="btn-secondary py-1 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 w-full"
-                          >
-                            Reject
-                          </button>
-                          {b.receiptImage ? (
-                            <button
-                              onClick={() => setReceiptViewer({ isOpen: true, imageUrl: `${BASE_URL}${b.receiptImage}` })}
-                              className="btn-secondary py-1 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 w-full flex items-center justify-center gap-1 mt-1"
-                            >
-                              <PhotoIcon className="h-3 w-3" />
-                              View Receipt
-                            </button>
-                          ) : (
-                            <div className="text-[10px] text-gray-500 text-center italic mt-1 leading-tight px-1">
-                              No receipt uploaded yet
-                            </div>
-                          )}
                         </div>
+                      )}
+                      {b.status === 'rejected' && b.rejectionReason && (
+                        <p className="text-[11px] text-gray-500 mt-1.5 max-w-[200px] leading-tight break-words">
+                          <span className="font-medium text-gray-700">Reason:</span> {b.rejectionReason}
+                        </p>
                       )}
                     </td>
                   </tr>
@@ -274,36 +282,192 @@ export default function AdminBookingsPage() {
         </div>
       </div>
 
-      <ConfirmDialog
-        isOpen={confirmState.isOpen}
-        title={confirmState.type === 'approve' ? 'Approve Booking' : 'Reject Booking'}
-        message={
-          confirmState.type === 'approve'
-            ? 'Are you sure you want to approve this booking?'
-            : 'Are you sure you want to reject this booking? The payment will be refunded.'
-        }
-        confirmText={confirmState.type === 'approve' ? 'Approve' : 'Reject & Refund'}
-        cancelText="Cancel"
-        confirmVariant={confirmState.type === 'approve' ? 'primary' : 'danger'}
-        onConfirm={handleConfirm}
-        onCancel={() => setConfirmState({ isOpen: false, type: null, id: null })}
-      />
-
+      {/* Review Modal */}
       <Modal
-        isOpen={receiptViewer.isOpen}
-        onClose={() => setReceiptViewer({ isOpen: false, imageUrl: null })}
-        title="Payment Receipt"
-        size="md"
+        isOpen={Boolean(reviewBooking)}
+        onClose={closeReview}
+        title="Review Booking"
+        size="lg"
       >
-        <div className="flex justify-center p-2 bg-gray-50 rounded-xl">
-          {receiptViewer.imageUrl && (
-            <img 
-              src={receiptViewer.imageUrl} 
-              alt="Payment Receipt" 
-              className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-sm"
-            />
-          )}
-        </div>
+        {reviewBooking && (
+          <div className="space-y-4">
+            {/* Booking Summary */}
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-sm">
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-gray-200/70">
+                <div>
+                  <p className="font-semibold text-gray-900">{reviewBooking.playerId?.fullName ?? '—'}</p>
+                  <p className="text-xs text-gray-500">{reviewBooking.playerId?.email ?? '—'}</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-bold text-base text-primary-600">
+                    {formatCurrency(reviewBooking.amount)}
+                  </span>
+                  <p className="text-[11px] text-gray-400 uppercase tracking-wide">
+                    {reviewBooking.paymentMethod}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 pt-3 text-xs">
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Venue & Court</span>
+                  <span className="font-medium text-gray-800">
+                    {reviewBooking.venueId?.name ?? '—'} · Court #{reviewBooking.courtId?.courtNumber ?? '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Schedule</span>
+                  <span className="font-medium text-gray-800">
+                    {formatDate(reviewBooking.date)} ({formatTime(reviewBooking.startTime)}–{formatTime(reviewBooking.endTime)})
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Receipt Reference</span>
+                  <span className="font-mono text-gray-700">
+                    {reviewBooking.receiptId || '—'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block mb-0.5">Status</span>
+                  <Badge status={reviewBooking.status} />
+                </div>
+              </div>
+            </div>
+
+            {/* Receipt Image / Warning */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                Proof of Payment
+              </label>
+              {reviewBooking.receiptImage ? (
+                <div className="bg-gray-100/70 border border-gray-200 rounded-xl p-2 flex flex-col items-center justify-center">
+                  <a
+                    href={`${BASE_URL}${reviewBooking.receiptImage}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block cursor-zoom-in group text-center"
+                    title="Click to view full size in new tab"
+                  >
+                    <img
+                      src={`${BASE_URL}${reviewBooking.receiptImage}`}
+                      alt="Proof of Payment Receipt"
+                      className="max-h-[45vh] max-w-full object-contain rounded-lg shadow-sm mx-auto"
+                    />
+                    <span className="inline-block text-[11px] text-gray-500 mt-1.5 group-hover:text-primary-600 transition-colors">
+                      Click to open full size in new tab ↗
+                    </span>
+                  </a>
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center text-amber-800 text-sm">
+                  <ExclamationTriangleIcon className="h-6 w-6 text-amber-500 mx-auto mb-1" />
+                  <p className="font-semibold">No receipt uploaded yet</p>
+                  <p className="text-xs text-amber-700 mt-0.5">The player has not uploaded a payment receipt for this booking.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Error Message inside modal */}
+            {modalError && (
+              <ErrorMessage message={modalError} />
+            )}
+
+            {/* Action Section */}
+            {reviewMode === 'default' && (
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setReviewMode('reject-form')}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReviewMode('confirm-approve')}
+                  className="btn-primary px-4 py-2 text-sm bg-green-600 hover:bg-green-700 border-green-600"
+                >
+                  Approve
+                </button>
+              </div>
+            )}
+
+            {/* Approve Confirmation Inline */}
+            {reviewMode === 'confirm-approve' && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3.5 space-y-2.5 animate-fadeIn">
+                <p className="text-sm font-medium text-green-900">
+                  Are you sure you want to approve this booking?
+                </p>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => setReviewMode('default')}
+                    className="btn-secondary btn-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={handleExecuteApprove}
+                    className="btn-primary btn-sm bg-green-600 hover:bg-green-700 border-green-600 text-white flex items-center gap-1.5"
+                  >
+                    {actionLoading && <Spinner size="sm" />}
+                    Confirm approve
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Reject Form with required reason */}
+            {reviewMode === 'reject-form' && (
+              <div className="bg-red-50/70 border border-red-200 rounded-xl p-3.5 space-y-3 animate-fadeIn">
+                <div>
+                  <label htmlFor="rejection-reason" className="block text-xs font-semibold text-red-900 mb-1">
+                    Reason for rejection <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    id="rejection-reason"
+                    rows={3}
+                    maxLength={300}
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Enter reason for rejection (min 5 characters)..."
+                    className="input text-sm w-full bg-white border-red-200 focus:border-red-500 focus:ring-red-500"
+                  />
+                  <div className="flex justify-between items-center text-[11px] text-gray-500 mt-1">
+                    <span className={rejectReason.trim().length < 5 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                      {rejectReason.trim().length < 5
+                        ? `Minimum 5 characters required (${rejectReason.trim().length}/5)`
+                        : 'Reason requirement met'}
+                    </span>
+                    <span>{rejectReason.length}/300</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => { setReviewMode('default'); setRejectReason(''); setModalError(null); }}
+                    className="btn-secondary btn-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={actionLoading || rejectReason.trim().length < 5}
+                    onClick={handleExecuteReject}
+                    className="btn-danger btn-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    {actionLoading && <Spinner size="sm" />}
+                    Confirm reject
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
     </AdminLayout>
   )

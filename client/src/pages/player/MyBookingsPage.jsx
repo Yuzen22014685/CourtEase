@@ -22,6 +22,16 @@ import {
   ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
 
+const isBookingUpcoming = (b) =>
+  Boolean(b && ['pending', 'confirmed'].includes(b.status) && isUpcoming(b.date, b.startTime))
+
+const canCancelBooking = (b) => {
+  if (!b || !['pending', 'confirmed'].includes(b.status)) return false
+  if (!b.date || !b.startTime) return false
+  const bookingStart = new Date(`${b.date}T${b.startTime}:00+08:00`)
+  return bookingStart - new Date() > 60 * 60 * 1000
+}
+
 export default function MyBookingsPage() {
   const [activeTab, setActiveTab] = useState('upcoming')
   const [highlightedBookingId, setHighlightedBookingId] = useState(null)
@@ -35,12 +45,8 @@ export default function MyBookingsPage() {
   const { data, loading, error, refetch } = useApi(() => getMyBookings(), [])
 
   const bookings = useMemo(() => data?.data ?? [], [data])
-  const upcoming = bookings.filter(
-    (b) => b.status !== 'cancelled' && isUpcoming(b.date, b.startTime)
-  )
-  const past = bookings.filter(
-    (b) => b.status === 'cancelled' || !isUpcoming(b.date, b.startTime)
-  )
+  const upcoming = bookings.filter(isBookingUpcoming)
+  const past = bookings.filter((b) => !isBookingUpcoming(b))
 
   useEffect(() => {
     if (loading) return
@@ -50,10 +56,13 @@ export default function MyBookingsPage() {
     if (uploadReceiptParam) {
       const target = bookings.find((b) => b._id === uploadReceiptParam)
       if (target) {
-        const isTargetUpcoming = target.status !== 'cancelled' && isUpcoming(target.date, target.startTime)
+        const isTargetUpcoming = isBookingUpcoming(target)
         setActiveTab(isTargetUpcoming ? 'upcoming' : 'past')
 
-        if (target.receiptImage) {
+        if (['rejected', 'cancelled'].includes(target.status)) {
+          setInfoToast('Cannot upload a receipt for a rejected or cancelled booking')
+          setTimeout(() => setInfoToast(''), 3500)
+        } else if (target.receiptImage) {
           setInfoToast('Receipt already uploaded')
           setTimeout(() => setInfoToast(''), 3500)
         } else {
@@ -66,7 +75,7 @@ export default function MyBookingsPage() {
     if (highlightParam) {
       const target = bookings.find((b) => b._id === highlightParam)
       if (target) {
-        const isTargetUpcoming = target.status !== 'cancelled' && isUpcoming(target.date, target.startTime)
+        const isTargetUpcoming = isBookingUpcoming(target)
         setActiveTab(isTargetUpcoming ? 'upcoming' : 'past')
 
         setHighlightedBookingId(target._id)
@@ -238,7 +247,7 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload }) {
 
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const upcoming = booking.status !== 'cancelled' && isUpcoming(booking.date, booking.startTime)
+  const canCancel = canCancelBooking(booking)
   const venueName = booking.venueId?.name ?? '—'
   const courtNum  = booking.courtId?.courtNumber ?? '—'
   const isPendingWithoutReceipt = booking.status === 'pending' && !booking.receiptImage
@@ -304,7 +313,13 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload }) {
         <div className="flex flex-col items-end gap-3 shrink-0">
           <Badge status={booking.status} />
 
-          {upcoming && !cancelSuccess && (
+          {booking.status === 'rejected' && booking.rejectionReason && (
+            <p className="text-xs text-gray-500 text-right max-w-[220px] leading-tight">
+              Reason: {booking.rejectionReason}
+            </p>
+          )}
+
+          {canCancel && !cancelSuccess && (
             <button
               id={`cancel-booking-${booking._id}`}
               onClick={() => setConfirmOpen(true)}

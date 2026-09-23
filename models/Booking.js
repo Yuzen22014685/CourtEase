@@ -26,6 +26,7 @@ const bookingSchema = new mongoose.Schema({
   receiptId: { type: String, unique: true, sparse: true },
   receiptImage: { type: String },
   receiptReminderSent: { type: Boolean, default: false },
+  rejectionReason: { type: String, trim: true, maxlength: 300 },
   createdAt: { type: Date, default: Date.now },
 });
 

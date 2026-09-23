@@ -12,4 +12,4 @@ export const getUtilization = (days = 14) =>
   api.get('/admin/analytics/utilization', { params: { days } })
 
 export const approveBooking = (id) => api.patch(`/admin/bookings/${id}/approve`)
-export const rejectBooking = (id) => api.patch(`/admin/bookings/${id}/reject`)
+export const rejectBooking = (id, reason) => api.patch(`/admin/bookings/${id}/reject`, { reason })

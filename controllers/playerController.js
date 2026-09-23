@@ -206,8 +206,8 @@ const cancelBooking = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorised to cancel this booking' });
     }
 
-    if (booking.status === 'cancelled') {
-      return res.status(400).json({ success: false, message: 'Booking is already cancelled' });
+    if (!['pending', 'confirmed'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: 'Only pending or confirmed bookings can be cancelled' });
     }
 
     // Build Date object from booking date + startTime (Malaysia time UTC+8)
@@ -243,6 +243,10 @@ const uploadReceipt = async (req, res, next) => {
 
     if (booking.playerId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorised to upload receipt for this booking' });
+    }
+
+    if (['rejected', 'cancelled'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot upload a receipt for a rejected or cancelled booking' });
     }
 
     if (!req.file) {

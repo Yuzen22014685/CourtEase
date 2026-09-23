@@ -233,6 +233,16 @@ const approveBooking = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const rejectBooking = async (req, res, next) => {
   try {
+    const { reason } = req.body || {};
+    const trimmedReason = typeof reason === 'string' ? reason.trim() : '';
+
+    if (!trimmedReason || trimmedReason.length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required (minimum 5 characters)',
+      });
+    }
+
     const booking = await Booking.findById(req.params.id).populate('venueId', 'name');
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
@@ -243,13 +253,14 @@ const rejectBooking = async (req, res, next) => {
 
     booking.status = 'rejected';
     booking.paymentStatus = 'refunded';
+    booking.rejectionReason = trimmedReason.slice(0, 300);
     await booking.save();
 
     await Notification.create({
       playerId: booking.playerId,
       bookingId: booking._id,
       type: 'booking_rejected',
-      message: `Your booking for ${booking.venueId.name} on ${booking.date} at ${booking.startTime} was rejected and your payment has been refunded.`,
+      message: `Your booking for ${booking.venueId.name} on ${booking.date} at ${booking.startTime} was rejected and your payment has been refunded. Reason: ${trimmedReason}`,
     });
 
     res.json({ success: true, message: 'Booking rejected and refunded', data: booking });
