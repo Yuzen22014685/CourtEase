@@ -23,7 +23,7 @@ export default function AdminVenuesPage() {
 
         <div className="table-wrapper">
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="table min-w-[640px]">
               <thead>
                 <tr>
                   <th>Venue Name</th>

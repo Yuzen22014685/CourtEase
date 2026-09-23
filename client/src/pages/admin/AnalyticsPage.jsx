@@ -93,7 +93,7 @@ export default function AnalyticsPage() {
 
               {/* Stats table */}
               <div className="mt-4 overflow-x-auto">
-                <table className="table">
+                <table className="table min-w-[500px]">
                   <thead>
                     <tr>
                       <th>Venue</th>

@@ -188,7 +188,7 @@ export default function AdminBookingsPage() {
 
         <div className="table-wrapper">
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="table min-w-[850px]">
               <thead>
                 <tr>
                   <th>Customer</th>
@@ -271,7 +271,7 @@ export default function AdminBookingsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between">
+            <div className="px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-xs text-gray-400">
                 Page {page} of {totalPages} · {allBookings.length} results
               </p>
@@ -322,7 +322,7 @@ export default function AdminBookingsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 pt-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-3 text-xs">
                 <div>
                   <span className="text-gray-400 block mb-0.5">Venue & Court</span>
                   <span className="font-medium text-gray-800">

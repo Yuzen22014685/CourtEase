@@ -78,7 +78,7 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <KpiCard
             icon={<CalendarDaysIcon className="h-6 w-6 text-blue-600" />}
             bg="bg-blue-50"
@@ -155,7 +155,7 @@ export default function DashboardPage() {
 
           {/* Peak hours chart */}
           <div className="card p-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <ChartBarIcon className="h-4 w-4 text-primary-600" />
@@ -166,7 +166,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <select
-                className="select text-sm py-1.5 min-w-[140px]"
+                className="select text-sm py-1.5 w-full sm:w-auto sm:min-w-[140px]"
                 value={peakVenueId}
                 onChange={(e) => setPeakVenueId(e.target.value)}
               >
@@ -216,7 +216,7 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-400 text-center py-8">No bookings yet.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table">
+              <table className="table min-w-[640px]">
                 <thead>
                   <tr>
                     <th>Customer</th>

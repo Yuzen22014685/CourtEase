@@ -1,11 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { ArrowRightOnRectangleIcon, UserCircleIcon, BellIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
+import {
+  ArrowRightOnRectangleIcon,
+  UserCircleIcon,
+  BellIcon,
+  ChevronRightIcon,
+  Bars3Icon,
+} from '@heroicons/react/24/outline'
 import { getUnreadCount, getNotifications, markNotificationRead } from '../../api/notifications'
 import { formatDistanceToNow } from 'date-fns'
 
-export default function Navbar() {
+export default function Navbar({ onMenuClick, pendingCount = 0 }) {
   const { user, logoutUser, isAdmin } = useAuth()
   const navigate = useNavigate()
 
@@ -87,16 +93,33 @@ export default function Navbar() {
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to={homeLink} className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center
-                            group-hover:bg-primary-700 transition-colors">
-              <span className="text-white text-lg" aria-hidden>🏸</span>
-            </div>
-            <span className="font-bold text-gray-900 text-lg tracking-tight">
-              Court<span className="text-primary-600">Ease</span>
-            </span>
-          </Link>
+          {/* Brand & Admin Hamburger */}
+          <div className="flex items-center gap-2">
+            {isAdmin && onMenuClick && (
+              <button
+                type="button"
+                onClick={onMenuClick}
+                className="lg:hidden p-2 -ml-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 relative focus:outline-none focus:ring-2 focus:ring-primary-500"
+                aria-label="Open navigation menu"
+              >
+                <Bars3Icon className="h-6 w-6" />
+                {pendingCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+                )}
+              </button>
+            )}
+
+            {/* Logo */}
+            <Link to={homeLink} className="flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center
+                              group-hover:bg-primary-700 transition-colors">
+                <span className="text-white text-lg" aria-hidden>🏸</span>
+              </div>
+              <span className="font-bold text-gray-900 text-lg tracking-tight">
+                Court<span className="text-primary-600">Ease</span>
+              </span>
+            </Link>
+          </div>
 
           {/* Player nav links */}
           {!isAdmin && user && (

@@ -26,16 +26,16 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', d
   const widths = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-xl' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-0"
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
          role="dialog" aria-modal="true" aria-labelledby="modal-title">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fadeIn"
            onClick={disableBackdropClick ? undefined : onClose} />
       {/* Panel */}
       <div className={`relative w-full ${widths[size]} max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-elevated
-                       animate-slideUp overflow-hidden sm:m-4`}>
+                       animate-slideUp overflow-hidden`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 shrink-0">
           <h2 id="modal-title" className="text-base font-semibold text-gray-900">{title}</h2>
           <button onClick={onClose}
                   className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100
@@ -45,7 +45,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', d
           </button>
         </div>
         {/* Body */}
-        <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
+        <div className="px-4 sm:px-6 py-5 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   )
