@@ -5,8 +5,10 @@ import PlayerRoute from './PlayerRoute'
 import AdminRoute from './AdminRoute'
 
 // Auth pages
-import LoginPage    from '../pages/auth/LoginPage'
-import RegisterPage from '../pages/auth/RegisterPage'
+import LoginPage       from '../pages/auth/LoginPage'
+import RegisterPage    from '../pages/auth/RegisterPage'
+import CheckEmailPage  from '../pages/auth/CheckEmailPage'
+import VerifyEmailPage from '../pages/auth/VerifyEmailPage'
 
 // Player pages
 import VenuesPage      from '../pages/player/VenuesPage'
@@ -36,8 +38,10 @@ export default function AppRouter() {
       <Route path="/" element={<RootRedirect />} />
 
       {/* Auth */}
-      <Route path="/login"    element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/login"               element={<LoginPage />} />
+      <Route path="/register"            element={<RegisterPage />} />
+      <Route path="/check-email"         element={<CheckEmailPage />} />
+      <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
 
       {/* Player */}
       <Route path="/venues" element={

@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import { register } from '../../api/auth'
-import { checkProfileComplete } from '../../utils/format'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
 
@@ -18,7 +16,6 @@ const INITIAL = {
 
 export default function RegisterPage() {
   const navigate  = useNavigate()
-  const { loginUser } = useAuth()
 
   const [form, setForm]     = useState(INITIAL)
   const [error, setError]   = useState('')
@@ -34,15 +31,8 @@ export default function RegisterPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await register(form)
-      const data = res.data.data
-      loginUser(data)
-      if (!checkProfileComplete(data)) {
-        // Profile incomplete — redirect to profile page before venue browsing
-        navigate('/profile', { replace: true })
-      } else {
-        navigate('/venues', { replace: true })
-      }
+      await register(form)
+      navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.')
     } finally {

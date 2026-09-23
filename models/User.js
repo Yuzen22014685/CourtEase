@@ -17,6 +17,10 @@ const userSchema = new mongoose.Schema({
   role: { type: String, enum: ['player', 'admin'], default: 'player' },
   skillLevel: { type: String, enum: ['Beginner', 'Pro', 'Athlete'], default: 'Beginner' },
   bankAccount: { type: bankAccountSchema, default: null },
+  isEmailVerified: { type: Boolean, default: false },
+  emailVerificationTokenHash: { type: String, select: false },
+  emailVerificationExpires: { type: Date, select: false },
+  emailVerificationSentAt: { type: Date, select: false },
   createdAt: { type: Date, default: Date.now },
 });
 

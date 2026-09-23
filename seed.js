@@ -157,6 +157,7 @@ const seed = async () => {
       phone: '0112345678',
       address: 'CourtEase HQ, Penang',
       skillLevel: 'Pro',
+      isEmailVerified: true,
     });
     console.log('👤 Admin created:', adminUser.email);
 
@@ -182,6 +183,7 @@ const seed = async () => {
           password: 'Player@1234',
           phone: `011${String(10000000 + i).padStart(8, '0')}`,
           address: `${i + 1} Jalan Residensi, Penang`,
+          isEmailVerified: true,
         })
       )
     );

@@ -5,6 +5,7 @@ const cors = require('cors');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 const { startScheduler } = require('./cron/scheduler');
+const { verifySMTP } = require('./utils/emailService');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -44,6 +45,7 @@ connectDB().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 CourtEase API running on port ${PORT}`);
     startScheduler();
+    verifySMTP();
   });
 });
 
