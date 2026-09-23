@@ -11,6 +11,17 @@ const toMinutes = (timeStr) => {
 };
 
 // ---------------------------------------------------------------------------
+// Shared helper: build the Mongo filter for analytics queries.
+// Includes only active bookings (pending / confirmed / completed),
+// within [sinceStr, todayStr] on the booking date field.
+// ---------------------------------------------------------------------------
+const buildAnalyticsBookingFilter = (venueId, sinceStr, todayStr) => ({
+  venueId,
+  status: { $in: ['pending', 'confirmed', 'completed'] },
+  date: { $gte: sinceStr, $lte: todayStr },
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/admin/bookings?status=&venueId=&date=
 // ---------------------------------------------------------------------------
 const getAllBookings = async (req, res, next) => {
@@ -33,29 +44,32 @@ const getAllBookings = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/analytics/revenue?days=14
+// GET /api/admin/analytics/revenue?days=30
 // Returns total and per-venue revenue over the last N days
 // ---------------------------------------------------------------------------
 const getRevenueAnalytics = async (req, res, next) => {
   try {
-    const days = parseInt(req.query.days) || 14;
+    const days = parseInt(req.query.days) || 30;
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     const since = new Date();
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
 
     const venues = await Venue.find({});
-    
+
     const results = await Promise.all(
       venues.map(async (venue) => {
-        const bookings = await Booking.find({
-          venueId: venue._id,
-          status: { $ne: 'cancelled' },
-          paymentStatus: 'paid',
-          date: { $gte: sinceStr },
-        });
+        const bookings = await Booking.find(
+          buildAnalyticsBookingFilter(venue._id, sinceStr, todayStr)
+        );
 
-        const totalRevenue = bookings.reduce((sum, b) => sum + b.amount, 0);
+        // bookingCount = all active bookings in the window
         const bookingCount = bookings.length;
+        // totalRevenue = only paid bookings
+        const totalRevenue = bookings
+          .filter((b) => b.paymentStatus === 'paid')
+          .reduce((sum, b) => sum + b.amount, 0);
 
         return {
           venueId: venue._id,
@@ -69,7 +83,7 @@ const getRevenueAnalytics = async (req, res, next) => {
 
     // Sort by revenue descending
     results.sort((a, b) => b.totalRevenue - a.totalRevenue);
-    
+
     const grandTotal = results.reduce((sum, r) => sum + r.totalRevenue, 0);
 
     res.json({
@@ -133,12 +147,14 @@ const getPeakHours = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/analytics/utilization?days=14
+// GET /api/admin/analytics/utilization?days=30
 // Returns court utilization % per venue (booked hours / available hours)
 // ---------------------------------------------------------------------------
 const getUtilization = async (req, res, next) => {
   try {
-    const days = parseInt(req.query.days) || 14;
+    const days = parseInt(req.query.days) || 30;
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
     const since = new Date();
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
@@ -147,11 +163,9 @@ const getUtilization = async (req, res, next) => {
 
     const results = await Promise.all(
       venues.map(async (venue) => {
-        const bookings = await Booking.find({
-          venueId: venue._id,
-          status: { $ne: 'cancelled' },
-          date: { $gte: sinceStr },
-        }).select('startTime endTime');
+        const bookings = await Booking.find(
+          buildAnalyticsBookingFilter(venue._id, sinceStr, todayStr)
+        ).select('startTime endTime');
 
         const bookedMinutes = bookings.reduce(
           (sum, b) => sum + (toMinutes(b.endTime) - toMinutes(b.startTime)),

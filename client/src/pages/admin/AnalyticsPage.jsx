@@ -30,7 +30,7 @@ function VenueTick({ x, y, payload }) {
 
 export default function AnalyticsPage() {
   const { data: utilData, loading: utilLoading, error: utilError } = useApi(
-    useCallback(() => getUtilization(14), [])
+    useCallback(() => getUtilization(30), [])
   )
 
   // Use revenue endpoint for "trends" (per-venue revenue last 30 days)
@@ -69,7 +69,7 @@ export default function AnalyticsPage() {
             <h2 className="font-semibold text-gray-900">Court Utilization Rate</h2>
           </div>
           <p className="text-xs text-gray-400 mb-6">
-            % of available court hours that were booked — last 14 days
+            % of available court hours that were booked — last 30 days
           </p>
 
           {utilLoading ? (
