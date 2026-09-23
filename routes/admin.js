@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect, adminOnly } = require('../middleware/auth');
 const {
+  getPendingCount,
   getAllBookings,
   getRevenueAnalytics,
   getPeakHours,
@@ -15,6 +16,9 @@ router.use(protect, adminOnly);
 
 // GET /api/admin/bookings
 router.get('/bookings', getAllBookings);
+
+// GET /api/admin/bookings/pending-count
+router.get('/bookings/pending-count', getPendingCount);
 
 // PATCH /api/admin/bookings/:id/approve
 router.patch('/bookings/:id/approve', approveBooking);

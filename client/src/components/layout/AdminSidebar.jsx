@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useEffect, useState } from 'react'
+import { getPendingCount } from '../../api/admin'
 import {
   HomeIcon,
   BuildingOffice2Icon,
@@ -31,6 +33,7 @@ const navItems = [
     label: 'Bookings',
     icon: CalendarDaysIcon,
     activeIcon: CalendarDaysIconSolid,
+    showPendingBadge: true,
   },
   {
     to: '/admin/analytics',
@@ -42,6 +45,32 @@ const navItems = [
 
 export default function AdminSidebar() {
   const { user } = useAuth()
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      try {
+        const res = await getPendingCount()
+        setPendingCount(res.data?.count ?? 0)
+      } catch {
+        // silently ignore — badge just won't show if the request fails
+      }
+    }
+
+    fetchCount()
+    const interval = setInterval(fetchCount, 30_000)
+
+    const handleCountChanged = () => fetchCount()
+    window.addEventListener('pending-count-changed', handleCountChanged)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('pending-count-changed', handleCountChanged)
+    }
+  }, [])
+
+  const badgeLabel = pendingCount > 99 ? '99+' : String(pendingCount)
+
   return (
     <aside className="w-64 shrink-0 hidden lg:flex flex-col bg-white border-r border-gray-100 min-h-screen">
       {/* Brand */}
@@ -59,7 +88,7 @@ export default function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ to, label, icon: Icon, activeIcon: ActiveIcon }) => (
+        {navItems.map(({ to, label, icon: Icon, activeIcon: ActiveIcon, showPendingBadge }) => (
           <NavLink
             key={to}
             to={to}
@@ -71,11 +100,17 @@ export default function AdminSidebar() {
                }`
             }
           >
-            {({ isActive }) =>
-              isActive
-                ? <><ActiveIcon className="h-5 w-5 text-primary-600" />{label}</>
-                : <><Icon className="h-5 w-5" />{label}</>
-            }
+            {({ isActive }) => (
+              <>
+                {isActive ? <ActiveIcon className="h-5 w-5 text-primary-600" /> : <Icon className="h-5 w-5" />}
+                <span className="flex-1">{label}</span>
+                {showPendingBadge && pendingCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                    {badgeLabel}
+                  </span>
+                )}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

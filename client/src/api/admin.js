@@ -13,3 +13,4 @@ export const getUtilization = (days = 14) =>
 
 export const approveBooking = (id) => api.patch(`/admin/bookings/${id}/approve`)
 export const rejectBooking = (id, reason) => api.patch(`/admin/bookings/${id}/reject`, { reason })
+export const getPendingCount = () => api.get('/admin/bookings/pending-count')

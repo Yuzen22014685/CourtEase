@@ -85,8 +85,8 @@ export default function MyBookingsPage() {
       if (target) {
         const isTargetUpcoming = isBookingUpcoming(target)
         setActiveTab(isTargetUpcoming ? 'upcoming' : 'past')
-        if (['rejected', 'cancelled'].includes(target.status)) {
-          setInfoToast('Cannot upload a receipt for a rejected or cancelled booking')
+        if (['rejected', 'cancelled', 'expired'].includes(target.status)) {
+          setInfoToast('Cannot upload a receipt for a rejected, cancelled, or expired booking')
           setTimeout(() => setInfoToast(''), 3500)
         } else if (target.receiptImage) {
           setInfoToast('Receipt already uploaded')

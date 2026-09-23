@@ -25,6 +25,19 @@ const buildAnalyticsBookingFilter = (venueId, sinceStr, todayStr) => {
 };
 
 // ---------------------------------------------------------------------------
+// GET /api/admin/bookings/pending-count
+// Returns the count of bookings with status 'pending'
+// ---------------------------------------------------------------------------
+const getPendingCount = async (req, res, next) => {
+  try {
+    const count = await Booking.countDocuments({ status: 'pending' });
+    res.json({ success: true, count });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/admin/bookings?status=&venueId=&date=
 // ---------------------------------------------------------------------------
 const getAllBookings = async (req, res, next) => {
@@ -208,7 +221,7 @@ const approveBooking = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
     if (booking.status !== 'pending') {
-      return res.status(400).json({ success: false, message: 'Only pending bookings can be approved' });
+      return res.status(400).json({ success: false, message: 'This booking is no longer pending.' });
     }
 
     booking.status = 'confirmed';
@@ -248,7 +261,7 @@ const rejectBooking = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
     if (booking.status !== 'pending') {
-      return res.status(400).json({ success: false, message: 'Only pending bookings can be rejected' });
+      return res.status(400).json({ success: false, message: 'This booking is no longer pending.' });
     }
 
     booking.status = 'rejected';
@@ -270,6 +283,7 @@ const rejectBooking = async (req, res, next) => {
 };
 
 module.exports = {
+  getPendingCount,
   getAllBookings,
   getRevenueAnalytics,
   getPeakHours,

@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const notificationSchema = new mongoose.Schema({
   playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', required: true },
-  type: { type: String, enum: ['reminder', 'feedback_request', 'booking_approved', 'booking_rejected', 'receipt_reminder', 'booking_rescheduled'], required: true },
+  type: { type: String, enum: ['reminder', 'feedback_request', 'booking_approved', 'booking_rejected', 'receipt_reminder', 'booking_rescheduled', 'booking_auto_confirmed', 'booking_expired'], required: true },
   message: { type: String, required: true },
   isRead: { type: Boolean, default: false },
   sentAt: { type: Date, default: Date.now },

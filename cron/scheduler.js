@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
+const { getSessionStart } = require('../config/bookingPolicy');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "YYYY-MM-DDTHH:MM:00+08:00" from booking date + time
@@ -120,6 +121,64 @@ const receiptReminderJob = cron.schedule('*/5 * * * *', async () => {
   }
 }, { scheduled: false });
 
+// ---------------------------------------------------------------------------
+// CRON 4: Every 5 minutes — safety net for pending bookings past their start
+// ---------------------------------------------------------------------------
+const pendingSafetyNetJob = cron.schedule('*/5 * * * *', async () => {
+  try {
+    const now = new Date();
+    let autoConfirmedCount = 0;
+    let expiredCount = 0;
+
+    const pendingBookings = await Booking.find({ status: 'pending' }).populate('venueId', 'name');
+
+    for (const booking of pendingBookings) {
+      const sessionStart = getSessionStart(booking);
+      if (sessionStart > now) continue; // session hasn't started yet — skip
+
+      if (booking.receiptImage) {
+        // Receipt uploaded → auto-confirm
+        booking.status = 'confirmed';
+        booking.autoConfirmed = true;
+        await booking.save();
+        try {
+          await Notification.create({
+            playerId: booking.playerId,
+            bookingId: booking._id,
+            type: 'booking_auto_confirmed',
+            message: `Your booking at ${booking.venueId?.name || 'the venue'} on ${booking.date} at ${booking.startTime} has been confirmed.`,
+          });
+        } catch (notifErr) {
+          if (notifErr.code !== 11000) throw notifErr; // ignore duplicate-key; re-throw others
+        }
+        autoConfirmedCount++;
+      } else {
+        // No receipt → expire
+        booking.status = 'expired';
+        booking.paymentStatus = 'refunded';
+        await booking.save();
+        try {
+          await Notification.create({
+            playerId: booking.playerId,
+            bookingId: booking._id,
+            type: 'booking_expired',
+            message: `Your booking at ${booking.venueId?.name || 'the venue'} on ${booking.date} at ${booking.startTime} expired because no payment receipt was uploaded before the session.`,
+          });
+        } catch (notifErr) {
+          if (notifErr.code !== 11000) throw notifErr;
+        }
+        expiredCount++;
+      }
+    }
+
+    if (autoConfirmedCount > 0 || expiredCount > 0) {
+      console.log(`⏱ Pending safety net: ${autoConfirmedCount} auto-confirmed, ${expiredCount} expired`);
+    }
+  } catch (err) {
+    console.error('[CRON] Pending safety net error:', err.message);
+  }
+}, { scheduled: false });
+
 /**
  * Start all scheduled jobs.
  * Call this after MongoDB has connected.
@@ -128,7 +187,8 @@ const startScheduler = () => {
   reminderJob.start();
   feedbackJob.start();
   receiptReminderJob.start();
-  console.log('⏰ Cron scheduler started (reminder, feedback, and receipt reminder jobs)');
+  pendingSafetyNetJob.start();
+  console.log('⏰ Cron scheduler started (reminder, feedback, receipt reminder, and pending safety-net jobs)');
 };
 
 module.exports = { startScheduler };

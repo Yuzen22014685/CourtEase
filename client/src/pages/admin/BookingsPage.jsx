@@ -80,6 +80,7 @@ export default function AdminBookingsPage() {
       setActionMessage('Booking approved successfully!')
       refetch()
       closeReview()
+      window.dispatchEvent(new Event('pending-count-changed'))
       setTimeout(() => setActionMessage(null), 4000)
     } catch (err) {
       setModalError(err.response?.data?.message || 'Failed to approve booking')
@@ -102,6 +103,7 @@ export default function AdminBookingsPage() {
       setActionMessage('Booking rejected and refunded successfully!')
       refetch()
       closeReview()
+      window.dispatchEvent(new Event('pending-count-changed'))
       setTimeout(() => setActionMessage(null), 4000)
     } catch (err) {
       setModalError(err.response?.data?.message || 'Failed to reject booking')
@@ -167,6 +169,8 @@ export default function AdminBookingsPage() {
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="pending">Pending</option>
+                <option value="rejected">Rejected</option>
+                <option value="expired">Expired</option>
               </select>
             </div>
           </div>
@@ -233,6 +237,11 @@ export default function AdminBookingsPage() {
                     <td className="uppercase text-xs text-gray-500">{b.paymentMethod}</td>
                     <td>
                       <Badge status={b.status} />
+                      {b.autoConfirmed && (
+                        <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                          Auto-confirmed
+                        </span>
+                      )}
                       {b.rescheduleCount > 0 && (
                         <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                           Rescheduled
@@ -334,7 +343,14 @@ export default function AdminBookingsPage() {
                 </div>
                 <div>
                   <span className="text-gray-400 block mb-0.5">Status</span>
-                  <Badge status={reviewBooking.status} />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge status={reviewBooking.status} />
+                    {reviewBooking.autoConfirmed && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                        Auto-confirmed
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {reviewBooking.rescheduleCount > 0 && reviewBooking.rescheduledFrom && (
                   <div className="col-span-2">
