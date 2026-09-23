@@ -1,0 +1,66 @@
+@baseUrl = http://localhost:5000/api
+
+###
+# Login as Admin to get an admin token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@courtease.my",
+  "password": "Admin@1234"
+}
+
+###
+# Login as Player to get a player token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "player1@courtease.my",
+  "password": "Player@1234"
+}
+
+###
+# TEST 1 - Should return 200 - successfully approve a pending booking
+PATCH {{baseUrl}}/admin/bookings/6aa11cc8b47aca4bd249c9c8/approve
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNCIsImlhdCI6MTc4ODk1MTg1NiwiZXhwIjoxNzkxNTQzODU2fQ.UWknacHRGog_NEKhcYkqTDv8tGPjWRN9AEY3ATblvmw
+
+###
+# TEST 2 - Should return 200 - reject a pending booking and refund payment
+# STOP: paste a NEW pending booking's ID here before sending (see instructions after Test 1)
+PATCH {{baseUrl}}/admin/bookings/6aa17c3cf43b539844c6c2c9/reject
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNCIsImlhdCI6MTc4ODk1MTg1NiwiZXhwIjoxNzkxNTQzODU2fQ.UWknacHRGog_NEKhcYkqTDv8tGPjWRN9AEY3ATblvmw
+
+###
+# TEST 3 - Should return 400 - already confirmed, cannot approve again
+# After Test 1 succeeds, booking 6aa11cc8b47aca4bd249c9c8 becomes 'confirmed' - reuse that same ID here
+PATCH {{baseUrl}}/admin/bookings/6aa11cc8b47aca4bd249c9c8/approve
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNCIsImlhdCI6MTc4ODk1MTg1NiwiZXhwIjoxNzkxNTQzODU2fQ.UWknacHRGog_NEKhcYkqTDv8tGPjWRN9AEY3ATblvmw
+
+###
+# TEST 4 - Should return 401/403 - non-admin cannot approve
+PATCH {{baseUrl}}/admin/bookings/6aa15c246cc4e50c9eaaf2fd/approve
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNSIsImlhdCI6MTc4ODk2MzExNCwiZXhwIjoxNzkxNTU1MTE0fQ.VST15t9zRSjmZy8dy9ovvD780NM9kDjBq9ZW63Uq3tw
+
+###
+# TEST 5 - Get player's notifications
+GET {{baseUrl}}/notifications
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNSIsImlhdCI6MTc4ODk3NzI2MCwiZXhwIjoxNzkxNTY5MjYwfQ.YbCHaTO5Yf7ACpBHF2k-JAtM42sD6pLxh6w-y3E7TjU
+
+###
+# TEST 6 - Get unread count
+GET {{baseUrl}}/notifications/unread-count
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNSIsImlhdCI6MTc4ODk3NzI2MCwiZXhwIjoxNzkxNTY5MjYwfQ.YbCHaTO5Yf7ACpBHF2k-JAtM42sD6pLxh6w-y3E7TjU
+
+###
+# TEST 7 - Upload a receipt image
+POST {{baseUrl}}/bookings/6aa1b12eb4f0025f3ce9f4a3/upload-receipt
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNSIsImlhdCI6MTc4ODk4MTk3NywiZXhwIjoxNzkxNTczOTc3fQ.unrQJvPFgTlenRcTopzFZkU_XsVT7Lw-rtxWB5eVLRs
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="receipt"; filename="test.png"
+Content-Type: image/png
+
+< C:\Users\Chang\Pictures\Screenshots\Screenshot 2026-09-10 031927.png
+------WebKitFormBoundary--
