@@ -7,11 +7,26 @@ import ErrorMessage from '../../components/ui/ErrorMessage'
 import { formatCurrency } from '../../utils/format'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, Cell,
+  LineChart, Line, Legend, Cell, LabelList,
 } from 'recharts'
 import { ChartBarIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/outline'
 
 const UTIL_COLOURS = ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
+
+// Custom two-line XAxis tick: first word on line 1, rest on line 2.
+function VenueTick({ x, y, payload }) {
+  const words = (payload?.value ?? '').split(' ')
+  const line1 = words[0] ?? ''
+  const line2 = words.slice(1).join(' ')
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text textAnchor="middle" fill="#6b7280" fontSize={11}>
+        <tspan x={0} dy={12}>{line1}</tspan>
+        {line2 && <tspan x={0} dy={13}>{line2}</tspan>}
+      </text>
+    </g>
+  )
+}
 
 export default function AnalyticsPage() {
   const { data: utilData, loading: utilLoading, error: utilError } = useApi(
@@ -67,13 +82,13 @@ export default function AnalyticsPage() {
             <>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={utilChartData} layout="vertical"
-                          margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
+                  margin={{ top: 0, right: 30, left: 10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
                   <XAxis type="number" domain={[0, 100]}
-                         tickFormatter={(v) => `${v}%`}
-                         tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                    tickFormatter={(v) => `${v}%`}
+                    tick={{ fontSize: 11, fill: '#9ca3af' }} />
                   <YAxis type="category" dataKey="name"
-                         tick={{ fontSize: 11, fill: '#6b7280' }} width={110} />
+                    tick={{ fontSize: 11, fill: '#6b7280' }} width={110} />
                   <Tooltip
                     formatter={(v, name) => [
                       name === 'utilization' ? `${v}%` : v,
@@ -148,16 +163,29 @@ export default function AnalyticsPage() {
               <p className="text-sm text-gray-400 text-center py-10">No revenue data available.</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={trendChartData} margin={{ top: 0, right: 4, left: -10, bottom: 0 }}>
+                <BarChart data={trendChartData} margin={{ top: 20, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    height={40}
+                    tick={<VenueTick />}
+                  />
                   <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }}
-                         tickFormatter={(v) => `RM${v}`} />
+                    tickFormatter={(v) => `RM${v}`} />
                   <Tooltip
                     formatter={(v) => [formatCurrency(v), 'Revenue']}
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
                   />
-                  <Bar dataKey="revenue" fill="#16a34a" radius={[6, 6, 0, 0]} name="Revenue" />
+                  <Bar dataKey="revenue" fill="#16a34a" radius={[6, 6, 0, 0]} name="Revenue">
+                    <LabelList
+                      dataKey="revenue"
+                      position="top"
+                      fontSize={11}
+                      fill="#6b7280"
+                      formatter={(v) => `RM${Math.round(v)}`}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -183,15 +211,28 @@ export default function AnalyticsPage() {
               <p className="text-sm text-gray-400 text-center py-10">No bookings data available.</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={trendChartData} margin={{ top: 0, right: 4, left: -10, bottom: 0 }}>
+                <BarChart data={trendChartData} margin={{ top: 20, right: 4, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                  <XAxis
+                    dataKey="name"
+                    interval={0}
+                    height={40}
+                    tick={<VenueTick />}
+                  />
                   <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
                   <Tooltip
                     formatter={(v) => [v, 'Bookings']}
                     contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
                   />
-                  <Bar dataKey="bookings" fill="#3b82f6" radius={[6, 6, 0, 0]} name="Bookings" />
+                  <Bar dataKey="bookings" fill="#3b82f6" radius={[6, 6, 0, 0]} name="Bookings">
+                    <LabelList
+                      dataKey="bookings"
+                      position="top"
+                      fontSize={11}
+                      fill="#6b7280"
+                      formatter={(v) => `${Math.round(v)}`}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
