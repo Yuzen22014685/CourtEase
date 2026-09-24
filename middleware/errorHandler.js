@@ -19,6 +19,11 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ success: false, message: messages.join(', ') });
   }
 
+  // Multer errors (file size, unexpected fields, file count)
+  if (err.name === 'MulterError' || (err.message && err.message.includes('format allowed'))) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal Server Error',

@@ -11,7 +11,7 @@ import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import { formatCurrency, formatDate, formatTime, todayString } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString, getImageUrl } from '../../utils/format'
 import {
   MapPinIcon,
   ClockIcon,
@@ -23,6 +23,8 @@ import {
   ExclamationTriangleIcon,
   ArrowUpTrayIcon,
   ShieldCheckIcon,
+  PhoneIcon,
+  BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
 import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline'
@@ -233,24 +235,44 @@ export default function VenueDetailPage() {
         <div className="flex gap-6 items-start">
           {/* ── Left column ── */}
           <div className="flex-1 min-w-0">
-            {/* Photo Gallery */}
-            {venue.photos?.length > 0 && (
+            {/* Photo Gallery or Neutral Placeholder */}
+            {venue.photos?.length > 0 ? (
               <div className="flex gap-4 overflow-x-auto pb-4 mb-4 snap-x hide-scrollbar">
                 {venue.photos.map((photo, i) => (
-                  <img 
-                    key={i} 
-                    src={photo} 
-                    alt={`${venue.name} - view ${i + 1}`} 
-                    className="h-56 sm:h-72 w-[85%] sm:w-auto aspect-[4/3] object-cover rounded-xl shrink-0 snap-center shadow-sm border border-gray-100" 
-                  />
+                  <div key={i} className="relative shrink-0 snap-center">
+                    <img 
+                      src={getImageUrl(photo)} 
+                      alt={`${venue.name} - view ${i + 1}`} 
+                      className="h-56 sm:h-72 w-[85%] sm:w-auto aspect-[4/3] object-cover rounded-xl shadow-sm border border-gray-100" 
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                        if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'
+                      }}
+                    />
+                    <div className="hidden h-56 sm:h-72 w-72 rounded-xl bg-gray-100 flex-col items-center justify-center text-gray-400">
+                      <BuildingOffice2Icon className="h-10 w-10 text-gray-300" />
+                      <span className="text-xs text-gray-400 mt-1">Image unavailable</span>
+                    </div>
+                    {i === 0 && (
+                      <span className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
+                        Cover
+                      </span>
+                    )}
+                  </div>
                 ))}
+              </div>
+            ) : (
+              <div className="h-44 sm:h-56 w-full rounded-2xl bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 border-dashed flex flex-col items-center justify-center text-gray-400 mb-6 shadow-inner">
+                <BuildingOffice2Icon className="h-12 w-12 text-gray-300 mb-2" />
+                <p className="text-sm font-semibold text-gray-600">{venue.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">No venue photos uploaded yet</p>
               </div>
             )}
 
             {/* Venue header */}
             <div className="card p-6 mb-6">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                <div>
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
                     <span className="badge bg-primary-100 text-primary-700">{venue.area}</span>
                     {venue.rating != null ? (
@@ -266,20 +288,36 @@ export default function VenueDetailPage() {
                     )}
                   </div>
                   <h1 className="page-title text-2xl mb-3">{venue.name}</h1>
-                  <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500">
                     <span className="flex items-center gap-1.5">
-                      <MapPinIcon className="h-4 w-4 text-gray-400" />
+                      <MapPinIcon className="h-4 w-4 text-gray-400 shrink-0" />
                       {venue.address}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <ClockIcon className="h-4 w-4 text-gray-400" />
+                      <ClockIcon className="h-4 w-4 text-gray-400 shrink-0" />
                       {venue.operatingHours.open} – {venue.operatingHours.close}
                     </span>
+                    {venue.phone && (
+                      <a
+                        href={`tel:${venue.phone}`}
+                        className="flex items-center gap-1.5 hover:text-primary-600 transition-colors"
+                      >
+                        <PhoneIcon className="h-4 w-4 text-gray-400 shrink-0" />
+                        {venue.phone}
+                      </a>
+                    )}
                   </div>
+
+                  {/* Description */}
+                  {venue.description && (
+                    <p className="text-sm text-gray-600 mt-4 leading-relaxed whitespace-pre-line border-t border-gray-100 pt-3">
+                      {venue.description}
+                    </p>
+                  )}
 
                   {/* Facilities */}
                   {venue.facilities?.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-5">
+                    <div className="flex flex-wrap gap-2 mt-4">
                       {venue.facilities.map((fac, i) => (
                         <span key={i} className="inline-flex items-center px-2.5 py-1 rounded-lg bg-gray-50 border border-gray-200 text-xs font-medium text-gray-600">
                           {fac}

@@ -10,6 +10,7 @@ const variants = {
   refunded:   'bg-gray-100 text-gray-600',
   paid:       'bg-blue-100 text-blue-800',
   active:     'bg-green-100 text-green-800',
+  inactive:   'bg-gray-100 text-gray-700',
   maintenance:'bg-orange-100 text-orange-800',
 }
 
@@ -23,6 +24,7 @@ const dots = {
   refunded:  'bg-gray-400',
   paid:      'bg-blue-500',
   active:    'bg-green-500',
+  inactive:  'bg-gray-400',
   maintenance:'bg-orange-500',
 }
 

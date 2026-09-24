@@ -14,3 +14,17 @@ export const getUtilization = (days = 14) =>
 export const approveBooking = (id) => api.patch(`/admin/bookings/${id}/approve`)
 export const rejectBooking = (id, reason) => api.patch(`/admin/bookings/${id}/reject`, { reason })
 export const getPendingCount = () => api.get('/admin/bookings/pending-count')
+
+// Venue management
+export const getAdminVenues = () => api.get('/admin/venues')
+export const createVenue = (data) => api.post('/admin/venues', data)
+export const updateVenue = (id, data) => api.patch(`/admin/venues/${id}`, data)
+export const uploadVenuePhotos = (id, formData) =>
+  api.post(`/admin/venues/${id}/photos`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const deleteVenuePhoto = (id, photo) =>
+  api.delete(`/admin/venues/${id}/photos`, { data: { photo } })
+export const reorderVenuePhotos = (id, photos) =>
+  api.patch(`/admin/venues/${id}/photos/order`, { photos })
+

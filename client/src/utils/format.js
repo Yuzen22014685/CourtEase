@@ -51,3 +51,13 @@ export const checkProfileComplete = (user) =>
     user?.address?.trim() &&
     user?.bankAccount?.accountNumber?.trim()
   )
+
+/** Resolve image path (external URL or local /uploads path) */
+export const getImageUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+  const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/api\/?$/, '')
+  return `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`
+}

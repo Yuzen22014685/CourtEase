@@ -13,8 +13,9 @@ import {
   BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
+import { getImageUrl } from '../../utils/format'
 
-const AREAS = ['Bayan Lepas', 'Georgetown', 'Bukit Mertajam', 'Tanjung Bungah', 'Jelutong']
+const DEFAULT_AREAS = ['Bayan Lepas', 'Georgetown', 'Bukit Mertajam', 'Tanjung Bungah', 'Jelutong', 'Butterworth', 'Seberang Jaya']
 
 const AREA_COLOURS = {
   'Bayan Lepas':     'bg-blue-100 text-blue-700',
@@ -22,6 +23,8 @@ const AREA_COLOURS = {
   'Bukit Mertajam':  'bg-orange-100 text-orange-700',
   'Tanjung Bungah':  'bg-teal-100 text-teal-700',
   'Jelutong':        'bg-rose-100 text-rose-700',
+  'Butterworth':     'bg-cyan-100 text-cyan-700',
+  'Seberang Jaya':   'bg-indigo-100 text-indigo-700',
 }
 
 export default function VenuesPage() {
@@ -35,6 +38,7 @@ export default function VenuesPage() {
   const { data, loading, error } = useApi(fetchFn, [selectedArea])
 
   const venues = data?.data ?? []
+  const availableAreas = Array.from(new Set([...DEFAULT_AREAS, ...venues.map((v) => v.area)])).filter(Boolean)
 
   return (
     <Layout>
@@ -65,7 +69,7 @@ export default function VenuesPage() {
           >
             All Areas
           </button>
-          {AREAS.map((area) => (
+          {availableAreas.map((area) => (
             <button
               key={area}
               id={`area-filter-${area.replace(/\s+/g, '-').toLowerCase()}`}
@@ -121,24 +125,48 @@ function VenueCard({ venue }) {
     <Link
       to={`/venues/${venue._id}`}
       id={`venue-card-${venue._id}`}
-      className="card-hover p-5 flex flex-col gap-4 group cursor-pointer block"
+      className="card-hover p-4 flex flex-col gap-3 group cursor-pointer block"
     >
-      {/* Header band */}
-      <div className="h-3 rounded-full bg-gradient-to-r from-primary-500 to-primary-400
-                      group-hover:from-primary-600 group-hover:to-primary-500 transition-all" />
+      {/* Cover image or neutral placeholder */}
+      <div className="relative h-44 w-full rounded-xl overflow-hidden bg-gray-100 border border-gray-100 shrink-0">
+        {venue.photos?.[0] ? (
+          <img
+            src={getImageUrl(venue.photos[0])}
+            alt={venue.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            onError={(e) => {
+              e.target.style.display = 'none'
+              if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'
+            }}
+          />
+        ) : null}
+        <div
+          className={`w-full h-full ${
+            venue.photos?.[0] ? 'hidden' : 'flex'
+          } flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-gray-400 p-4 text-center`}
+        >
+          <BuildingOffice2Icon className="h-9 w-9 text-gray-300 mb-1" />
+          <span className="text-xs font-medium text-gray-500">{venue.name}</span>
+        </div>
+      </div>
 
       <div>
-        <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-start justify-between gap-2 mb-1.5">
           <h2 className="font-bold text-gray-900 text-base leading-snug group-hover:text-primary-700
-                         transition-colors">
+                         transition-colors line-clamp-1">
             {venue.name}
           </h2>
           <span className={`badge shrink-0 ${areaColour}`}>{venue.area}</span>
         </div>
         <div className="flex items-start gap-1.5 text-xs text-gray-500">
           <MapPinIcon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-          <span className="line-clamp-2">{venue.address}</span>
+          <span className="line-clamp-1">{venue.address}</span>
         </div>
+        {venue.description && (
+          <p className="text-xs text-gray-500 line-clamp-2 mt-2 leading-relaxed">
+            {venue.description}
+          </p>
+        )}
         {/* Rating */}
         <div className="mt-2">
           {venue.rating != null ? (

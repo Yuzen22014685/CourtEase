@@ -66,7 +66,7 @@ const computeVenueRatings = async (venueIds) => {
 // ---------------------------------------------------------------------------
 const getVenues = async (req, res, next) => {
   try {
-    const filter = {};
+    const filter = { isActive: { $ne: false } };
     if (req.query.area) filter.area = req.query.area;
     const venues = await Venue.find(filter).select('-__v -reviews');
 
@@ -184,6 +184,9 @@ const createBooking = async (req, res, next) => {
 
     const venue = await Venue.findById(venueId);
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
+    if (venue.isActive === false) {
+      return res.status(400).json({ success: false, message: 'This venue is currently inactive and cannot be booked' });
+    }
 
     const court = await Court.findOne({ _id: courtId, venueId, status: 'active' });
     if (!court) return res.status(404).json({ success: false, message: 'Court not found or under maintenance' });
