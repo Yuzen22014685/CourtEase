@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
-import { getMyBookings, cancelBooking, rescheduleBooking } from '../../api/bookings'
+import { getMyBookings, cancelBooking, rescheduleBooking, submitReview } from '../../api/bookings'
 import { getVenueAvailability } from '../../api/venues'
 import Layout from '../../components/layout/Layout'
 import Badge from '../../components/ui/Badge'
@@ -24,6 +24,8 @@ import {
   ArrowUpTrayIcon,
   ArrowPathIcon,
 } from '@heroicons/react/24/outline'
+import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
+import { StarIcon as StarOutline } from '@heroicons/react/24/outline'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,11 +57,13 @@ export default function MyBookingsPage() {
   const [highlightedBookingId, setHighlightedBookingId] = useState(null)
   const [uploadModalBookingId, setUploadModalBookingId] = useState(null)
   const [rescheduleModalBookingId, setRescheduleModalBookingId] = useState(null)
+  const [reviewModalBookingId, setReviewModalBookingId] = useState(null)
   const [infoToast, setInfoToast] = useState('')
 
   const [searchParams, setSearchParams] = useSearchParams()
   const uploadReceiptParam = searchParams.get('uploadReceipt')
   const highlightParam = searchParams.get('highlight')
+  const reviewParam = searchParams.get('review')
 
   const { data, loading, error, refetch } = useApi(() => getMyBookings(), [])
 
@@ -78,7 +82,7 @@ export default function MyBookingsPage() {
 
   useEffect(() => {
     if (loading) return
-    if (!uploadReceiptParam && !highlightParam) return
+    if (!uploadReceiptParam && !highlightParam && !reviewParam) return
 
     if (uploadReceiptParam) {
       const target = bookings.find((b) => b._id === uploadReceiptParam)
@@ -106,16 +110,33 @@ export default function MyBookingsPage() {
       }
     }
 
+    if (reviewParam) {
+      const target = bookings.find((b) => b._id === reviewParam)
+      if (target) {
+        setActiveTab('past') // completed bookings are always in past tab
+        if (target.myReview) {
+          setInfoToast('You have already reviewed this booking')
+          setTimeout(() => setInfoToast(''), 3500)
+        } else if (!target.canReview) {
+          setInfoToast("This booking can't be reviewed")
+          setTimeout(() => setInfoToast(''), 3500)
+        } else {
+          setReviewModalBookingId(target._id)
+        }
+      }
+    }
+
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
         next.delete('uploadReceipt')
         next.delete('highlight')
+        next.delete('review')
         return next
       },
       { replace: true }
     )
-  }, [loading, bookings, uploadReceiptParam, highlightParam, setSearchParams, highlightBooking])
+  }, [loading, bookings, uploadReceiptParam, highlightParam, reviewParam, setSearchParams, highlightBooking])
 
   const displayed = activeTab === 'upcoming' ? upcoming : past
   const uploadTargetBooking = uploadModalBookingId
@@ -123,6 +144,9 @@ export default function MyBookingsPage() {
     : null
   const rescheduleTargetBooking = rescheduleModalBookingId
     ? bookings.find((b) => b._id === rescheduleModalBookingId)
+    : null
+  const reviewTargetBooking = reviewModalBookingId
+    ? bookings.find((b) => b._id === reviewModalBookingId)
     : null
 
   return (
@@ -191,6 +215,7 @@ export default function MyBookingsPage() {
                 onCancelled={refetch}
                 onOpenUpload={setUploadModalBookingId}
                 onOpenReschedule={setRescheduleModalBookingId}
+                onOpenReview={setReviewModalBookingId}
               />
             ))}
           </div>
@@ -267,6 +292,25 @@ export default function MyBookingsPage() {
           )}
         </Modal>
 
+        {/* Page-level Review Modal */}
+        <Modal
+          isOpen={Boolean(reviewModalBookingId)}
+          onClose={() => setReviewModalBookingId(null)}
+          title="Rate & Review"
+          size="lg"
+        >
+          {reviewTargetBooking && (
+            <ReviewModal
+              booking={reviewTargetBooking}
+              onClose={() => setReviewModalBookingId(null)}
+              onSuccess={() => {
+                setReviewModalBookingId(null)
+                refetch()
+              }}
+            />
+          )}
+        </Modal>
+
         {/* Info Toast */}
         {infoToast && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gray-900/95 backdrop-blur text-white text-sm px-4 py-3 rounded-xl shadow-xl border border-gray-800 animate-fadeIn">
@@ -282,7 +326,7 @@ export default function MyBookingsPage() {
 // ---------------------------------------------------------------------------
 // Booking Card
 // ---------------------------------------------------------------------------
-function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpenReschedule }) {
+function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpenReschedule, onOpenReview }) {
   const [cancelling, setCancelling] = useState(false)
   const [cancelError, setCancelError] = useState('')
   const [cancelSuccess, setCancelSuccess] = useState(false)
@@ -291,6 +335,8 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpen
   // canCancel and canReschedule are server-computed and returned by GET /api/bookings/me
   const canCancel    = booking.canCancel
   const canReschedule = booking.canReschedule
+  const canReview    = booking.canReview
+  const myReview     = booking.myReview
   const venueName = booking.venueId?.name ?? '—'
   const courtNum  = booking.courtId?.courtNumber ?? '—'
   const isPendingWithoutReceipt = booking.status === 'pending' && !booking.receiptImage
@@ -398,6 +444,28 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpen
                   {cancelling ? 'Cancelling…' : 'Cancel'}
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Review: show button if canReview, show stars if already reviewed */}
+          {canReview && !cancelSuccess && (
+            <button
+              id={`review-booking-${booking._id}`}
+              onClick={() => onOpenReview(booking._id)}
+              className="btn-secondary btn-sm flex items-center gap-1.5"
+            >
+              <StarSolid className="h-4 w-4 text-amber-400" />
+              Rate &amp; Review
+            </button>
+          )}
+          {myReview && (
+            <div className="flex items-center gap-1">
+              {[1,2,3,4,5].map((s) => (
+                s <= myReview.rating
+                  ? <StarSolid key={s} className="h-4 w-4 text-amber-400" />
+                  : <StarOutline key={s} className="h-4 w-4 text-amber-300" />
+              ))}
+              <span className="text-xs text-gray-500 ml-1">Your rating</span>
             </div>
           )}
 
@@ -705,6 +773,126 @@ function RescheduleModal({ booking, onClose, onSuccess }) {
             <><Spinner size="sm" /> Rescheduling…</>
           ) : (
             <><ArrowPathIcon className="h-4 w-4" /> Confirm Reschedule</>
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Review Modal
+// ---------------------------------------------------------------------------
+function ReviewModal({ booking, onClose, onSuccess }) {
+  const [rating, setRating]     = useState(0)
+  const [hovered, setHovered]   = useState(0)
+  const [comment, setComment]   = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError]       = useState('')
+
+  const venueName = booking.venueId?.name ?? '—'
+  const courtNum  = booking.courtId?.courtNumber ?? '—'
+  const remaining = 500 - comment.length
+
+  const handleSubmit = async () => {
+    if (!rating) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await submitReview(booking._id, { rating, comment: comment.trim() })
+      onSuccess()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to submit review. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Booking summary */}
+      <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-4 text-sm space-y-1.5">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Your session</p>
+        <p className="font-semibold text-gray-900">{venueName} · Court {courtNum}</p>
+        <div className="flex flex-wrap gap-4 text-gray-600 text-xs">
+          <span className="flex items-center gap-1">
+            <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
+            {formatDate(booking.date)}
+          </span>
+          <span className="flex items-center gap-1">
+            <ClockIcon className="h-4 w-4 text-gray-400" />
+            {formatTime(booking.startTime)} – {formatTime(booking.endTime)}
+          </span>
+        </div>
+      </div>
+
+      {/* Star picker */}
+      <div>
+        <p className="text-sm font-medium text-gray-700 mb-2">Your rating <span className="text-red-500">*</span></p>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((star) => {
+            const filled = star <= (hovered || rating)
+            return (
+              <button
+                key={star}
+                id={`review-star-${star}`}
+                type="button"
+                onMouseEnter={() => setHovered(star)}
+                onMouseLeave={() => setHovered(0)}
+                onClick={() => setRating(star)}
+                className="transition-transform hover:scale-110 focus:outline-none"
+                aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+              >
+                {filled
+                  ? <StarSolid className="h-8 w-8 text-amber-400" />
+                  : <StarOutline className="h-8 w-8 text-amber-300" />}
+              </button>
+            )
+          })}
+          {rating > 0 && (
+            <span className="ml-2 text-sm font-semibold text-gray-700">
+              {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rating]}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Comment */}
+      <div>
+        <label htmlFor="review-comment" className="block text-sm font-medium text-gray-700 mb-1.5">
+          Comment <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <textarea
+          id="review-comment"
+          rows={4}
+          maxLength={500}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Share your experience at this venue…"
+          className="input w-full resize-none"
+        />
+        <p className={`text-xs mt-1 text-right ${remaining < 50 ? 'text-amber-600' : 'text-gray-400'}`}>
+          {remaining} characters remaining
+        </p>
+      </div>
+
+      {error && <ErrorMessage message={error} />}
+
+      {/* Actions */}
+      <div className="flex gap-3 pt-1">
+        <button onClick={onClose} className="btn-secondary flex-1" disabled={submitting}>
+          Cancel
+        </button>
+        <button
+          id="submit-review-btn"
+          onClick={handleSubmit}
+          disabled={!rating || submitting}
+          className="btn-primary flex-1 flex items-center justify-center gap-2"
+        >
+          {submitting ? (
+            <><Spinner size="sm" /> Submitting…</>
+          ) : (
+            <><StarSolid className="h-4 w-4" /> Submit Review</>
           )}
         </button>
       </div>

@@ -11,6 +11,8 @@ const {
   cancelBooking,
   rescheduleBooking,
   uploadReceipt,
+  createReview,
+  getVenueReviews,
 } = require('../controllers/playerController');
 const {
   getMyNotifications,
@@ -22,6 +24,7 @@ const {
 router.get('/venues', getVenues);
 router.get('/venues/:id', getVenueById);
 router.get('/venues/:id/availability', getVenueAvailability);
+router.get('/venues/:id/reviews', getVenueReviews);
 
 // Booking routes (protected)
 router.post('/bookings', protect, createBooking);
@@ -29,6 +32,7 @@ router.get('/bookings/me', protect, getMyBookings);
 router.patch('/bookings/:id/cancel', protect, cancelBooking);
 router.patch('/bookings/:id/reschedule', protect, rescheduleBooking);
 router.post('/bookings/:id/upload-receipt', protect, upload.single('receipt'), uploadReceipt);
+router.post('/bookings/:id/review', protect, createReview);
 
 // Notification routes (protected)
 router.get('/notifications', protect, getMyNotifications);

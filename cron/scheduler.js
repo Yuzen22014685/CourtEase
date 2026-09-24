@@ -71,6 +71,7 @@ const feedbackJob = cron.schedule('*/5 * * * *', async () => {
 
       // endTime passed within the last 5 minutes
       if (endDt <= now && endDt >= fiveMinutesAgo) {
+        // Check if a feedback notification already exists
         const exists = await Notification.findOne({ bookingId: booking._id, type: 'feedback_request' });
         if (!exists) {
           // Mark booking as completed
@@ -80,7 +81,7 @@ const feedbackJob = cron.schedule('*/5 * * * *', async () => {
             playerId: booking.playerId,
             bookingId: booking._id,
             type: 'feedback_request',
-            message: `How was your game at court ${booking.courtId} on ${booking.date}? We'd love to hear your feedback!`,
+            message: `How was your game on ${booking.date}? Tap to rate & review your experience.`,
           });
           console.log(`[CRON] Feedback request sent for booking ${booking._id}`);
         }

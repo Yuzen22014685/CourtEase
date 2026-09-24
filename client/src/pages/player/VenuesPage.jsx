@@ -12,6 +12,7 @@ import {
   CurrencyDollarIcon,
   BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
+import { StarIcon } from '@heroicons/react/24/solid'
 
 const AREAS = ['Bayan Lepas', 'Georgetown', 'Bukit Mertajam', 'Tanjung Bungah', 'Jelutong']
 
@@ -137,6 +138,20 @@ function VenueCard({ venue }) {
         <div className="flex items-start gap-1.5 text-xs text-gray-500">
           <MapPinIcon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span className="line-clamp-2">{venue.address}</span>
+        </div>
+        {/* Rating */}
+        <div className="mt-2">
+          {venue.rating != null ? (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+              <StarIcon className="h-3.5 w-3.5 text-amber-400" />
+              {venue.rating.toFixed(1)}
+              <span className="font-normal text-gray-400">({venue.reviewCount})</span>
+            </span>
+          ) : (
+            <span className="inline-flex text-xs font-semibold px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-500">
+              New
+            </span>
+          )}
         </div>
       </div>
 

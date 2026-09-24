@@ -11,3 +11,5 @@ export const rescheduleBooking = (id, data) => api.patch(`/bookings/${id}/resche
 export const uploadReceipt = (id, formData) => api.post(`/bookings/${id}/upload-receipt`, formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 })
+
+export const submitReview = (id, data) => api.post(`/bookings/${id}/review`, data)

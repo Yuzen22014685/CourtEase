@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
-import { getVenueById, getVenueAvailability } from '../../api/venues'
+import { getVenueById, getVenueAvailability, getVenueReviews } from '../../api/venues'
 import { createBooking, uploadReceipt } from '../../api/bookings'
 import { QRCodeSVG } from 'qrcode.react'
 import Layout from '../../components/layout/Layout'
@@ -22,8 +22,10 @@ import {
   XMarkIcon,
   ExclamationTriangleIcon,
   ArrowUpTrayIcon,
+  ShieldCheckIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
+import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
 
 const PAYMENT_METHODS = [
@@ -43,6 +45,43 @@ export default function VenueDetailPage() {
   const { data: venueData, loading: venueLoading, error: venueError } =
     useApi(() => getVenueById(id), [id])
   const venue = venueData?.data
+
+  // ── Reviews ───────────────────────────────────────────────────
+  const [reviewPage, setReviewPage] = useState(1)
+  const [allReviews, setAllReviews] = useState([])
+  const [reviewsMeta, setReviewsMeta] = useState({ total: 0, hasMore: false })
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState('')
+
+  // Load initial reviews when venue is known
+  useEffect(() => {
+    if (!id) return
+    setReviewsLoading(true)
+    setReviewsError('')
+    getVenueReviews(id, 1)
+      .then((res) => {
+        const d = res.data
+        setAllReviews(d.data)
+        setReviewsMeta({ total: d.total, hasMore: d.hasMore })
+        setReviewPage(1)
+      })
+      .catch(() => setReviewsError('Could not load reviews.'))
+      .finally(() => setReviewsLoading(false))
+  }, [id])
+
+  const loadMoreReviews = () => {
+    const nextPage = reviewPage + 1
+    setReviewsLoading(true)
+    getVenueReviews(id, nextPage)
+      .then((res) => {
+        const d = res.data
+        setAllReviews((prev) => [...prev, ...d.data])
+        setReviewsMeta({ total: d.total, hasMore: d.hasMore })
+        setReviewPage(nextPage)
+      })
+      .catch(() => setReviewsError('Could not load more reviews.'))
+      .finally(() => setReviewsLoading(false))
+  }
 
   // ── Date picker ───────────────────────────────────────────────
   const [selectedDate, setSelectedDate] = useState(todayString())
@@ -214,10 +253,15 @@ export default function VenueDetailPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-2">
                     <span className="badge bg-primary-100 text-primary-700">{venue.area}</span>
-                    {venue.rating > 0 && (
+                    {venue.rating != null ? (
                       <span className="flex items-center gap-1 text-sm font-bold text-gray-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                         <StarIcon className="h-4 w-4 text-amber-500" />
                         {venue.rating.toFixed(1)}
+                        <span className="text-xs font-normal text-gray-500 ml-0.5">({venue.reviewCount})</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded border border-gray-200 bg-gray-50 text-gray-500">
+                        New
                       </span>
                     )}
                   </div>
@@ -324,25 +368,77 @@ export default function VenueDetailPage() {
 
             {/* Reviews Section */}
             <div className="card p-6 mb-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">Reviews</h2>
-              {venue.reviews?.length > 0 ? (
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-900">Reviews</h2>
+                {reviewsMeta.total > 0 && venue?.rating != null && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map((s) => (
+                        s <= Math.round(venue.rating)
+                          ? <StarIcon key={s} className="h-4 w-4 text-amber-400" />
+                          : <StarOutlineIcon key={s} className="h-4 w-4 text-amber-300" />
+                      ))}
+                    </div>
+                    <span className="text-sm font-bold text-gray-800">{venue.rating.toFixed(1)}</span>
+                    <span className="text-xs text-gray-400">({reviewsMeta.total} review{reviewsMeta.total !== 1 ? 's' : ''})</span>
+                  </div>
+                )}
+              </div>
+
+              {reviewsError && <ErrorMessage message={reviewsError} className="mb-4" />}
+
+              {allReviews.length > 0 ? (
                 <div className="space-y-4">
-                  {venue.reviews.map((r, i) => (
-                    <div key={i} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                  {allReviews.map((r) => (
+                    <div key={r._id} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
                       <div className="flex justify-between items-start mb-1">
-                        <span className="font-medium text-sm text-gray-900">{r.reviewerName}</span>
-                        <span className="text-xs text-gray-400">{r.date ? formatDate(r.date.split('T')[0]) : '—'}</span>
+                        <div>
+                          <span className="font-medium text-sm text-gray-900">{r.reviewerName}</span>
+                          {r.verifiedBooking && (
+                            <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                              <ShieldCheckIcon className="h-3 w-3" />
+                              Verified booking
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-400 shrink-0 ml-2">
+                          {r.date ? formatDate(new Date(r.date).toISOString().split('T')[0]) : '—'}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 mb-2">
-                        <StarIcon className="h-3.5 w-3.5 text-amber-400" />
-                        <span className="text-xs font-semibold text-gray-700">{Number(r.rating).toFixed(1)}</span>
+                      <div className="flex items-center gap-0.5 mb-2">
+                        {[1,2,3,4,5].map((s) => (
+                          s <= r.rating
+                            ? <StarIcon key={s} className="h-3.5 w-3.5 text-amber-400" />
+                            : <StarOutlineIcon key={s} className="h-3.5 w-3.5 text-amber-300" />
+                        ))}
+                        <span className="ml-1 text-xs font-semibold text-gray-700">{r.rating}.0</span>
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed">{r.comment}</p>
+                      {r.comment && (
+                        <p className="text-sm text-gray-600 leading-relaxed">{r.comment}</p>
+                      )}
                     </div>
                   ))}
+
+                  {reviewsMeta.hasMore && (
+                    <div className="pt-2 text-center">
+                      <button
+                        onClick={loadMoreReviews}
+                        disabled={reviewsLoading}
+                        className="btn-secondary btn-sm"
+                      >
+                        {reviewsLoading ? <><Spinner size="sm" /> Loading…</> : 'Load more'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : reviewsLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+                  <Spinner size="sm" /> Loading reviews…
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 italic">No reviews yet.</p>
+                <p className="text-sm text-gray-500 italic">
+                  No reviews yet — be the first to play here and share your experience.
+                </p>
               )}
             </div>
           </div>

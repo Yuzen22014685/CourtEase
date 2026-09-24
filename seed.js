@@ -7,6 +7,7 @@ const Venue = require('./models/Venue');
 const Court = require('./models/Court');
 const Booking = require('./models/Booking');
 const Notification = require('./models/Notification');
+const Review = require('./models/Review');
 
 // ---------------------------------------------------------------------------
 // Venue seed data — 5 Penang locations
@@ -24,12 +25,6 @@ const VENUES = [
       'https://images.unsplash.com/photo-1567220734778-52aeef6a84e8?fm=jpg&q=60&w=800&auto=format&fit=crop'
     ],
     facilities: ['Parking', 'Shower', 'Toilet', 'Water Dispenser', 'Pro Shop'],
-    rating: 4.6,
-    reviews: [
-      { reviewerName: 'Hafizuddin', rating: 5, comment: 'Great courts, lighting is perfect. The pro shop has good stringing service.', date: new Date('2023-11-15T10:00:00Z') },
-      { reviewerName: 'Wong Kah Wei', rating: 4, comment: 'Courts are nice but parking can be quite full during peak hours.', date: new Date('2024-01-22T14:30:00Z') },
-      { reviewerName: 'Amirul', rating: 5, comment: 'One of the best in Bayan Lepas. Very clean showers.', date: new Date('2024-03-05T09:15:00Z') }
-    ]
   },
   {
     name: 'Georgetown Badminton Club',
@@ -43,13 +38,6 @@ const VENUES = [
       'https://images.unsplash.com/photo-1567220734778-52aeef6a84e8?fm=jpg&q=60&w=800&auto=format&fit=crop'
     ],
     facilities: ['Air Conditioning', 'Shower', 'Toilet', 'Lockers', 'Cafe'],
-    rating: 4.8,
-    reviews: [
-      { reviewerName: 'Samantha Lee', rating: 5, comment: 'Love the air conditioning here! Makes a huge difference.', date: new Date('2024-02-10T11:00:00Z') },
-      { reviewerName: 'David Tan', rating: 5, comment: 'Premium feel, definitely worth the RM30/hour. The cafe has good coffee.', date: new Date('2024-04-18T16:20:00Z') },
-      { reviewerName: 'Nur Aisyah', rating: 4, comment: 'Excellent courts but a bit pricy. Lockers are very convenient.', date: new Date('2024-05-01T20:10:00Z') },
-      { reviewerName: 'Karthik', rating: 5, comment: 'My go-to place for weekend games.', date: new Date('2024-06-15T08:00:00Z') }
-    ]
   },
   {
     name: 'Bukit Mertajam Court Hub',
@@ -63,12 +51,6 @@ const VENUES = [
       'https://images.unsplash.com/photo-1567220734778-52aeef6a84e8?fm=jpg&q=60&w=800&auto=format&fit=crop'
     ],
     facilities: ['Parking', 'Toilet', 'Water Dispenser'],
-    rating: 3.9,
-    reviews: [
-      { reviewerName: 'Syazwan', rating: 4, comment: 'Affordable and good enough for casual play. Nothing fancy.', date: new Date('2023-12-05T19:00:00Z') },
-      { reviewerName: 'Lim Chee Keong', rating: 3, comment: 'Flooring is a bit slippery on court 2. Hope management fixes it soon.', date: new Date('2024-01-12T21:30:00Z') },
-      { reviewerName: 'Farah', rating: 4, comment: 'Lots of parking space, friendly staff.', date: new Date('2024-03-20T17:45:00Z') }
-    ]
   },
   {
     name: 'Tanjung Bungah Seaside Courts',
@@ -82,12 +64,6 @@ const VENUES = [
       'https://images.unsplash.com/photo-1567220734778-52aeef6a84e8?fm=jpg&q=60&w=800&auto=format&fit=crop'
     ],
     facilities: ['Outdoor Seating', 'Shower', 'Toilet', 'Parking', 'Vending Machine'],
-    rating: 4.4,
-    reviews: [
-      { reviewerName: 'Johan', rating: 5, comment: 'Nice breezy area outside after a sweaty game. Courts are well maintained.', date: new Date('2024-02-28T08:30:00Z') },
-      { reviewerName: 'Michelle Yeoh', rating: 4, comment: 'Great location. Courts are standard rubber mats, good grip.', date: new Date('2024-04-02T10:15:00Z') },
-      { reviewerName: 'Daniel', rating: 4, comment: 'A bit expensive but the environment makes up for it.', date: new Date('2024-05-22T19:00:00Z') }
-    ]
   },
   {
     name: 'Jelutong Badminton Hall',
@@ -101,12 +77,6 @@ const VENUES = [
       'https://images.unsplash.com/photo-1567220734778-52aeef6a84e8?fm=jpg&q=60&w=800&auto=format&fit=crop'
     ],
     facilities: ['Parking', 'Toilet', 'Prayer Room', 'Water Dispenser'],
-    rating: 4.2,
-    reviews: [
-      { reviewerName: 'Azim', rating: 5, comment: 'Love that they have a prayer room (surau). Very convenient for evening games.', date: new Date('2024-01-15T20:30:00Z') },
-      { reviewerName: 'Kevin Ng', rating: 4, comment: 'Good value for money. Lighting can be slightly glaring on court 5.', date: new Date('2024-03-10T21:00:00Z') },
-      { reviewerName: 'Nadia', rating: 4, comment: 'Spacious and standard flooring. Will come again.', date: new Date('2024-06-01T18:20:00Z') }
-    ]
   }
 ];
 
@@ -144,6 +114,7 @@ const seed = async () => {
       Court.deleteMany({}),
       Booking.deleteMany({}),
       Notification.deleteMany({}),
+      Review.deleteMany({}),
     ]);
     console.log('🗑️  Cleared existing data');
 

@@ -59,8 +59,6 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
   }
 
   const handleNotificationClick = async (notif) => {
-    if (notif.type === 'feedback_request') return
-
     if (!notif.isRead) {
       try {
         await markNotificationRead(notif._id)
@@ -78,6 +76,8 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
     let targetUrl = '/my-bookings'
     if (notif.type === 'receipt_reminder') {
       targetUrl = bookingId ? `/my-bookings?uploadReceipt=${bookingId}` : '/my-bookings'
+    } else if (notif.type === 'feedback_request') {
+      targetUrl = bookingId ? `/my-bookings?review=${bookingId}` : '/my-bookings'
     } else if (['booking_approved', 'booking_rejected', 'reminder', 'booking_auto_confirmed', 'booking_expired'].includes(notif.type)) {
       targetUrl = bookingId ? `/my-bookings?highlight=${bookingId}` : '/my-bookings'
     } else if (bookingId) {

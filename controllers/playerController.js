@@ -2,11 +2,13 @@ const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
+const Review = require('../models/Review');
 const {
   CHANGE_CUTOFF_HOURS,
   SLOT_BLOCKING_STATUSES,
   getSessionStart,
   getBookingPermissions,
+  canReviewBooking,
 } = require('../config/bookingPolicy');
 
 // ---------------------------------------------------------------------------
@@ -41,14 +43,46 @@ const generateSlots = (open, close) => {
 };
 
 // ---------------------------------------------------------------------------
+// Helper: compute average rating and count from Review collection for one or many venues.
+// Returns a Map<venueId_string, { avg: number|null, count: number }>
+// ---------------------------------------------------------------------------
+const computeVenueRatings = async (venueIds) => {
+  const agg = await Review.aggregate([
+    { $match: { venueId: { $in: venueIds } } },
+    { $group: { _id: '$venueId', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+  ]);
+  const map = new Map();
+  for (const row of agg) {
+    map.set(row._id.toString(), {
+      avg:   Math.round(row.avg * 10) / 10, // 1 decimal
+      count: row.count,
+    });
+  }
+  return map;
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/venues?area=Bayan+Lepas
 // ---------------------------------------------------------------------------
 const getVenues = async (req, res, next) => {
   try {
     const filter = {};
     if (req.query.area) filter.area = req.query.area;
-    const venues = await Venue.find(filter).select('-__v');
-    res.json({ success: true, count: venues.length, data: venues });
+    const venues = await Venue.find(filter).select('-__v -reviews');
+
+    // Attach live ratings
+    const ids = venues.map((v) => v._id);
+    const ratingMap = await computeVenueRatings(ids);
+
+    const data = venues.map((v) => {
+      const plain = v.toObject();
+      const r = ratingMap.get(v._id.toString());
+      plain.rating      = r ? r.avg   : null;
+      plain.reviewCount = r ? r.count : 0;
+      return plain;
+    });
+
+    res.json({ success: true, count: data.length, data });
   } catch (err) {
     next(err);
   }
@@ -59,9 +93,17 @@ const getVenues = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const getVenueById = async (req, res, next) => {
   try {
-    const venue = await Venue.findById(req.params.id).select('-__v');
+    const venue = await Venue.findById(req.params.id).select('-__v -reviews');
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
-    res.json({ success: true, data: venue });
+
+    // Live rating from Review collection
+    const ratingMap = await computeVenueRatings([venue._id]);
+    const plain = venue.toObject();
+    const r = ratingMap.get(venue._id.toString());
+    plain.rating      = r ? r.avg   : null;
+    plain.reviewCount = r ? r.count : 0;
+
+    res.json({ success: true, data: plain });
   } catch (err) {
     next(err);
   }
@@ -185,19 +227,35 @@ const createBooking = async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // GET /api/bookings/me
-// Appends canCancel and canReschedule so the frontend never recalculates the rule.
+// Appends canCancel, canReschedule, canReview, and myReview.
 // ---------------------------------------------------------------------------
 const getMyBookings = async (req, res, next) => {
   try {
-    const bookings = await Booking.find({ playerId: req.user._id })
+    const playerId = req.user._id;
+
+    const bookings = await Booking.find({ playerId })
       .sort({ createdAt: -1 })
       .populate('venueId', 'name area address')
       .populate('courtId', 'courtNumber');
 
+    // Fetch all reviews this player has written (for efficient per-booking lookup)
+    const bookingIds = bookings.map((b) => b._id);
+    const reviews = await Review.find({ bookingId: { $in: bookingIds }, playerId });
+    const reviewsByBookingId = new Map();
+    for (const rev of reviews) {
+      reviewsByBookingId.set(rev.bookingId.toString(), rev);
+    }
+
     const data = bookings.map((b) => {
       const plain = b.toObject();
       const { canCancel, canReschedule } = getBookingPermissions(plain);
-      return { ...plain, canCancel, canReschedule };
+      const existingReview = reviewsByBookingId.get(b._id.toString());
+      const hasReview = Boolean(existingReview);
+      const canReview = canReviewBooking(plain, playerId, hasReview);
+      const myReview  = hasReview
+        ? { rating: existingReview.rating, comment: existingReview.comment }
+        : null;
+      return { ...plain, canCancel, canReschedule, canReview, myReview };
     });
 
     res.json({ success: true, count: data.length, data });
@@ -406,4 +464,116 @@ const uploadReceipt = async (req, res, next) => {
   }
 };
 
-module.exports = { getVenues, getVenueById, getVenueAvailability, createBooking, getMyBookings, cancelBooking, rescheduleBooking, uploadReceipt };
+// ---------------------------------------------------------------------------
+// POST /api/bookings/:id/review  { rating, comment }
+// ---------------------------------------------------------------------------
+const createReview = async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+
+    // Check for existing review first (needed by canReviewBooking)
+    const existingReview = await Review.findOne({ bookingId: booking._id });
+    if (existingReview) {
+      return res.status(409).json({ success: false, message: 'You have already reviewed this booking' });
+    }
+
+    // Eligibility check
+    if (!canReviewBooking(booking.toObject(), req.user._id, false)) {
+      return res.status(400).json({
+        success: false,
+        message: 'This booking cannot be reviewed. It must be a completed session that belongs to you.',
+      });
+    }
+
+    // Validate input
+    const { rating, comment } = req.body;
+    const ratingNum = Number(rating);
+    if (!rating || !Number.isInteger(ratingNum) || ratingNum < 1 || ratingNum > 5) {
+      return res.status(400).json({ success: false, message: 'rating must be an integer between 1 and 5' });
+    }
+    if (comment && comment.trim().length > 500) {
+      return res.status(400).json({ success: false, message: 'comment must not exceed 500 characters' });
+    }
+
+    const review = await Review.create({
+      venueId:   booking.venueId,
+      bookingId: booking._id,
+      playerId:  req.user._id,
+      rating:    ratingNum,
+      comment:   comment ? comment.trim() : '',
+    });
+
+    res.status(201).json({ success: true, data: review });
+  } catch (err) {
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: 'You have already reviewed this booking' });
+    }
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/venues/:id/reviews?page=1
+// Public — newest first, 10 per page. Reviewer shown as "First L." for privacy.
+// ---------------------------------------------------------------------------
+const getVenueReviews = async (req, res, next) => {
+  try {
+    const venue = await Venue.findById(req.params.id).select('_id');
+    if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
+
+    const PAGE_SIZE = 10;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const skip = (page - 1) * PAGE_SIZE;
+
+    const [reviews, total] = await Promise.all([
+      Review.find({ venueId: venue._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(PAGE_SIZE)
+        .populate('playerId', 'fullName'),
+      Review.countDocuments({ venueId: venue._id }),
+    ]);
+
+    const data = reviews.map((r) => {
+      const name = r.playerId?.fullName ?? 'Anonymous';
+      const parts = name.trim().split(' ');
+      const displayName =
+        parts.length >= 2
+          ? `${parts[0]} ${parts[parts.length - 1][0]}.`
+          : parts[0];
+      return {
+        _id:             r._id,
+        rating:          r.rating,
+        comment:         r.comment,
+        date:            r.createdAt,
+        reviewerName:    displayName,
+        verifiedBooking: true,
+      };
+    });
+
+    res.json({
+      success: true,
+      total,
+      page,
+      pages:    Math.ceil(total / PAGE_SIZE),
+      hasMore:  page * PAGE_SIZE < total,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  getVenues,
+  getVenueById,
+  getVenueAvailability,
+  createBooking,
+  getMyBookings,
+  cancelBooking,
+  rescheduleBooking,
+  uploadReceipt,
+  createReview,
+  getVenueReviews,
+};
