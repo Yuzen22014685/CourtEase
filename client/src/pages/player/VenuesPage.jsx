@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import { getVenues } from '../../api/venues'
@@ -15,8 +15,6 @@ import {
 import { StarIcon } from '@heroicons/react/24/solid'
 import { getImageUrl } from '../../utils/format'
 
-const DEFAULT_AREAS = ['Bayan Lepas', 'Georgetown', 'Bukit Mertajam', 'Tanjung Bungah', 'Jelutong', 'Butterworth', 'Seberang Jaya']
-
 const AREA_COLOURS = {
   'Bayan Lepas':     'bg-blue-100 text-blue-700',
   'Georgetown':      'bg-purple-100 text-purple-700',
@@ -30,15 +28,21 @@ const AREA_COLOURS = {
 export default function VenuesPage() {
   const [selectedArea, setSelectedArea] = useState('')
 
-  const fetchFn = useCallback(
-    () => getVenues(selectedArea ? { area: selectedArea } : {}),
-    [selectedArea]
-  )
+  const fetchFn = useCallback(() => getVenues(), [])
+  const { data, loading, error } = useApi(fetchFn, [])
 
-  const { data, loading, error } = useApi(fetchFn, [selectedArea])
+  const allVenues = data?.data ?? []
 
-  const venues = data?.data ?? []
-  const availableAreas = Array.from(new Set([...DEFAULT_AREAS, ...venues.map((v) => v.area)])).filter(Boolean)
+  // Only show areas that have at least one active venue
+  const availableAreas = useMemo(() => {
+    return Array.from(new Set(allVenues.map((v) => v.area).filter(Boolean))).sort()
+  }, [allVenues])
+
+  // Filter venues by selected area
+  const venues = useMemo(() => {
+    if (!selectedArea) return allVenues
+    return allVenues.filter((v) => v.area === selectedArea)
+  }, [allVenues, selectedArea])
 
   return (
     <Layout>

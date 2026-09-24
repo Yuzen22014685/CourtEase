@@ -27,4 +27,11 @@ export const deleteVenuePhoto = (id, photo) =>
   api.delete(`/admin/venues/${id}/photos`, { data: { photo } })
 export const reorderVenuePhotos = (id, photos) =>
   api.patch(`/admin/venues/${id}/photos/order`, { photos })
+export const uploadCourtLayout = (id, formData) =>
+  api.post(`/admin/venues/${id}/layout`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const deleteCourtLayout = (id) =>
+  api.delete(`/admin/venues/${id}/layout`)
+
 

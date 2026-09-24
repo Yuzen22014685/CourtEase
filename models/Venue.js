@@ -27,6 +27,7 @@ const venueSchema = new mongoose.Schema({
   location: { type: locationSchema, default: undefined },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   photos: [{ type: String }],
+  layoutImage: { type: String, default: null },
   facilities: [{ type: String }],
   isActive: { type: Boolean, default: true },
   rating: { type: Number, min: 0, max: 5, default: 0 },

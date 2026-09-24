@@ -333,6 +333,36 @@ export default function VenueDetailPage() {
               </div>
             </div>
 
+            {/* Court layout card */}
+            {venue.layoutImage && (
+              <div className="card p-6 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold text-gray-900">Court layout</h2>
+                  <a
+                    href={getImageUrl(venue.layoutImage)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary-600 hover:text-primary-700 font-medium inline-flex items-center gap-1"
+                  >
+                    Open full size ↗
+                  </a>
+                </div>
+                <a
+                  href={getImageUrl(venue.layoutImage)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-gray-50 rounded-xl border border-gray-100 overflow-hidden hover:opacity-95 transition-opacity cursor-zoom-in"
+                  title="Click to open full size in a new tab"
+                >
+                  <img
+                    src={getImageUrl(venue.layoutImage)}
+                    alt={`${venue.name} Court Layout`}
+                    className="w-full max-h-96 object-contain mx-auto"
+                  />
+                </a>
+              </div>
+            )}
+
             {/* Date picker */}
             <div className="card p-5 mb-6">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">

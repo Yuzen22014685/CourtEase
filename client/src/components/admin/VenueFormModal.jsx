@@ -10,6 +10,8 @@ import {
   uploadVenuePhotos,
   deleteVenuePhoto,
   reorderVenuePhotos,
+  uploadCourtLayout,
+  deleteCourtLayout,
 } from '../../api/admin'
 import {
   PlusIcon,
@@ -20,6 +22,8 @@ import {
   PhotoIcon,
   CheckIcon,
   InformationCircleIcon,
+  MapIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
 
 const DEFAULT_AREAS = [
@@ -89,7 +93,14 @@ export default function VenueFormModal({
   const [photoToDelete, setPhotoToDelete] = useState(null)
   const fileInputRef = useRef(null)
 
-  // Form submit state
+  // Layout image state
+  const [layoutImage, setLayoutImage] = useState(null)
+  const [uploadingLayout, setUploadingLayout] = useState(false)
+  const [layoutError, setLayoutError] = useState(null)
+  const layoutFileInputRef = useRef(null)
+
+  // Form submit state & scroll ref
+  const formTopRef = useRef(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
   const [successNotice, setSuccessNotice] = useState(null)
@@ -102,6 +113,7 @@ export default function VenueFormModal({
     if (!isOpen) {
       setFormError(null)
       setPhotoError(null)
+      setLayoutError(null)
       setSuccessNotice(null)
       setActiveTab('details')
       return
@@ -136,6 +148,7 @@ export default function VenueFormModal({
       setLng(venue.location?.lng != null ? String(venue.location.lng) : '')
       setIsActive(venue.isActive !== false)
       setPhotos(venue.photos || [])
+      setLayoutImage(venue.layoutImage || null)
     } else {
       setCurrentVenueId(null)
       setName('')
@@ -154,6 +167,7 @@ export default function VenueFormModal({
       setLng('')
       setIsActive(true)
       setPhotos([])
+      setLayoutImage(null)
     }
   }, [isOpen, venue])
 
@@ -205,50 +219,55 @@ export default function VenueFormModal({
     setFormError(null)
     setSuccessNotice(null)
 
+    const triggerError = (msg) => {
+      setFormError(msg)
+      formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
     // Validation
     const resolvedArea = isCustomArea ? customArea.trim() : area.trim()
     if (!name.trim()) {
-      setFormError('Venue name is required.')
+      triggerError('Venue name is required.')
       return
     }
     if (!resolvedArea) {
-      setFormError('Venue area is required.')
+      triggerError('Venue area is required.')
       return
     }
     if (!address.trim()) {
-      setFormError('Address is required.')
+      triggerError('Address is required.')
       return
     }
 
     const openMin = toMinutes(openTime)
     const closeMin = toMinutes(closeTime)
     if (openMin === null || closeMin === null) {
-      setFormError('Opening and closing times must be in valid HH:MM format.')
+      triggerError('Opening and closing times must be in valid HH:MM format.')
       return
     }
     if (closeMin <= openMin) {
-      setFormError('Closing time must be after opening time.')
+      triggerError('Closing time must be after opening time.')
       return
     }
 
     const price = Number(pricePerHour)
     if (isNaN(price) || price <= 0) {
-      setFormError('Price per hour must be a valid number greater than 0.')
+      triggerError('Price per hour must be a valid number greater than 0.')
       return
     }
 
     const courts = parseInt(numberOfCourts, 10)
     if (isNaN(courts) || courts < 1 || courts > 20) {
-      setFormError('Number of courts must be between 1 and 20.')
+      triggerError('Number of courts must be between 1 and 20.')
       return
     }
     if (isEdit && venue && courts < venue.numberOfCourts) {
-      setFormError('Courts cannot be removed because they may have bookings.')
+      triggerError('Courts cannot be removed because they may have bookings.')
       return
     }
 
     if (description && description.length > 1000) {
-      setFormError('Description cannot exceed 1000 characters.')
+      triggerError('Description cannot exceed 1000 characters.')
       return
     }
 
@@ -257,7 +276,7 @@ export default function VenueFormModal({
       const latNum = Number(lat)
       const lngNum = Number(lng)
       if (isNaN(latNum) || latNum < -90 || latNum > 90 || isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
-        setFormError('Latitude must be between -90 and 90, and longitude between -180 and 180.')
+        triggerError('Latitude must be between -90 and 90, and longitude between -180 and 180.')
         return
       }
       locationPayload = { lat: latNum, lng: lngNum }
@@ -284,21 +303,78 @@ export default function VenueFormModal({
       if (isEdit) {
         const res = await updateVenue(venue._id, payload)
         const updated = res.data.data
-        setSuccessNotice('Venue details updated successfully!')
         onSaved?.(updated, false)
+        onClose?.()
       } else {
         const res = await createVenue(payload)
         const created = res.data.data
-        setCurrentVenueId(created._id)
-        setSuccessNotice('Venue created successfully! You can now manage photos.')
         onSaved?.(created, true)
-        // Transition to photos tab
-        setActiveTab('photos')
+        onClose?.()
       }
     } catch (err) {
       setFormError(err.response?.data?.message || err.message || 'Failed to save venue.')
+      formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // ── Court Layout management methods ────────────────────────────────────────
+  const handleLayoutUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setLayoutError(null)
+
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setLayoutError('Only JPG and PNG images are allowed for court layout.')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLayoutError('Layout image exceeds the 5MB size limit.')
+      e.target.value = ''
+      return
+    }
+
+    const targetId = currentVenueId || venue?._id
+    if (!targetId) {
+      setLayoutError('Please save the venue details before uploading a court layout.')
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('layout', file)
+
+    setUploadingLayout(true)
+    try {
+      const res = await uploadCourtLayout(targetId, formData)
+      const newLayout = res.data.layoutImage
+      setLayoutImage(newLayout)
+      setSuccessNotice('Court layout image uploaded successfully!')
+      onSaved?.({ ...(venue || {}), _id: targetId, layoutImage: newLayout }, false)
+      if (layoutFileInputRef.current) layoutFileInputRef.current.value = ''
+    } catch (err) {
+      setLayoutError(err.response?.data?.message || 'Failed to upload court layout.')
+    } finally {
+      setUploadingLayout(false)
+    }
+  }
+
+  const handleDeleteLayout = async () => {
+    const targetId = currentVenueId || venue?._id
+    if (!targetId) return
+    setLayoutError(null)
+
+    setUploadingLayout(true)
+    try {
+      await deleteCourtLayout(targetId)
+      setLayoutImage(null)
+      setSuccessNotice('Court layout image removed.')
+      onSaved?.({ ...(venue || {}), _id: targetId, layoutImage: null }, false)
+    } catch (err) {
+      setLayoutError(err.response?.data?.message || 'Failed to remove court layout.')
+    } finally {
+      setUploadingLayout(false)
     }
   }
 
@@ -469,6 +545,7 @@ export default function VenueFormModal({
           {/* TAB 1: DETAILS */}
           {activeTab === 'details' && (
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div ref={formTopRef} />
               <ErrorMessage message={formError} />
 
               {/* Name & Area */}
@@ -938,6 +1015,82 @@ export default function VenueFormModal({
                   })}
                 </div>
               )}
+
+              {/* ── Court Layout Section (separate from photo gallery) ── */}
+              <div className="pt-4 border-t border-gray-100">
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <MapIcon className="h-4 w-4 text-primary-600" />
+                        Court Layout
+                      </h4>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Upload a simple floor plan showing court numbers, entrance and facilities.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={layoutFileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png"
+                        onChange={handleLayoutUpload}
+                        disabled={uploadingLayout}
+                        className="hidden"
+                        id="venue-layout-input"
+                      />
+                      <label
+                        htmlFor="venue-layout-input"
+                        className={`btn-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 cursor-pointer ${
+                          uploadingLayout ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
+                        {uploadingLayout ? (
+                          <>
+                            <Spinner size="sm" />
+                            <span>Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpTrayIcon className="h-3.5 w-3.5" />
+                            <span>{layoutImage ? 'Replace layout' : 'Upload layout'}</span>
+                          </>
+                        )}
+                      </label>
+
+                      {layoutImage && (
+                        <button
+                          type="button"
+                          onClick={handleDeleteLayout}
+                          disabled={uploadingLayout}
+                          className="btn-danger text-xs px-2.5 py-1.5 inline-flex items-center gap-1"
+                          title="Remove court layout"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <ErrorMessage message={layoutError} />
+
+                  {layoutImage ? (
+                    <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-white p-2 flex items-center justify-center">
+                      <img
+                        src={getImageUrl(layoutImage)}
+                        alt="Court layout floor plan"
+                        className="max-h-56 w-auto object-contain rounded"
+                      />
+                    </div>
+                  ) : (
+                    <div className="py-6 px-4 border border-dashed border-gray-200 rounded-lg text-center bg-white text-xs text-gray-400 font-medium">
+                      No layout uploaded
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Close Button in Photos Tab */}
               <div className="pt-4 border-t border-gray-100 flex justify-end">

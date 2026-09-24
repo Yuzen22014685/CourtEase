@@ -455,6 +455,73 @@ const reorderVenuePhotos = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// POST /api/admin/venues/:id/layout
+// Upload or replace court layout image
+// ---------------------------------------------------------------------------
+const uploadCourtLayout = async (req, res, next) => {
+  try {
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) {
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No layout image uploaded' });
+    }
+
+    // Delete previous layout image file if stored locally
+    if (venue.layoutImage && (venue.layoutImage.startsWith('/uploads/') || venue.layoutImage.startsWith('uploads/'))) {
+      const oldFilename = path.basename(venue.layoutImage);
+      const oldPath = path.join(__dirname, '..', 'uploads', oldFilename);
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch (e) { console.error('Failed to unlink old layout image:', e.message); }
+      }
+    }
+
+    venue.layoutImage = '/uploads/' + req.file.filename;
+    await venue.save();
+
+    res.json({ success: true, layoutImage: venue.layoutImage, data: venue.layoutImage });
+  } catch (err) {
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/venues/:id/layout
+// Remove court layout image
+// ---------------------------------------------------------------------------
+const deleteCourtLayout = async (req, res, next) => {
+  try {
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    if (venue.layoutImage && (venue.layoutImage.startsWith('/uploads/') || venue.layoutImage.startsWith('uploads/'))) {
+      const filename = path.basename(venue.layoutImage);
+      const filePath = path.join(__dirname, '..', 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to unlink layout image:', e.message); }
+      }
+    }
+
+    venue.layoutImage = null;
+    await venue.save();
+
+    res.json({ success: true, message: 'Layout image removed' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAdminVenues,
   createVenue,
@@ -462,4 +529,7 @@ module.exports = {
   uploadVenuePhotos,
   deleteVenuePhoto,
   reorderVenuePhotos,
+  uploadCourtLayout,
+  deleteCourtLayout,
 };
+

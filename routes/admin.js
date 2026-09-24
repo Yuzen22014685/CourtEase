@@ -17,6 +17,8 @@ const {
   uploadVenuePhotos,
   deleteVenuePhoto,
   reorderVenuePhotos,
+  uploadCourtLayout,
+  deleteCourtLayout,
 } = require('../controllers/venueAdminController');
 const upload = require('../middleware/upload');
 
@@ -62,5 +64,11 @@ router.delete('/venues/:id/photos', deleteVenuePhoto);
 
 // PATCH /api/admin/venues/:id/photos/order
 router.patch('/venues/:id/photos/order', reorderVenuePhotos);
+
+// POST /api/admin/venues/:id/layout
+router.post('/venues/:id/layout', upload.single('layout'), uploadCourtLayout);
+
+// DELETE /api/admin/venues/:id/layout
+router.delete('/venues/:id/layout', deleteCourtLayout);
 
 module.exports = router;
