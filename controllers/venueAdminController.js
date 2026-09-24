@@ -26,7 +26,7 @@ const toMinutes = (timeStr) => {
  */
 const computeVenueRatings = async (venueIds) => {
   const agg = await Review.aggregate([
-    { $match: { venueId: { $in: venueIds } } },
+    { $match: { venueId: { $in: venueIds }, isHidden: { $ne: true } } },
     { $group: { _id: '$venueId', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
   ]);
   const map = new Map();

@@ -5,6 +5,7 @@ import { getPendingCount } from '../../api/admin'
 import {
   HomeIcon,
   BuildingOffice2Icon,
+  ChatBubbleLeftRightIcon,
   CalendarDaysIcon,
   ChartBarIcon,
   XMarkIcon,
@@ -12,6 +13,7 @@ import {
 import {
   HomeIcon as HomeIconSolid,
   BuildingOffice2Icon as BuildingOffice2IconSolid,
+  ChatBubbleLeftRightIcon as ChatBubbleLeftRightIconSolid,
   CalendarDaysIcon as CalendarDaysIconSolid,
   ChartBarIcon as ChartBarIconSolid,
 } from '@heroicons/react/24/solid'
@@ -28,6 +30,12 @@ const navItems = [
     label: 'Venues',
     icon: BuildingOffice2Icon,
     activeIcon: BuildingOffice2IconSolid,
+  },
+  {
+    to: '/admin/reviews',
+    label: 'Reviews',
+    icon: ChatBubbleLeftRightIcon,
+    activeIcon: ChatBubbleLeftRightIconSolid,
   },
   {
     to: '/admin/bookings',

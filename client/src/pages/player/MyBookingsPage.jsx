@@ -459,13 +459,20 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpen
             </button>
           )}
           {myReview && (
-            <div className="flex items-center gap-1">
-              {[1,2,3,4,5].map((s) => (
-                s <= myReview.rating
-                  ? <StarSolid key={s} className="h-4 w-4 text-amber-400" />
-                  : <StarOutline key={s} className="h-4 w-4 text-amber-300" />
-              ))}
-              <span className="text-xs text-gray-500 ml-1">Your rating</span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1">
+                {[1,2,3,4,5].map((s) => (
+                  s <= myReview.rating
+                    ? <StarSolid key={s} className="h-4 w-4 text-amber-400" />
+                    : <StarOutline key={s} className="h-4 w-4 text-amber-300" />
+                ))}
+                <span className="text-xs text-gray-500 ml-1">Your rating</span>
+              </div>
+              {myReview.isHidden && (
+                <span className="text-xs text-gray-400">
+                  Hidden by admin — {myReview.hiddenReason || 'Review hidden'}
+                </span>
+              )}
             </div>
           )}
 

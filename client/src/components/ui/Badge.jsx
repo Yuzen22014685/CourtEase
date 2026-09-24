@@ -12,6 +12,8 @@ const variants = {
   active:     'bg-green-100 text-green-800',
   inactive:   'bg-gray-100 text-gray-700',
   maintenance:'bg-orange-100 text-orange-800',
+  visible:    'bg-green-100 text-green-800',
+  hidden:     'bg-gray-100 text-gray-700',
 }
 
 const dots = {
@@ -26,6 +28,8 @@ const dots = {
   active:    'bg-green-500',
   inactive:  'bg-gray-400',
   maintenance:'bg-orange-500',
+  visible:   'bg-green-500',
+  hidden:    'bg-gray-400',
 }
 
 export default function Badge({ status, label, className = '' }) {

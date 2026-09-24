@@ -48,7 +48,7 @@ const generateSlots = (open, close) => {
 // ---------------------------------------------------------------------------
 const computeVenueRatings = async (venueIds) => {
   const agg = await Review.aggregate([
-    { $match: { venueId: { $in: venueIds } } },
+    { $match: { venueId: { $in: venueIds }, isHidden: { $ne: true } } },
     { $group: { _id: '$venueId', avg: { $avg: '$rating' }, count: { $sum: 1 } } },
   ]);
   const map = new Map();
@@ -256,7 +256,12 @@ const getMyBookings = async (req, res, next) => {
       const hasReview = Boolean(existingReview);
       const canReview = canReviewBooking(plain, playerId, hasReview);
       const myReview  = hasReview
-        ? { rating: existingReview.rating, comment: existingReview.comment }
+        ? {
+            rating: existingReview.rating,
+            comment: existingReview.comment,
+            isHidden: Boolean(existingReview.isHidden),
+            hiddenReason: existingReview.hiddenReason ?? null,
+          }
         : null;
       return { ...plain, canCancel, canReschedule, canReview, myReview };
     });
@@ -530,12 +535,12 @@ const getVenueReviews = async (req, res, next) => {
     const skip = (page - 1) * PAGE_SIZE;
 
     const [reviews, total] = await Promise.all([
-      Review.find({ venueId: venue._id })
+      Review.find({ venueId: venue._id, isHidden: { $ne: true } })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(PAGE_SIZE)
         .populate('playerId', 'fullName'),
-      Review.countDocuments({ venueId: venue._id }),
+      Review.countDocuments({ venueId: venue._id, isHidden: { $ne: true } }),
     ]);
 
     const data = reviews.map((r) => {

@@ -6,11 +6,16 @@ const reviewSchema = new mongoose.Schema({
   playerId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   rating:    { type: Number, required: true, min: 1, max: 5, integer: true },
   comment:   { type: String, trim: true, maxlength: 500, default: '' },
+  isHidden:     { type: Boolean, default: false },
+  hiddenReason: { type: String, trim: true, maxlength: 300, default: null },
+  hiddenAt:     { type: Date, default: null },
+  hiddenBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   createdAt: { type: Date, default: Date.now },
 });
 
 // Fast lookups
 reviewSchema.index({ venueId: 1, createdAt: -1 });
 reviewSchema.index({ playerId: 1 });
+reviewSchema.index({ isHidden: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Review', reviewSchema);

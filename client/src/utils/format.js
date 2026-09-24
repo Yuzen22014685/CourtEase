@@ -22,6 +22,22 @@ export const formatTime = (timeStr) => {
   return date.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
+/** Format an ISO date/timestamp string to Malaysia time (e.g. "24 Sept 2026, 3:45 pm") */
+export const formatDateTime = (dateValue) => {
+  if (!dateValue) return '—'
+  const date = new Date(dateValue)
+  if (isNaN(date.getTime())) return '—'
+  return date.toLocaleString('en-MY', {
+    timeZone: 'Asia/Kuala_Lumpur',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
 /** Get today as YYYY-MM-DD in local time */
 export const todayString = () => {
   const d = new Date()

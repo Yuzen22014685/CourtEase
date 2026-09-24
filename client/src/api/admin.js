@@ -34,4 +34,9 @@ export const uploadCourtLayout = (id, formData) =>
 export const deleteCourtLayout = (id) =>
   api.delete(`/admin/venues/${id}/layout`)
 
+// Review moderation
+export const getAdminReviews = (params) => api.get('/admin/reviews', { params })
+export const hideReview = (id, reason) => api.patch(`/admin/reviews/${id}/hide`, { reason })
+export const restoreReview = (id) => api.patch(`/admin/reviews/${id}/restore`)
+
 

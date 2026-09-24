@@ -20,6 +20,11 @@ const {
   uploadCourtLayout,
   deleteCourtLayout,
 } = require('../controllers/venueAdminController');
+const {
+  getAdminReviews,
+  hideReview,
+  restoreReview,
+} = require('../controllers/reviewAdminController');
 const upload = require('../middleware/upload');
 
 // All admin routes require JWT + admin role
@@ -70,5 +75,15 @@ router.post('/venues/:id/layout', upload.single('layout'), uploadCourtLayout);
 
 // DELETE /api/admin/venues/:id/layout
 router.delete('/venues/:id/layout', deleteCourtLayout);
+
+// ─── Review Moderation ────────────────────────────────────────────────────────
+// GET /api/admin/reviews
+router.get('/reviews', getAdminReviews);
+
+// PATCH /api/admin/reviews/:id/hide
+router.patch('/reviews/:id/hide', hideReview);
+
+// PATCH /api/admin/reviews/:id/restore
+router.patch('/reviews/:id/restore', restoreReview);
 
 module.exports = router;
