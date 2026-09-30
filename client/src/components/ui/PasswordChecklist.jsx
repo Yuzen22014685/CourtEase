@@ -1,22 +1,26 @@
+// Keep in sync with utils/validatePassword.js
 export const checkPasswordValidity = (password = '') => {
   const hasMinLength = password.length >= 8
   const hasLetter    = /[a-zA-Z]/.test(password)
   const hasNumber    = /[0-9]/.test(password)
+  const hasSymbol    = /[^A-Za-z0-9\s]/.test(password)
   return {
     hasMinLength,
     hasLetter,
     hasNumber,
-    isValid: hasMinLength && hasLetter && hasNumber,
+    hasSymbol,
+    isValid: hasMinLength && hasLetter && hasNumber && hasSymbol,
   }
 }
 
 export default function PasswordChecklist({ password = '', className = '' }) {
-  const { hasMinLength, hasLetter, hasNumber } = checkPasswordValidity(password)
+  const { hasMinLength, hasLetter, hasNumber, hasSymbol } = checkPasswordValidity(password)
 
   const rules = [
     { label: 'At least 8 characters', met: hasMinLength },
     { label: 'Contains a letter', met: hasLetter },
     { label: 'Contains a number', met: hasNumber },
+    { label: 'Contains a symbol (e.g. ! @ # $)', met: hasSymbol },
   ]
 
   return (
