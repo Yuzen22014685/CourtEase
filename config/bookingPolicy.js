@@ -63,25 +63,46 @@ const canReviewBooking = (booking, playerId, hasReview) => {
 };
 
 /**
+ * Controls whether players may cancel bookings without receiving a refund.
+ * If true: players may cancel any pending or confirmed booking up until session start.
+ * If false: cancel option is hidden and server rejects cancellation requests.
+ * NOTE: If this flag is changed, update the cancellation T&C bullet in client/src/pages/player/VenueDetailPage.jsx.
+ */
+const ALLOW_CANCEL_WITHOUT_REFUND = true;
+
+/**
  * Determine what self-service actions a player may perform on a booking.
  * @param {object} booking - Mongoose document or plain object
- * @returns {{ canCancel: boolean, canReschedule: boolean }}
+ * @returns {{ canCancel: boolean, canReschedule: boolean, rescheduleBlockedReason: string|null }}
  */
 const getBookingPermissions = (booking) => {
   const statusOk = ['pending', 'confirmed'].includes(booking.status);
-  if (!statusOk) return { canCancel: false, canReschedule: false };
+  if (!statusOk) return { canCancel: false, canReschedule: false, rescheduleBlockedReason: null };
 
   const sessionStart = getSessionStart(booking);
-  const hoursUntil = (sessionStart - new Date()) / (1000 * 60 * 60);
+  const now = new Date();
+  const sessionHasStarted = sessionStart <= now;
+  const hoursUntil = (sessionStart - now) / (1000 * 60 * 60);
   const withinWindow = hoursUntil > CHANGE_CUTOFF_HOURS;
+  const rescheduleCount = booking.rescheduleCount || 0;
 
-  const canCancel = withinWindow;
-  const canReschedule = withinWindow && (booking.rescheduleCount || 0) < MAX_RESCHEDULES;
+  const canCancel = ALLOW_CANCEL_WITHOUT_REFUND && !sessionHasStarted;
+  const canReschedule = !sessionHasStarted && withinWindow && rescheduleCount < MAX_RESCHEDULES;
 
-  return { canCancel, canReschedule };
+  let rescheduleBlockedReason = null;
+  if (sessionHasStarted) {
+    rescheduleBlockedReason = null;
+  } else if (rescheduleCount >= MAX_RESCHEDULES) {
+    rescheduleBlockedReason = 'This booking has already been rescheduled once.';
+  } else if (!withinWindow) {
+    rescheduleBlockedReason = 'Rescheduling closes 24 hours before your session.';
+  }
+
+  return { canCancel, canReschedule, rescheduleBlockedReason };
 };
 
 module.exports = {
+  ALLOW_CANCEL_WITHOUT_REFUND,
   CHANGE_CUTOFF_HOURS,
   MAX_RESCHEDULES,
   SLOT_BLOCKING_STATUSES,

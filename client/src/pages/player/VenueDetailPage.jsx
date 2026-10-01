@@ -866,23 +866,17 @@ function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPayment
         </p>
         <ul className="space-y-2 text-sm text-gray-600">
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-primary-500 shrink-0">✓</span>
-            <span>
-              <span className="font-medium text-gray-800">Cancel or reschedule:</span>{' '}
-              You may cancel any booking for a full refund, or reschedule once, provided the
-              change is made{' '}
-              <span className="font-medium text-gray-800">more than 24 hours</span> before
-              the session's start time.
-            </span>
+            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+            <span>All bookings are non-refundable.</span>
           </li>
           <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-red-400 shrink-0">✕</span>
-            <span>
-              <span className="font-medium text-gray-800">No changes within 24 hours:</span>{' '}
-              Bookings cannot be cancelled or rescheduled within 24 hours of the session. The
-              booking fee will be{' '}
-              <span className="font-medium text-gray-800">forfeited</span>.
-            </span>
+            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+            <span>You can reschedule a booking once, up to 24 hours before the session starts (same venue, same duration).</span>
+          </li>
+          {/* Remove if ALLOW_CANCEL_WITHOUT_REFUND is set to false in config/bookingPolicy.js */}
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+            <span>You can cancel a booking any time before the session starts, but the booking fee will not be refunded.</span>
           </li>
         </ul>
 

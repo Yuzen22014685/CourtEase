@@ -4,6 +4,7 @@ const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const Review = require('../models/Review');
 const {
+  ALLOW_CANCEL_WITHOUT_REFUND,
   CHANGE_CUTOFF_HOURS,
   SLOT_BLOCKING_STATUSES,
   getSessionStart,
@@ -251,7 +252,7 @@ const getMyBookings = async (req, res, next) => {
 
     const data = bookings.map((b) => {
       const plain = b.toObject();
-      const { canCancel, canReschedule } = getBookingPermissions(plain);
+      const { canCancel, canReschedule, rescheduleBlockedReason } = getBookingPermissions(plain);
       const existingReview = reviewsByBookingId.get(b._id.toString());
       const hasReview = Boolean(existingReview);
       const canReview = canReviewBooking(plain, playerId, hasReview);
@@ -263,7 +264,7 @@ const getMyBookings = async (req, res, next) => {
             hiddenReason: existingReview.hiddenReason ?? null,
           }
         : null;
-      return { ...plain, canCancel, canReschedule, canReview, myReview };
+      return { ...plain, canCancel, canReschedule, rescheduleBlockedReason, canReview, myReview };
     });
 
     res.json({ success: true, count: data.length, data });
@@ -274,7 +275,7 @@ const getMyBookings = async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // PATCH /api/bookings/:id/cancel
-// Cancellation policy: only if more than CHANGE_CUTOFF_HOURS (24h) before start.
+// Cancellation policy: allowed before session starts when ALLOW_CANCEL_WITHOUT_REFUND is true.
 // ---------------------------------------------------------------------------
 const cancelBooking = async (req, res, next) => {
   try {
@@ -292,9 +293,12 @@ const cancelBooking = async (req, res, next) => {
 
     const { canCancel } = getBookingPermissions(booking);
     if (!canCancel) {
+      if (!ALLOW_CANCEL_WITHOUT_REFUND) {
+        return res.status(400).json({ success: false, message: 'Cancellation is not permitted.' });
+      }
       return res.status(400).json({
         success: false,
-        message: 'Bookings can only be cancelled more than 24 hours before the session starts.',
+        message: 'Bookings cannot be cancelled once the session has started.',
       });
     }
 

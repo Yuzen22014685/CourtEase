@@ -9,10 +9,9 @@ import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import SkeletonCard from '../../components/ui/SkeletonCard'
-import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import Modal from '../../components/ui/Modal'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
-import { formatCurrency, formatDate, formatTime, isUpcoming, todayString } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, isUpcoming } from '../../utils/format'
 import clsx from 'clsx'
 import {
   CalendarDaysIcon,
@@ -58,6 +57,7 @@ export default function MyBookingsPage() {
   const [uploadModalBookingId, setUploadModalBookingId] = useState(null)
   const [rescheduleModalBookingId, setRescheduleModalBookingId] = useState(null)
   const [reviewModalBookingId, setReviewModalBookingId] = useState(null)
+  const [cancelModalBookingId, setCancelModalBookingId] = useState(null)
   const [infoToast, setInfoToast] = useState('')
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -148,6 +148,9 @@ export default function MyBookingsPage() {
   const reviewTargetBooking = reviewModalBookingId
     ? bookings.find((b) => b._id === reviewModalBookingId)
     : null
+  const cancelTargetBooking = cancelModalBookingId
+    ? bookings.find((b) => b._id === cancelModalBookingId)
+    : null
 
   return (
     <Layout>
@@ -212,9 +215,8 @@ export default function MyBookingsPage() {
                 key={booking._id}
                 booking={booking}
                 isHighlighted={highlightedBookingId === booking._id}
-                onCancelled={refetch}
                 onOpenUpload={setUploadModalBookingId}
-                onOpenReschedule={setRescheduleModalBookingId}
+                onOpenCancel={setCancelModalBookingId}
                 onOpenReview={setReviewModalBookingId}
               />
             ))}
@@ -311,6 +313,25 @@ export default function MyBookingsPage() {
           )}
         </Modal>
 
+        {/* Page-level Cancel Options Modal */}
+        {cancelTargetBooking && (
+          <CancelOptionsModal
+            booking={cancelTargetBooking}
+            isOpen={Boolean(cancelModalBookingId)}
+            onClose={() => setCancelModalBookingId(null)}
+            onOpenReschedule={(bookingId) => {
+              setCancelModalBookingId(null)
+              setRescheduleModalBookingId(bookingId)
+            }}
+            onSuccess={() => {
+              setCancelModalBookingId(null)
+              setInfoToast('Booking cancelled')
+              setTimeout(() => setInfoToast(''), 3500)
+              refetch()
+            }}
+          />
+        )}
+
         {/* Info Toast */}
         {infoToast && (
           <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-gray-900/95 backdrop-blur text-white text-sm px-4 py-3 rounded-xl shadow-xl border border-gray-800 animate-fadeIn">
@@ -326,38 +347,15 @@ export default function MyBookingsPage() {
 // ---------------------------------------------------------------------------
 // Booking Card
 // ---------------------------------------------------------------------------
-function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpenReschedule, onOpenReview }) {
-  const [cancelling, setCancelling] = useState(false)
-  const [cancelError, setCancelError] = useState('')
-  const [cancelSuccess, setCancelSuccess] = useState(false)
-  const [confirmOpen, setConfirmOpen] = useState(false)
-
+function BookingCard({ booking, isHighlighted, onOpenUpload, onOpenCancel, onOpenReview }) {
   // canCancel and canReschedule are server-computed and returned by GET /api/bookings/me
-  const canCancel    = booking.canCancel
+  const canCancel     = booking.canCancel
   const canReschedule = booking.canReschedule
-  const canReview    = booking.canReview
-  const myReview     = booking.myReview
+  const canReview     = booking.canReview
+  const myReview      = booking.myReview
   const venueName = booking.venueId?.name ?? '—'
   const courtNum  = booking.courtId?.courtNumber ?? '—'
   const isPendingWithoutReceipt = booking.status === 'pending' && !booking.receiptImage
-
-  const executeCancel = async () => {
-    setConfirmOpen(false)
-    setCancelling(true)
-    setCancelError('')
-    try {
-      await cancelBooking(booking._id)
-      setCancelSuccess(true)
-      setTimeout(() => {
-        setCancelSuccess(false)
-        onCancelled()
-      }, 2000)
-    } catch (err) {
-      setCancelError(err.response?.data?.message || 'Failed to cancel booking.')
-    } finally {
-      setCancelling(false)
-    }
-  }
 
   return (
     <div
@@ -418,37 +416,20 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpen
             </p>
           )}
 
-          {/* Action buttons row */}
-          {!cancelSuccess && (canCancel || canReschedule) && (
-            <div className="flex items-center gap-2">
-              {canReschedule && (
-                <button
-                  id={`reschedule-booking-${booking._id}`}
-                  onClick={() => onOpenReschedule(booking._id)}
-                  className="btn-secondary btn-sm flex items-center gap-1.5"
-                >
-                  <ArrowPathIcon className="h-4 w-4" />
-                  Reschedule
-                </button>
-              )}
-              {canCancel && (
-                <button
-                  id={`cancel-booking-${booking._id}`}
-                  onClick={() => setConfirmOpen(true)}
-                  disabled={cancelling}
-                  className="btn-danger btn-sm flex items-center gap-1.5"
-                >
-                  {cancelling
-                    ? <Spinner size="sm" />
-                    : <XCircleIcon className="h-4 w-4" />}
-                  {cancelling ? 'Cancelling…' : 'Cancel'}
-                </button>
-              )}
-            </div>
+          {/* Action buttons row: single Cancel button when canCancel || canReschedule */}
+          {(canCancel || canReschedule) && (
+            <button
+              id={`cancel-booking-${booking._id}`}
+              onClick={() => onOpenCancel(booking._id)}
+              className="btn-danger btn-sm flex items-center gap-1.5"
+            >
+              <XCircleIcon className="h-4 w-4" />
+              Cancel
+            </button>
           )}
 
           {/* Review: show button if canReview, show stars if already reviewed */}
-          {canReview && !cancelSuccess && (
+          {canReview && (
             <button
               id={`review-booking-${booking._id}`}
               onClick={() => onOpenReview(booking._id)}
@@ -492,40 +473,142 @@ function BookingCard({ booking, isHighlighted, onCancelled, onOpenUpload, onOpen
               Receipt uploaded
             </div>
           )}
-
-          {cancelSuccess && (
-            <div className="flex items-center gap-1.5 text-green-600 text-sm font-medium">
-              <CheckCircleIcon className="h-4 w-4" />
-              Cancelled
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Cancel error */}
-      {cancelError && (
-        <div className="mt-4">
-          <ErrorMessage message={cancelError} />
-        </div>
-      )}
 
       {/* Receipt ID */}
       <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
         <span className="text-xs text-gray-400">Receipt: <span className="font-mono">{booking.receiptId}</span></span>
         <Badge status={booking.paymentStatus} />
       </div>
-
-      <ConfirmDialog
-        isOpen={confirmOpen}
-        title="Cancel Booking"
-        message="Are you sure you want to cancel this booking?"
-        confirmText="Yes, Cancel"
-        cancelText="No, Keep It"
-        confirmVariant="danger"
-        onConfirm={executeCancel}
-        onCancel={() => setConfirmOpen(false)}
-      />
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Cancel Options Modal
+// ---------------------------------------------------------------------------
+function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSuccess }) {
+  const [step, setStep] = useState(1)
+  const [cancelling, setCancelling] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1)
+      setCancelling(false)
+      setError('')
+    }
+  }, [isOpen])
+
+  if (!booking) return null
+
+  const handleConfirmCancellation = async () => {
+    setCancelling(true)
+    setError('')
+    try {
+      await cancelBooking(booking._id)
+      onSuccess()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel booking.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const handleRescheduleClick = () => {
+    onClose()
+    onOpenReschedule(booking._id)
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Cancel booking?" size="md">
+      {step === 1 ? (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            CourtEase bookings are non-refundable. You can reschedule instead.
+          </p>
+
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <button
+                type="button"
+                id="cancel-modal-reschedule-btn"
+                disabled={!booking.canReschedule}
+                onClick={handleRescheduleClick}
+                className="btn-primary w-full flex items-center justify-center gap-1.5"
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                Reschedule
+              </button>
+              {!booking.canReschedule && booking.rescheduleBlockedReason && (
+                <p className="text-xs text-gray-500 text-center">
+                  {booking.rescheduleBlockedReason}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              id="cancel-modal-keep-btn"
+              onClick={onClose}
+              className="btn-secondary w-full flex items-center justify-center"
+            >
+              Keep booking
+            </button>
+
+            {booking.canCancel && (
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  id="cancel-modal-cancel-link"
+                  onClick={() => {
+                    setError('')
+                    setStep(2)
+                  }}
+                  className="text-xs text-red-600 hover:text-red-700 underline font-medium cursor-pointer"
+                >
+                  Cancel anyway (no refund)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            You will not receive a refund. Cancel this booking?
+          </p>
+
+          {error && <ErrorMessage message={error} />}
+
+          <div className="flex items-center gap-3 pt-2">
+            <button
+              type="button"
+              id="cancel-modal-back-btn"
+              disabled={cancelling}
+              onClick={() => {
+                setError('')
+                setStep(1)
+              }}
+              className="btn-secondary flex-1"
+            >
+              No, go back
+            </button>
+            <button
+              type="button"
+              id="cancel-modal-confirm-btn"
+              disabled={cancelling}
+              onClick={handleConfirmCancellation}
+              className="btn-danger flex-1 flex items-center justify-center gap-1.5"
+            >
+              {cancelling && <Spinner size="sm" />}
+              {cancelling ? 'Cancelling…' : 'Confirm cancellation'}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
   )
 }
 
