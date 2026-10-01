@@ -77,13 +77,21 @@ const getAllBookings = async (req, res, next) => {
     if (req.query.venueId) filter.venueId = req.query.venueId;
     if (req.query.date) filter.date = req.query.date;
 
+    const { sortBy } = req.query;
+    let mongoSort = { createdAt: -1 };
+    if (sortBy === 'session') {
+      mongoSort = { date: -1, startTime: -1, createdAt: -1 };
+    } else if (sortBy === 'recent') {
+      mongoSort = { updatedAt: -1, createdAt: -1 };
+    }
+
     const bookings = await Booking.find(filter)
-      .sort({ createdAt: -1 })
+      .sort(mongoSort)
       .populate('playerId', 'fullName email phone')
       .populate('venueId', 'name area')
       .populate('courtId', 'courtNumber');
 
-    if (req.query.sortBy === 'priority') {
+    if (sortBy === 'priority') {
       bookings.sort(sortByAdminPriority);
     }
 

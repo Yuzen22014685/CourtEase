@@ -36,8 +36,7 @@ const bookingSchema = new mongoose.Schema({
     endTime:   { type: String },
     courtId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
   },
-  createdAt: { type: Date, default: Date.now },
-});
+}, { timestamps: true });
 
 // Index for fast lookup by player and venue
 bookingSchema.index({ playerId: 1, createdAt: -1 });

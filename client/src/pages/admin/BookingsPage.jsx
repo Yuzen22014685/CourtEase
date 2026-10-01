@@ -16,7 +16,7 @@ const PAGE_SIZE = 20
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
 export default function AdminBookingsPage() {
-  const [filters, setFilters] = useState({ venueId: '', date: '', status: '' })
+  const [filters, setFilters] = useState({ venueId: '', date: '', status: '', sortBy: 'priority' })
   const [page, setPage]       = useState(1)
   const [actionMessage, setActionMessage] = useState(null)
   const [actionError, setActionError]     = useState(null)
@@ -34,7 +34,7 @@ export default function AdminBookingsPage() {
 
   // Bookings
   const fetchFn = useCallback(() => {
-    const params = { sortBy: 'priority' }
+    const params = { sortBy: filters.sortBy || 'priority' }
     if (filters.venueId) params.venueId = filters.venueId
     if (filters.date)    params.date    = filters.date
     if (filters.status)  params.status  = filters.status
@@ -52,7 +52,7 @@ export default function AdminBookingsPage() {
   }
 
   const clearFilters = () => {
-    setFilters({ venueId: '', date: '', status: '' })
+    setFilters({ venueId: '', date: '', status: '', sortBy: 'priority' })
     setPage(1)
   }
 
@@ -112,7 +112,7 @@ export default function AdminBookingsPage() {
     }
   }
 
-  const hasFilters = filters.venueId || filters.date || filters.status
+  const hasFilters = filters.venueId || filters.date || filters.status || (filters.sortBy && filters.sortBy !== 'priority')
 
   return (
     <AdminLayout>
@@ -144,7 +144,7 @@ export default function AdminBookingsPage() {
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="label text-xs" htmlFor="filter-venue">Venue</label>
               <select id="filter-venue" name="venueId" value={filters.venueId}
@@ -171,6 +171,15 @@ export default function AdminBookingsPage() {
                 <option value="pending">Pending</option>
                 <option value="rejected">Rejected</option>
                 <option value="expired">Expired</option>
+              </select>
+            </div>
+            <div>
+              <label className="label text-xs" htmlFor="filter-sort">Sort by</label>
+              <select id="filter-sort" name="sortBy" value={filters.sortBy}
+                      onChange={handleFilterChange} className="select text-sm">
+                <option value="priority">Priority (pending first)</option>
+                <option value="recent">Recently updated</option>
+                <option value="session">Session date (newest first)</option>
               </select>
             </div>
           </div>
