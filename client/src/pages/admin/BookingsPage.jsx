@@ -34,7 +34,7 @@ export default function AdminBookingsPage() {
 
   // Bookings
   const fetchFn = useCallback(() => {
-    const params = {}
+    const params = { sortBy: 'priority' }
     if (filters.venueId) params.venueId = filters.venueId
     if (filters.date)    params.date    = filters.date
     if (filters.status)  params.status  = filters.status

@@ -11,6 +11,25 @@ const toMinutes = (timeStr) => {
 };
 
 // ---------------------------------------------------------------------------
+// Sorts bookings: pending first, then session date descending, startTime descending, createdAt descending
+// ---------------------------------------------------------------------------
+const sortByAdminPriority = (a, b) => {
+  const aRank = a.status === 'pending' ? 0 : 1;
+  const bRank = b.status === 'pending' ? 0 : 1;
+  if (aRank !== bRank) return aRank - bRank;
+
+  const dateDiff = (b.date || '').localeCompare(a.date || '');
+  if (dateDiff !== 0) return dateDiff;
+
+  const timeDiff = (b.startTime || '').localeCompare(a.startTime || '');
+  if (timeDiff !== 0) return timeDiff;
+
+  const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+  return bCreated - aCreated;
+};
+
+// ---------------------------------------------------------------------------
 // Shared helper: build the Mongo filter for analytics queries.
 // Includes only active bookings (pending / confirmed / completed),
 // within [sinceStr, todayStr] on the booking date field.
@@ -38,7 +57,7 @@ const getPendingCount = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// GET /api/admin/bookings?status=&venueId=&date=
+// GET /api/admin/bookings?status=&venueId=&date=&sortBy=
 // ---------------------------------------------------------------------------
 const getAllBookings = async (req, res, next) => {
   try {
@@ -52,6 +71,10 @@ const getAllBookings = async (req, res, next) => {
       .populate('playerId', 'fullName email phone')
       .populate('venueId', 'name area')
       .populate('courtId', 'courtNumber');
+
+    if (req.query.sortBy === 'priority') {
+      bookings.sort(sortByAdminPriority);
+    }
 
     res.json({ success: true, count: bookings.length, data: bookings });
   } catch (err) {
