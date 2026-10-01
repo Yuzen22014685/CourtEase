@@ -299,7 +299,7 @@ const rejectBooking = async (req, res, next) => {
     }
 
     booking.status = 'rejected';
-    booking.paymentStatus = 'refunded';
+    booking.paymentStatus = 'not_verified';
     booking.rejectionReason = trimmedReason.slice(0, 300);
     await booking.save();
 
@@ -307,10 +307,10 @@ const rejectBooking = async (req, res, next) => {
       playerId: booking.playerId,
       bookingId: booking._id,
       type: 'booking_rejected',
-      message: `Your booking for ${booking.venueId.name} on ${booking.date} at ${booking.startTime} was rejected and your payment has been refunded. Reason: ${trimmedReason}`,
+      message: `Your booking for ${booking.venueId.name} on ${booking.date} at ${booking.startTime} was rejected because the payment could not be verified. Reason: ${trimmedReason}`,
     });
 
-    res.json({ success: true, message: 'Booking rejected and refunded', data: booking });
+    res.json({ success: true, message: 'Booking rejected', data: booking });
   } catch (err) {
     next(err);
   }

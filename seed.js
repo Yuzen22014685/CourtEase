@@ -209,7 +209,7 @@ const seed = async () => {
       usedSlots.add(slotKey);
 
       const status = pick(statuses);
-      const paymentStatus = status === 'cancelled' ? 'refunded' : 'paid';
+      const paymentStatus = 'paid';
       const amount = venue.pricePerHour * duration;
 
       const booking = await Booking.create({

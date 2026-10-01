@@ -181,7 +181,7 @@ const runPendingSafetyNet = async () => {
       } else {
         // No receipt → expire
         booking.status = 'expired';
-        booking.paymentStatus = 'refunded';
+        booking.paymentStatus = 'not_verified';
         await booking.save();
         try {
           await Notification.create({

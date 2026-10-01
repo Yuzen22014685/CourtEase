@@ -15,7 +15,8 @@ const bookingSchema = new mongoose.Schema({
   autoConfirmed: { type: Boolean, default: false },
   paymentStatus: {
     type: String,
-    enum: ['paid', 'refunded', 'pending'],
+    // 'refunded' is a legacy value kept only so old records stay valid; no code may write it.
+    enum: ['paid', 'pending', 'not_verified', 'refunded'],
     default: 'pending',
   },
   paymentMethod: {

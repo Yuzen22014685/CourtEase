@@ -8,6 +8,8 @@ const variants = {
   cancelled:  'bg-red-100 text-red-700',
   expired:    'bg-gray-100 text-gray-600',
   refunded:   'bg-gray-100 text-gray-600',
+  not_verified: 'bg-orange-50 text-orange-700',
+  'not verified': 'bg-orange-50 text-orange-700',
   paid:       'bg-blue-100 text-blue-800',
   active:     'bg-green-100 text-green-800',
   inactive:   'bg-gray-100 text-gray-700',
@@ -24,6 +26,8 @@ const dots = {
   cancelled: 'bg-red-500',
   expired:   'bg-gray-400',
   refunded:  'bg-gray-400',
+  not_verified: 'bg-orange-400',
+  'not verified': 'bg-orange-400',
   paid:      'bg-blue-500',
   active:    'bg-green-500',
   inactive:  'bg-gray-400',
@@ -32,9 +36,14 @@ const dots = {
   hidden:    'bg-gray-400',
 }
 
+const customLabels = {
+  not_verified: 'Not verified',
+  'not verified': 'Not verified',
+}
+
 export default function Badge({ status, label, className = '' }) {
   const key = (status || '').toLowerCase()
-  const text = label || (status ? status.charAt(0).toUpperCase() + status.slice(1) : '—')
+  const text = label || customLabels[key] || (status ? status.charAt(0).toUpperCase() + status.slice(1) : '—')
 
   return (
     <span className={clsx('badge', variants[key] ?? 'bg-gray-100 text-gray-600', className)}>

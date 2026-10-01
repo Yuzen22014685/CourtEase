@@ -299,10 +299,9 @@ const cancelBooking = async (req, res, next) => {
     }
 
     booking.status = 'cancelled';
-    booking.paymentStatus = 'refunded';
     await booking.save();
 
-    res.json({ success: true, message: 'Booking cancelled and refund initiated', data: booking });
+    res.json({ success: true, message: 'Booking cancelled', data: booking });
   } catch (err) {
     next(err);
   }

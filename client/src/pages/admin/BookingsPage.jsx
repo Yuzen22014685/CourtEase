@@ -100,7 +100,7 @@ export default function AdminBookingsPage() {
     setModalError(null)
     try {
       await rejectBooking(reviewBooking._id, trimmed)
-      setActionMessage('Booking rejected and refunded successfully!')
+      setActionMessage('Booking rejected.')
       refetch()
       closeReview()
       window.dispatchEvent(new Event('pending-count-changed'))

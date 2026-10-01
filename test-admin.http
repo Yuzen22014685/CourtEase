@@ -26,7 +26,7 @@ PATCH {{baseUrl}}/admin/bookings/6aa11cc8b47aca4bd249c9c8/approve
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNCIsImlhdCI6MTc4ODk1MTg1NiwiZXhwIjoxNzkxNTQzODU2fQ.UWknacHRGog_NEKhcYkqTDv8tGPjWRN9AEY3ATblvmw
 
 ###
-# TEST 2 - Should return 200 - reject a pending booking and refund payment
+# TEST 2 - Should return 200 - reject a pending booking (requires a reason)
 # STOP: paste a NEW pending booking's ID here before sending (see instructions after Test 1)
 PATCH {{baseUrl}}/admin/bookings/6aa17c3cf43b539844c6c2c9/reject
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhOTg0OGUzNDc5NDllM2Q5MWU1MWJmNCIsImlhdCI6MTc4ODk1MTg1NiwiZXhwIjoxNzkxNTQzODU2fQ.UWknacHRGog_NEKhcYkqTDv8tGPjWRN9AEY3ATblvmw
