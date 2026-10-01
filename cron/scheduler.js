@@ -1,12 +1,72 @@
 const cron = require('node-cron');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
-const { getSessionStart } = require('../config/bookingPolicy');
+const { getSessionStart, getSessionEnd } = require('../config/bookingPolicy');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "YYYY-MM-DDTHH:MM:00+08:00" from booking date + time
 // ---------------------------------------------------------------------------
 const toBookingDate = (date, time) => new Date(`${date}T${time}:00+08:00`);
+
+// ---------------------------------------------------------------------------
+// Catch-up / completion helper: mark confirmed bookings whose session ended as completed
+// ---------------------------------------------------------------------------
+const completePastBookings = async () => {
+  try {
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const todayStr = new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const confirmedBookings = await Booking.find({
+      status: 'confirmed',
+      date: { $lte: todayStr },
+    });
+
+    let completedCount = 0;
+    let feedbackCount = 0;
+
+    for (const booking of confirmedBookings) {
+      const endDt = getSessionEnd(booking);
+      if (endDt > now) continue;
+
+      const result = await Booking.updateOne(
+        { _id: booking._id, status: 'confirmed' },
+        { status: 'completed' }
+      );
+
+      if (result.modifiedCount === 1) {
+        completedCount++;
+
+        if (endDt >= twentyFourHoursAgo) {
+          const exists = await Notification.findOne({
+            bookingId: booking._id,
+            type: 'feedback_request',
+          });
+
+          if (!exists) {
+            try {
+              await Notification.create({
+                playerId: booking.playerId,
+                bookingId: booking._id,
+                type: 'feedback_request',
+                message: `How was your game on ${booking.date}? Tap to rate & review your experience.`,
+              });
+              feedbackCount++;
+            } catch (notifErr) {
+              if (notifErr.code !== 11000) throw notifErr;
+            }
+          }
+        }
+      }
+    }
+
+    if (completedCount > 0) {
+      console.log(`[cron] completed ${completedCount} past bookings (${feedbackCount} feedback requests sent)`);
+    }
+  } catch (err) {
+    console.error('[cron] completePastBookings error:', err.message);
+  }
+};
 
 // ---------------------------------------------------------------------------
 // CRON 1: Every 5 minutes — send reminder if booking starts in ~60 minutes
@@ -51,45 +111,10 @@ const reminderJob = cron.schedule('*/5 * * * *', async () => {
 }, { scheduled: false });
 
 // ---------------------------------------------------------------------------
-// CRON 2: Every 5 minutes — send feedback_request when a session just ended
+// CRON 2: Every 5 minutes — mark past confirmed bookings as completed & request feedback
 // ---------------------------------------------------------------------------
 const feedbackJob = cron.schedule('*/5 * * * *', async () => {
-  try {
-    const now = new Date();
-    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
-
-    const todayStr = now.toISOString().split('T')[0];
-    const yesterdayStr = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const recentBookings = await Booking.find({
-      date: { $in: [todayStr, yesterdayStr] },
-      status: { $in: ['confirmed', 'completed'] },
-    });
-
-    for (const booking of recentBookings) {
-      const endDt = toBookingDate(booking.date, booking.endTime);
-
-      // endTime passed within the last 5 minutes
-      if (endDt <= now && endDt >= fiveMinutesAgo) {
-        // Check if a feedback notification already exists
-        const exists = await Notification.findOne({ bookingId: booking._id, type: 'feedback_request' });
-        if (!exists) {
-          // Mark booking as completed
-          await Booking.findByIdAndUpdate(booking._id, { status: 'completed' });
-
-          await Notification.create({
-            playerId: booking.playerId,
-            bookingId: booking._id,
-            type: 'feedback_request',
-            message: `How was your game on ${booking.date}? Tap to rate & review your experience.`,
-          });
-          console.log(`[CRON] Feedback request sent for booking ${booking._id}`);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[CRON] Feedback job error:', err.message);
-  }
+  await completePastBookings();
 }, { scheduled: false });
 
 // ---------------------------------------------------------------------------
@@ -125,7 +150,7 @@ const receiptReminderJob = cron.schedule('*/5 * * * *', async () => {
 // ---------------------------------------------------------------------------
 // CRON 4: Every 5 minutes — safety net for pending bookings past their start
 // ---------------------------------------------------------------------------
-const pendingSafetyNetJob = cron.schedule('*/5 * * * *', async () => {
+const runPendingSafetyNet = async () => {
   try {
     const now = new Date();
     let autoConfirmedCount = 0;
@@ -178,18 +203,24 @@ const pendingSafetyNetJob = cron.schedule('*/5 * * * *', async () => {
   } catch (err) {
     console.error('[CRON] Pending safety net error:', err.message);
   }
-}, { scheduled: false });
+};
+
+const pendingSafetyNetJob = cron.schedule('*/5 * * * *', runPendingSafetyNet, { scheduled: false });
 
 /**
  * Start all scheduled jobs.
  * Call this after MongoDB has connected.
  */
-const startScheduler = () => {
+const startScheduler = async () => {
   reminderJob.start();
   feedbackJob.start();
   receiptReminderJob.start();
   pendingSafetyNetJob.start();
   console.log('⏰ Cron scheduler started (reminder, feedback, receipt reminder, and pending safety-net jobs)');
+
+  // Run startup catch-up: pending safety net first, then complete past bookings
+  await runPendingSafetyNet();
+  await completePastBookings();
 };
 
 module.exports = { startScheduler };
