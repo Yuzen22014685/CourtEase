@@ -200,6 +200,8 @@ export default function VenueDetailPage() {
   const totalPrice = cart.length * (venue?.pricePerHour ?? 0)
   const matrix     = availData?.matrix ?? []
 
+  const isMobileBarVisible = cart.length > 0 && !mobileCartOpen && !checkoutOpen && !bookingResults
+
   // ── Loading / error states ────────────────────────────────────
   if (venueLoading) return (
     <Layout>
@@ -223,7 +225,7 @@ export default function VenueDetailPage() {
   return (
     <Layout>
       {/* ── Main layout: matrix + desktop cart sidebar ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 ${isMobileBarVisible ? 'pb-24 lg:pb-6' : 'pb-6'}`}>
         {/* Back link */}
         <Link to="/venues" className="inline-flex items-center gap-1.5 text-sm text-gray-500
                                      hover:text-primary-600 transition-colors mb-6">
@@ -510,8 +512,8 @@ export default function VenueDetailPage() {
           </div>
 
           {/* ── Desktop cart sidebar ── */}
-          <div className="hidden lg:block w-80 shrink-0">
-            <div className="sticky top-24">
+          <div className="hidden lg:block w-80 shrink-0 self-stretch">
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
               <CartPanel
                 cart={cart}
                 venue={venue}
@@ -527,7 +529,7 @@ export default function VenueDetailPage() {
       </div>
 
       {/* ── Mobile cart bottom bar ── */}
-      {cart.length > 0 && (
+      {isMobileBarVisible && (
         <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-elevated px-4 py-3">
           <button
             id="mobile-cart-btn"
