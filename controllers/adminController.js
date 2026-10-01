@@ -11,12 +11,25 @@ const toMinutes = (timeStr) => {
 };
 
 // ---------------------------------------------------------------------------
-// Sorts bookings: pending first, then session date descending, startTime descending, createdAt descending
+// Pending first (soonest session first, most urgent to review), then others by latest session date/time.
 // ---------------------------------------------------------------------------
 const sortByAdminPriority = (a, b) => {
   const aRank = a.status === 'pending' ? 0 : 1;
   const bRank = b.status === 'pending' ? 0 : 1;
   if (aRank !== bRank) return aRank - bRank;
+
+  const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+  const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+  if (a.status === 'pending') {
+    const dateDiff = (a.date || '').localeCompare(b.date || '');
+    if (dateDiff !== 0) return dateDiff;
+
+    const timeDiff = (a.startTime || '').localeCompare(b.startTime || '');
+    if (timeDiff !== 0) return timeDiff;
+
+    return aCreated - bCreated;
+  }
 
   const dateDiff = (b.date || '').localeCompare(a.date || '');
   if (dateDiff !== 0) return dateDiff;
@@ -24,8 +37,6 @@ const sortByAdminPriority = (a, b) => {
   const timeDiff = (b.startTime || '').localeCompare(a.startTime || '');
   if (timeDiff !== 0) return timeDiff;
 
-  const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-  const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
   return bCreated - aCreated;
 };
 
