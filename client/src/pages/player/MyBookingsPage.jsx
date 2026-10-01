@@ -71,6 +71,24 @@ export default function MyBookingsPage() {
   const upcoming = bookings.filter(isBookingUpcoming)
   const past = bookings.filter((b) => !isBookingUpcoming(b))
 
+  const toReviewCount = useMemo(
+    () => past.filter((b) => b.canReview).length,
+    [past]
+  )
+
+  const sortedPast = useMemo(() => {
+    const toReview = []
+    const others = []
+    for (const b of past) {
+      if (b.canReview) {
+        toReview.push(b)
+      } else {
+        others.push(b)
+      }
+    }
+    return [...toReview, ...others]
+  }, [past])
+
   const highlightBooking = useCallback((id) => {
     setHighlightedBookingId(id)
     setTimeout(() => {
@@ -138,7 +156,7 @@ export default function MyBookingsPage() {
     )
   }, [loading, bookings, uploadReceiptParam, highlightParam, reviewParam, setSearchParams, highlightBooking])
 
-  const displayed = activeTab === 'upcoming' ? upcoming : past
+  const displayed = activeTab === 'upcoming' ? upcoming : sortedPast
   const uploadTargetBooking = uploadModalBookingId
     ? bookings.find((b) => b._id === uploadModalBookingId)
     : null
@@ -164,23 +182,28 @@ export default function MyBookingsPage() {
         <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-6 w-fit">
           {[
             { key: 'upcoming', label: 'Upcoming', count: upcoming.length },
-            { key: 'past',     label: 'Past & Cancelled', count: past.length },
+            { key: 'past',     label: 'Past & Cancelled', count: past.length, reviewCount: toReviewCount },
           ].map((tab) => (
             <button
               key={tab.key}
               id={`tab-${tab.key}`}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all duration-150
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-all duration-150 flex items-center
                 ${activeTab === tab.key
                   ? 'bg-white text-gray-900 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
                 }`}
             >
-              {tab.label}
+              <span>{tab.label}</span>
               {!loading && (
                 <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full
                   ${activeTab === tab.key ? 'bg-primary-100 text-primary-700' : 'bg-gray-200 text-gray-500'}`}>
                   {tab.count}
+                </span>
+              )}
+              {!loading && tab.reviewCount > 0 && (
+                <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-800">
+                  {tab.reviewCount} to review
                 </span>
               )}
             </button>
