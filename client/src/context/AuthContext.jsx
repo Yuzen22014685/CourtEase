@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { checkProfileComplete } from '../utils/format'
 
 const AuthContext = createContext(null)
 
@@ -57,15 +56,11 @@ export function AuthProvider({ children }) {
   const isAdmin  = user?.role === 'admin'
   const isPlayer = user?.role === 'player'
 
-  /** True when the player has filled in both address and at least accountNumber */
-  const isProfileComplete = checkProfileComplete(user)
-
   return (
     <AuthContext.Provider value={{
       user, loading,
       loginUser, logoutUser, updateUser,
       isAdmin, isPlayer,
-      isProfileComplete,
     }}>
       {children}
     </AuthContext.Provider>

@@ -10,7 +10,6 @@ const INITIAL = {
   fullName: '',
   gender: '',
   phone: '',
-  address: '',
   email: '',
   password: '',
   confirmPassword: '',

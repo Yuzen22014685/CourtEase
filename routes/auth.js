@@ -90,7 +90,7 @@ router.post('/reset-password/:token', resetPasswordLimiter, resetPassword);
 // GET  /api/auth/profile  — fetch current player's profile (protected)
 router.get('/profile', protect, getProfile);
 
-// PATCH /api/auth/profile — update address + bankAccount (protected)
+// PATCH /api/auth/profile — update profile details (protected)
 router.patch('/profile', protect, updateProfile);
 
 module.exports = router;

@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useParams, Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import { getVenueById, getVenueAvailability, getVenueReviews } from '../../api/venues'
 import { createBooking, uploadReceipt } from '../../api/bookings'
@@ -41,7 +40,6 @@ const slotKey = (courtId, start) => `${courtId}::${start}`
 
 export default function VenueDetailPage() {
   const { id } = useParams()
-  const { isProfileComplete } = useAuth()
 
   // ── Venue info ────────────────────────────────────────────────
   const { data: venueData, loading: venueLoading, error: venueError } =
@@ -800,52 +798,6 @@ function CartPanel({ cart, venue, date, totalPrice, onRemove, onClear, onCheckou
 
 /* ── Checkout Panel ───────────────────────────────────────────────────────── */
 function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPaymentChange, onConfirm, onCancel, loading }) {
-  const { isProfileComplete } = useAuth()
-  const navigate = useNavigate()
-
-  // ── Profile gate — block checkout if address or bank account is missing ──
-  if (!isProfileComplete) {
-    return (
-      <div className="space-y-5">
-        <div className="flex flex-col items-center gap-3 py-6 text-center">
-          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center">
-            <ExclamationTriangleIcon className="h-8 w-8 text-amber-500" />
-          </div>
-          <div>
-            <p className="font-bold text-gray-900 text-base">Profile incomplete</p>
-            <p className="text-sm text-gray-500 mt-1 max-w-xs">
-              Please complete your profile (address and bank details) before booking
-              — this is required to process refunds.
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-          <p className="font-semibold mb-1">What's missing?</p>
-          <ul className="list-disc list-inside space-y-0.5 text-xs text-amber-700">
-            <li>Home / mailing address</li>
-            <li>Bank account number</li>
-          </ul>
-        </div>
-
-        <p className="text-xs text-gray-400 text-center">
-          Your cart is saved — return here after completing your profile to finish booking.
-        </p>
-
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="btn-secondary flex-1">Back</button>
-          <button
-            id="go-to-profile-btn"
-            onClick={() => { onCancel(); navigate('/profile') }}
-            className="btn-primary flex-1"
-          >
-            Complete Profile →
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // ── Normal checkout ────────────────────────────────────────────────────────
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [showTermsWarning, setShowTermsWarning] = useState(false)

@@ -25,7 +25,7 @@ const hashToken = (token) =>
 // ---------------------------------------------------------------------------
 const register = async (req, res, next) => {
   try {
-    const { fullName, gender, address, phone, email, password, skillLevel } = req.body;
+    const { fullName, gender, phone, email, password, skillLevel } = req.body;
 
     // Validate password strength
     const passwordCheck = validatePassword(password);
@@ -46,7 +46,6 @@ const register = async (req, res, next) => {
     const user = await User.create({
       fullName,
       gender,
-      address,
       phone,
       email,
       password,
@@ -118,8 +117,6 @@ const login = async (req, res, next) => {
         gender:      user.gender,
         phone:       user.phone,
         skillLevel:  user.skillLevel,
-        address:     user.address,
-        bankAccount: user.bankAccount,
         token:       generateToken(user._id),
       },
     });
@@ -228,13 +225,13 @@ const getProfile = async (req, res, next) => {
 
 // ---------------------------------------------------------------------------
 // PATCH /api/auth/profile  (protected)
-// Allowed fields: fullName, gender, phone, skillLevel, address, bankAccount
+// Allowed fields: fullName, gender, phone, skillLevel
 // Silently ignores: email, password, role (security — never writable here)
 // ---------------------------------------------------------------------------
 const updateProfile = async (req, res, next) => {
   try {
     // Explicitly destructure only the fields we allow — anything else is ignored
-    const { fullName, gender, phone, skillLevel, address, bankAccount } = req.body;
+    const { fullName, gender, phone, skillLevel } = req.body;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -256,8 +253,6 @@ const updateProfile = async (req, res, next) => {
     if (gender      !== undefined) user.gender      = gender;
     if (phone       !== undefined) user.phone       = phone.trim();
     if (skillLevel  !== undefined) user.skillLevel  = skillLevel;
-    if (address     !== undefined) user.address     = address;
-    if (bankAccount !== undefined) user.bankAccount = bankAccount;
 
     await user.save();
 
@@ -271,8 +266,6 @@ const updateProfile = async (req, res, next) => {
         gender:     user.gender,
         phone:      user.phone,
         skillLevel: user.skillLevel,
-        address:    user.address,
-        bankAccount: user.bankAccount,
       },
     });
   } catch (err) {

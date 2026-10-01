@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { login, resendVerification } from '../../api/auth'
-import { checkProfileComplete } from '../../utils/format'
 import PasswordInput from '../../components/ui/PasswordInput'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
@@ -66,9 +65,6 @@ export default function LoginPage() {
       loginUser(data)
       if (data.role === 'admin') {
         navigate('/admin/dashboard', { replace: true })
-      } else if (!checkProfileComplete(data)) {
-        // Profile incomplete — redirect to profile page before venue browsing
-        navigate('/profile', { replace: true })
       } else {
         navigate('/venues', { replace: true })
       }

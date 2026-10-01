@@ -1,22 +1,14 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const bankAccountSchema = new mongoose.Schema({
-  bankName: { type: String, trim: true },
-  accountNumber: { type: String, trim: true },
-  accountHolderName: { type: String, trim: true },
-}, { _id: false });
-
 const userSchema = new mongoose.Schema({
   fullName: { type: String, required: true, trim: true },
   gender: { type: String, enum: ['Male', 'Female'], required: true },
-  address: { type: String, trim: true },
   phone: { type: String, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['player', 'admin'], default: 'player' },
   skillLevel: { type: String, enum: ['Beginner', 'Pro', 'Athlete'], default: 'Beginner' },
-  bankAccount: { type: bankAccountSchema, default: null },
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationTokenHash: { type: String, select: false },
   emailVerificationExpires: { type: Date, select: false },

@@ -54,19 +54,6 @@ export const isUpcoming = (date, startTime) => {
   return bookingStart > new Date()
 }
 
-/**
- * Returns true when a user object has both a non-empty address and a
- * non-empty bankAccount.accountNumber.  This is the single source of truth
- * for profile completeness — used by AuthContext, LoginPage, and
- * RegisterPage so the formula never drifts.
- *
- * @param {object|null} user - raw user object (from API response or auth state)
- */
-export const checkProfileComplete = (user) =>
-  Boolean(
-    user?.address?.trim() &&
-    user?.bankAccount?.accountNumber?.trim()
-  )
 
 /** Resolve image path (external URL or local /uploads path) */
 export const getImageUrl = (url) => {
