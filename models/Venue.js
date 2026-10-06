@@ -25,7 +25,7 @@ const venueSchema = new mongoose.Schema({
   numberOfCourts: { type: Number, required: true, min: 1, max: 20 },
   pricePerHour: { type: Number, required: true, min: 0.01 },
   location: { type: locationSchema, default: undefined },
-  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   photos: [{ type: String }],
   layoutImage: { type: String, default: null },
   facilities: [{ type: String }],

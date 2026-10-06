@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['player', 'admin'], default: 'player' },
+  role: { type: String, enum: ['player', 'admin', 'venue_owner'], default: 'player' },
   skillLevel: { type: String, enum: ['Beginner', 'Pro', 'Athlete'], default: 'Beginner' },
   isEmailVerified: { type: Boolean, default: false },
   emailVerificationTokenHash: { type: String, select: false },
