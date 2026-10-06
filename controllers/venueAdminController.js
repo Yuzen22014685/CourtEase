@@ -344,6 +344,47 @@ const updateVenue = async (req, res, next) => {
       }
     }
 
+    // paymentInfo text fields (bankName, accountName, accountNumber)
+    if (req.body.paymentInfo !== undefined) {
+      const pi = req.body.paymentInfo;
+      if (typeof pi !== 'object' || pi === null) {
+        return res.status(400).json({ success: false, message: 'paymentInfo must be an object' });
+      }
+      venue.paymentInfo = venue.paymentInfo || {};
+
+      if (pi.bankName !== undefined) {
+        const bn = typeof pi.bankName === 'string' ? pi.bankName.trim() : '';
+        if (bn && bn.length > 60) {
+          return res.status(400).json({ success: false, message: 'Bank name cannot exceed 60 characters' });
+        }
+        venue.paymentInfo.bankName = bn;
+      }
+
+      if (pi.accountName !== undefined) {
+        const an = typeof pi.accountName === 'string' ? pi.accountName.trim() : '';
+        if (an && an.length > 80) {
+          return res.status(400).json({ success: false, message: 'Account name cannot exceed 80 characters' });
+        }
+        venue.paymentInfo.accountName = an;
+      }
+
+      if (pi.accountNumber !== undefined) {
+        const acc = typeof pi.accountNumber === 'string' ? pi.accountNumber.trim() : '';
+        if (acc) {
+          if (acc.length > 30) {
+            return res.status(400).json({ success: false, message: 'Account number cannot exceed 30 characters' });
+          }
+          if (!/^[0-9\s-]+$/.test(acc)) {
+            return res.status(400).json({
+              success: false,
+              message: 'Account number must contain only digits, spaces, and dashes',
+            });
+          }
+        }
+        venue.paymentInfo.accountNumber = acc;
+      }
+    }
+
     await venue.save();
     res.json({ success: true, data: venue });
   } catch (err) {
@@ -552,6 +593,77 @@ const deleteCourtLayout = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// POST /api/admin/venues/:id/payment-qr
+// Upload or replace DuitNow QR image
+// ---------------------------------------------------------------------------
+const uploadPaymentQr = async (req, res, next) => {
+  try {
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) {
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No QR image uploaded' });
+    }
+
+    // Delete previous QR image file if stored locally
+    venue.paymentInfo = venue.paymentInfo || {};
+    const oldQr = venue.paymentInfo.duitNowQr;
+    if (oldQr && (oldQr.startsWith('/uploads/') || oldQr.startsWith('uploads/'))) {
+      const oldFilename = path.basename(oldQr);
+      const oldPath = path.join(__dirname, '..', 'uploads', oldFilename);
+      if (fs.existsSync(oldPath)) {
+        try { fs.unlinkSync(oldPath); } catch (e) { console.error('Failed to unlink old QR image:', e.message); }
+      }
+    }
+
+    venue.paymentInfo.duitNowQr = '/uploads/' + req.file.filename;
+    await venue.save();
+
+    res.json({ success: true, duitNowQr: venue.paymentInfo.duitNowQr, data: venue.paymentInfo });
+  } catch (err) {
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/venues/:id/payment-qr
+// Remove DuitNow QR image
+// ---------------------------------------------------------------------------
+const deletePaymentQr = async (req, res, next) => {
+  try {
+    const venue = await Venue.findById(req.params.id);
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    venue.paymentInfo = venue.paymentInfo || {};
+    const oldQr = venue.paymentInfo.duitNowQr;
+    if (oldQr && (oldQr.startsWith('/uploads/') || oldQr.startsWith('uploads/'))) {
+      const filename = path.basename(oldQr);
+      const filePath = path.join(__dirname, '..', 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to unlink QR image:', e.message); }
+      }
+    }
+
+    venue.paymentInfo.duitNowQr = '';
+    await venue.save();
+
+    res.json({ success: true, message: 'Payment QR removed successfully', data: venue.paymentInfo });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAdminVenues,
   createVenue,
@@ -561,5 +673,7 @@ module.exports = {
   reorderVenuePhotos,
   uploadCourtLayout,
   deleteCourtLayout,
+  uploadPaymentQr,
+  deletePaymentQr,
 };
 

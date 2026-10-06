@@ -10,6 +10,13 @@ const locationSchema = new mongoose.Schema({
   lng: { type: Number, min: -180, max: 180 },
 }, { _id: false });
 
+const paymentInfoSchema = new mongoose.Schema({
+  duitNowQr: { type: String, default: '' },
+  bankName: { type: String, default: '', trim: true },
+  accountName: { type: String, default: '', trim: true },
+  accountNumber: { type: String, default: '', trim: true },
+}, { _id: false });
+
 const venueSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   city: { type: String, default: 'Penang', trim: true },
@@ -28,6 +35,10 @@ const venueSchema = new mongoose.Schema({
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   photos: [{ type: String }],
   layoutImage: { type: String, default: null },
+  paymentInfo: {
+    type: paymentInfoSchema,
+    default: () => ({ duitNowQr: '', bankName: '', accountName: '', accountNumber: '' }),
+  },
   facilities: [{ type: String }],
   isActive: { type: Boolean, default: true },
   rating: { type: Number, min: 0, max: 5, default: 0 },

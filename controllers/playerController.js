@@ -43,6 +43,34 @@ const generateSlots = (open, close) => {
   return slots;
 };
 
+/**
+ * Compute paymentOptions boolean flags from venue.paymentInfo
+ */
+const computePaymentOptions = (paymentInfo) => {
+  const qr = Boolean(paymentInfo?.duitNowQr && String(paymentInfo.duitNowQr).trim());
+  const bank = Boolean(
+    paymentInfo?.bankName && String(paymentInfo.bankName).trim() &&
+    paymentInfo?.accountName && String(paymentInfo.accountName).trim() &&
+    paymentInfo?.accountNumber && String(paymentInfo.accountNumber).trim()
+  );
+  return {
+    duitNowQr: qr,
+    bankTransfer: bank,
+  };
+};
+
+/**
+ * Generate a payment reference code: "CE-" + 6 random alphanumeric characters
+ */
+const generatePaymentRef = () => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `CE-${code}`;
+};
+
 // ---------------------------------------------------------------------------
 // Helper: compute average rating and count from Review collection for one or many venues.
 // Returns a Map<venueId_string, { avg: number|null, count: number }>
@@ -71,15 +99,17 @@ const getVenues = async (req, res, next) => {
     if (req.query.area) filter.area = req.query.area;
     const venues = await Venue.find(filter).select('-__v -reviews');
 
-    // Attach live ratings
+    // Attach live ratings and paymentOptions, explicitly excluding paymentInfo
     const ids = venues.map((v) => v._id);
     const ratingMap = await computeVenueRatings(ids);
 
     const data = venues.map((v) => {
       const plain = v.toObject();
       const r = ratingMap.get(v._id.toString());
-      plain.rating      = r ? r.avg   : null;
-      plain.reviewCount = r ? r.count : 0;
+      plain.rating         = r ? r.avg   : null;
+      plain.reviewCount    = r ? r.count : 0;
+      plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
+      delete plain.paymentInfo;
       return plain;
     });
 
@@ -97,12 +127,14 @@ const getVenueById = async (req, res, next) => {
     const venue = await Venue.findById(req.params.id).select('-__v -reviews');
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
 
-    // Live rating from Review collection
+    // Live rating from Review collection, explicitly excluding paymentInfo
     const ratingMap = await computeVenueRatings([venue._id]);
     const plain = venue.toObject();
     const r = ratingMap.get(venue._id.toString());
-    plain.rating      = r ? r.avg   : null;
-    plain.reviewCount = r ? r.count : 0;
+    plain.rating         = r ? r.avg   : null;
+    plain.reviewCount    = r ? r.count : 0;
+    plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
+    delete plain.paymentInfo;
 
     res.json({ success: true, data: plain });
   } catch (err) {
@@ -160,7 +192,7 @@ const getVenueAvailability = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const createBooking = async (req, res, next) => {
   try {
-    const { venueId, courtId, date, startTime, endTime, paymentMethod } = req.body;
+    const { venueId, courtId, date, startTime, endTime, paymentMethod, paymentRef } = req.body;
 
     // Validate slot format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -189,6 +221,36 @@ const createBooking = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'This venue is currently inactive and cannot be booked' });
     }
 
+    // Validate venue payment setup
+    const paymentOptions = computePaymentOptions(venue.paymentInfo);
+    if (!paymentOptions.duitNowQr && !paymentOptions.bankTransfer) {
+      return res.status(400).json({
+        success: false,
+        message: "This venue hasn't set up payment details yet.",
+      });
+    }
+
+    if (!['duitnow_qr', 'bank_transfer'].includes(paymentMethod)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid payment method. Only DuitNow QR and Bank Transfer are accepted.',
+      });
+    }
+
+    if (paymentMethod === 'duitnow_qr' && !paymentOptions.duitNowQr) {
+      return res.status(400).json({
+        success: false,
+        message: 'DuitNow QR is not available for this venue.',
+      });
+    }
+
+    if (paymentMethod === 'bank_transfer' && !paymentOptions.bankTransfer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bank transfer is not available for this venue.',
+      });
+    }
+
     const court = await Court.findOne({ _id: courtId, venueId, status: 'active' });
     if (!court) return res.status(404).json({ success: false, message: 'Court not found or under maintenance' });
 
@@ -205,6 +267,25 @@ const createBooking = async (req, res, next) => {
       return res.status(409).json({ success: false, message: 'Court is already booked for this time slot' });
     }
 
+    // Shared payment reference handling
+    let finalPaymentRef = paymentRef ? String(paymentRef).trim() : null;
+    if (finalPaymentRef) {
+      const existingRefBooking = await Booking.findOne({
+        paymentRef: finalPaymentRef,
+        playerId: req.user._id,
+        venueId,
+        status: 'pending',
+      });
+      if (!existingRefBooking) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid payment reference for this venue and player.',
+        });
+      }
+    } else {
+      finalPaymentRef = generatePaymentRef();
+    }
+
     const hours = (toMinutes(endTime) - toMinutes(startTime)) / 60;
     const amount = hours * venue.pricePerHour;
     const receiptId = `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -219,8 +300,9 @@ const createBooking = async (req, res, next) => {
       paymentMethod,
       amount,
       receiptId,
+      paymentRef: finalPaymentRef,
       status: 'pending',    // awaits admin approval — see approveBooking / rejectBooking
-      paymentStatus: 'paid',
+      paymentStatus: 'pending',
     });
 
     res.status(201).json({ success: true, data: booking });
@@ -318,7 +400,7 @@ const cancelBooking = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const rescheduleBooking = async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('venueId');
+    const booking = await Booking.findById(req.params.id).populate('venueId', '-paymentInfo -__v -reviews');
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     // Ownership check
@@ -467,6 +549,7 @@ const uploadReceipt = async (req, res, next) => {
     }
 
     booking.receiptImage = '/uploads/' + req.file.filename;
+    booking.paymentStatus = 'paid';
     await booking.save();
 
     res.json({ success: true, message: 'Receipt uploaded successfully', data: booking });
@@ -576,6 +659,69 @@ const getVenueReviews = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// GET /api/bookings/:id/payment-info
+// Returns payment instructions and group totals for the booking's player
+// ---------------------------------------------------------------------------
+const getBookingPaymentInfo = async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.playerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorised to view payment info for this booking',
+      });
+    }
+
+    const venue = await Venue.findById(booking.venueId).select('name paymentInfo');
+    if (!venue) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    const paymentRef = booking.paymentRef || booking.receiptId;
+
+    // Group totals: sum of amount and count of this player's bookings with same paymentRef
+    const groupFilter = {
+      playerId: req.user._id,
+      status: { $nin: ['cancelled', 'rejected', 'expired'] },
+    };
+    if (booking.paymentRef) {
+      groupFilter.paymentRef = booking.paymentRef;
+    } else {
+      groupFilter.receiptId = booking.receiptId;
+    }
+
+    const groupBookings = await Booking.find(groupFilter).select('amount');
+    const totalAmount = groupBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
+    const totalCount = groupBookings.length;
+
+    res.json({
+      success: true,
+      data: {
+        venueName: venue.name,
+        paymentInfo: {
+          duitNowQr: venue.paymentInfo?.duitNowQr || '',
+          bankName: venue.paymentInfo?.bankName || '',
+          accountName: venue.paymentInfo?.accountName || '',
+          accountNumber: venue.paymentInfo?.accountNumber || '',
+        },
+        paymentRef,
+        status: booking.status,
+        groupTotal: {
+          amount: totalAmount,
+          count: totalCount,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getVenues,
   getVenueById,
@@ -587,4 +733,5 @@ module.exports = {
   uploadReceipt,
   createReview,
   getVenueReviews,
+  getBookingPaymentInfo,
 };

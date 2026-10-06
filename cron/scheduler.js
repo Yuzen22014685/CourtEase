@@ -126,7 +126,7 @@ const receiptReminderJob = cron.schedule('*/5 * * * *', async () => {
 
     const eligibleBookings = await Booking.find({
       status: 'pending',
-      paymentStatus: 'paid',
+      paymentStatus: { $in: ['pending', 'paid'] },
       receiptImage: { $in: [null, ''] },
       receiptReminderSent: false,
       createdAt: { $lte: fifteenMinutesAgo }

@@ -20,6 +20,8 @@ const {
   reorderVenuePhotos,
   uploadCourtLayout,
   deleteCourtLayout,
+  uploadPaymentQr,
+  deletePaymentQr,
 } = require('../controllers/venueAdminController');
 const {
   getAdminReviews,
@@ -82,6 +84,12 @@ router.post('/venues/:id/layout', requireVenueAccess('id'), upload.single('layou
 
 // DELETE /api/admin/venues/:id/layout (Venue access required)
 router.delete('/venues/:id/layout', requireVenueAccess('id'), deleteCourtLayout);
+
+// POST /api/admin/venues/:id/payment-qr (Venue access required before file upload)
+router.post('/venues/:id/payment-qr', requireVenueAccess('id'), upload.single('qr'), uploadPaymentQr);
+
+// DELETE /api/admin/venues/:id/payment-qr (Venue access required)
+router.delete('/venues/:id/payment-qr', requireVenueAccess('id'), deletePaymentQr);
 
 // PATCH /api/admin/venues/:id/owner (Admin only)
 router.patch('/venues/:id/owner', adminOnly, updateVenueOwner);

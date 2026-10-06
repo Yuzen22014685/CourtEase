@@ -21,10 +21,11 @@ const bookingSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['card', 'fpx', 'ewallet'],
+    enum: ['card', 'fpx', 'ewallet', 'duitnow_qr', 'bank_transfer'],
     required: true,
   },
   amount: { type: Number, required: true },
+  paymentRef: { type: String, index: true },
   receiptId: { type: String, unique: true, sparse: true },
   receiptImage: { type: String },
   receiptReminderSent: { type: Boolean, default: false },
