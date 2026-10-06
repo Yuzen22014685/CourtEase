@@ -39,4 +39,10 @@ export const getAdminReviews = (params) => api.get('/admin/reviews', { params })
 export const hideReview = (id, reason) => api.patch(`/admin/reviews/${id}/hide`, { reason })
 export const restoreReview = (id) => api.patch(`/admin/reviews/${id}/restore`)
 
+// Owner management
+export const getOwners = () => api.get('/admin/owners')
+export const createOwner = (data) => api.post('/admin/owners', data)
+export const resendOwnerInvite = (id) => api.post(`/admin/owners/${id}/resend-invite`)
+export const updateVenueOwner = (id, ownerId) => api.patch(`/admin/venues/${id}/owner`, { ownerId })
+
 

@@ -13,6 +13,8 @@ import {
   reorderVenuePhotos,
   uploadCourtLayout,
   deleteCourtLayout,
+  getOwners,
+  updateVenueOwner,
 } from '../../api/admin'
 import {
   PlusIcon,
@@ -65,9 +67,14 @@ export default function VenueFormModal({
   onSaved,
   existingAreas = [],
 }) {
-  const { isOwner } = useAuth()
+  const { isAdmin, isOwner } = useAuth()
   const isEdit = Boolean(venue?._id)
   const [activeTab, setActiveTab] = useState('details') // 'details' | 'photos'
+
+  // Owner selection state (admin edit mode only)
+  const [ownersList, setOwnersList] = useState([])
+  const [loadingOwners, setLoadingOwners] = useState(false)
+  const [selectedOwnerId, setSelectedOwnerId] = useState('')
 
   // Form fields
   const [name, setName] = useState('')
@@ -151,6 +158,7 @@ export default function VenueFormModal({
       setIsActive(venue.isActive !== false)
       setPhotos(venue.photos || [])
       setLayoutImage(venue.layoutImage || null)
+      setSelectedOwnerId(venue.ownerId ? String(venue.ownerId) : '')
     } else {
       setCurrentVenueId(null)
       setName('')
@@ -170,8 +178,28 @@ export default function VenueFormModal({
       setIsActive(true)
       setPhotos([])
       setLayoutImage(null)
+      setSelectedOwnerId('')
     }
   }, [isOpen, venue])
+
+  // Fetch owners list ONLY when admin is editing a venue
+  useEffect(() => {
+    if (isOpen && isAdmin && isEdit) {
+      setLoadingOwners(true)
+      getOwners()
+        .then((res) => {
+          setOwnersList(res.data?.data || [])
+        })
+        .catch((err) => {
+          console.error('Failed to load owners:', err)
+        })
+        .finally(() => {
+          setLoadingOwners(false)
+        })
+    } else {
+      setOwnersList([])
+    }
+  }, [isOpen, isAdmin, isEdit])
 
   // Area select handler
   const handleAreaSelect = (e) => {
@@ -304,7 +332,28 @@ export default function VenueFormModal({
     try {
       if (isEdit) {
         const res = await updateVenue(venue._id, payload)
-        const updated = res.data.data
+        let updated = res.data.data
+
+        // If admin changed the owner, call updateVenueOwner
+        const initialOwnerId = venue.ownerId ? String(venue.ownerId) : ''
+        const newOwnerId = selectedOwnerId.trim()
+        if (isAdmin && newOwnerId !== initialOwnerId) {
+          try {
+            const ownerRes = await updateVenueOwner(venue._id, newOwnerId || null)
+            if (ownerRes.data?.data) {
+              updated = { ...updated, ownerId: ownerRes.data.data.ownerId }
+            }
+          } catch (ownerErr) {
+            setFormError(
+              ownerErr.response?.data?.message ||
+              ownerErr.message ||
+              'Failed to update venue owner.'
+            )
+            formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            return
+          }
+        }
+
         onSaved?.(updated, false)
         onClose?.()
       } else {
@@ -679,6 +728,32 @@ export default function VenueFormModal({
                   )}
                 </div>
               </div>
+
+              {/* Owner Select (Admin only in edit mode) */}
+              {isAdmin && isEdit && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl">
+                  <label htmlFor="venue-owner-select" className="block text-xs font-semibold text-gray-800 mb-1">
+                    Venue Owner
+                  </label>
+                  <select
+                    id="venue-owner-select"
+                    value={selectedOwnerId}
+                    onChange={(e) => setSelectedOwnerId(e.target.value)}
+                    disabled={loadingOwners}
+                    className="input w-full text-xs bg-white"
+                  >
+                    <option value="">No owner (unassigned)</option>
+                    {ownersList.map((o) => (
+                      <option key={o._id} value={o._id}>
+                        {o.fullName} ({o.email})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Assign a registered venue owner to manage this venue.
+                  </p>
+                </div>
+              )}
 
               {/* Operating Hours & Pricing & Courts */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2 border-t border-gray-100">

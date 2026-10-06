@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { resetPassword } from '../../api/auth'
 import PasswordInput from '../../components/ui/PasswordInput'
 import PasswordChecklist, { checkPasswordValidity } from '../../components/ui/PasswordChecklist'
@@ -7,6 +7,8 @@ import Spinner from '../../components/ui/Spinner'
 
 export default function ResetPasswordPage() {
   const { token } = useParams()
+  const [searchParams] = useSearchParams()
+  const isInvite = searchParams.get('invite') === '1'
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -68,9 +70,13 @@ export default function ResetPasswordPage() {
               <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 mb-4">
                 <span className="text-2xl font-bold">✓</span>
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Password reset successful</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                {isInvite ? 'Password set' : 'Password reset successful'}
+              </h2>
               <p className="text-sm text-gray-600 mb-6">
-                Password updated! You can now log in with your new password.
+                {isInvite
+                  ? 'Password set. You can now log in.'
+                  : 'Password updated! You can now log in with your new password.'}
               </p>
               <Link
                 to="/login"
@@ -81,8 +87,14 @@ export default function ResetPasswordPage() {
             </div>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Set new password</h2>
-              <p className="text-sm text-gray-500 mb-6">Create a strong password for your account</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">
+                {isInvite ? 'Set your password' : 'Set new password'}
+              </h2>
+              <p className="text-sm text-gray-500 mb-6">
+                {isInvite
+                  ? 'Welcome to CourtEase — choose a password for your venue owner account.'
+                  : 'Create a strong password for your account'}
+              </p>
 
               {error && (
                 <div className="mb-5 p-4 rounded-xl bg-red-50 border border-red-200 text-red-900 text-sm animate-fadeIn">
@@ -155,7 +167,9 @@ export default function ResetPasswordPage() {
                   className="btn-primary w-full btn-lg mt-2"
                 >
                   {loading ? <Spinner size="sm" /> : null}
-                  {loading ? 'Updating password…' : 'Reset password'}
+                  {loading
+                    ? (isInvite ? 'Setting password…' : 'Updating password…')
+                    : (isInvite ? 'Set password' : 'Reset password')}
                 </button>
               </form>
 

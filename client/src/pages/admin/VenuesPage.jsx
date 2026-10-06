@@ -19,7 +19,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function AdminVenuesPage({ noLayout = false }) {
-  const { isOwner } = useAuth()
+  const { isAdmin, isOwner } = useAuth()
   const { data, loading, error, refetch } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = data?.data ?? []
 
@@ -177,6 +177,7 @@ export default function AdminVenuesPage({ noLayout = false }) {
                 <tr>
                   <th>Venue Name</th>
                   <th>Area</th>
+                  {isAdmin && <th>Owner</th>}
                   <th>Courts</th>
                   <th>Price / hr</th>
                   <th>Operating Hours</th>
@@ -187,10 +188,10 @@ export default function AdminVenuesPage({ noLayout = false }) {
               </thead>
               <tbody>
                 {loading ? (
-                  [1, 2, 3, 4, 5].map((n) => <SkeletonRow key={n} cols={8} />)
+                  [1, 2, 3, 4, 5].map((n) => <SkeletonRow key={n} cols={isAdmin ? 9 : 8} />)
                 ) : filteredVenues.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12">
+                    <td colSpan={isAdmin ? 9 : 8} className="py-12">
                       <EmptyState
                         icon="🏟️"
                         title={searchQuery || statusFilter !== 'all' ? 'No matching venues' : 'No venues found'}
@@ -242,6 +243,12 @@ export default function AdminVenuesPage({ noLayout = false }) {
                         <td>
                           <span className="badge bg-primary-50 text-primary-700">{v.area}</span>
                         </td>
+
+                        {isAdmin && (
+                          <td className="text-xs text-gray-700 font-medium">
+                            {v.owner?.fullName || '—'}
+                          </td>
+                        )}
 
                         <td className="font-medium text-gray-900">{v.numberOfCourts}</td>
 

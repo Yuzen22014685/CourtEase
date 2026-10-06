@@ -26,6 +26,7 @@ import ProfilePage     from '../pages/player/ProfilePage'
 // Admin pages
 import DashboardPage     from '../pages/admin/DashboardPage'
 import AdminVenuesPage   from '../pages/admin/VenuesPage'
+import OwnersPage        from '../pages/admin/OwnersPage'
 import AdminReviewsPage  from '../pages/admin/ReviewsPage'
 import AdminBookingsPage from '../pages/admin/BookingsPage'
 import AnalyticsPage     from '../pages/admin/AnalyticsPage'
@@ -76,6 +77,9 @@ export default function AppRouter() {
       } />
       <Route path="/admin/venues" element={
         <AdminRoute><AdminVenuesPage /></AdminRoute>
+      } />
+      <Route path="/admin/owners" element={
+        <AdminRoute><OwnersPage /></AdminRoute>
       } />
       <Route path="/admin/reviews" element={
         <AdminRoute><AdminReviewsPage /></AdminRoute>

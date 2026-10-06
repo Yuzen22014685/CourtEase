@@ -9,6 +9,7 @@ import {
   CalendarDaysIcon,
   ChartBarIcon,
   XMarkIcon,
+  UserGroupIcon,
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -16,6 +17,7 @@ import {
   ChatBubbleLeftRightIcon as ChatBubbleLeftRightIconSolid,
   CalendarDaysIcon as CalendarDaysIconSolid,
   ChartBarIcon as ChartBarIconSolid,
+  UserGroupIcon as UserGroupIconSolid,
 } from '@heroicons/react/24/solid'
 
 const navItems = [
@@ -30,6 +32,12 @@ const navItems = [
     label: 'Venues',
     icon: BuildingOffice2Icon,
     activeIcon: BuildingOffice2IconSolid,
+  },
+  {
+    to: '/admin/owners',
+    label: 'Owners',
+    icon: UserGroupIcon,
+    activeIcon: UserGroupIconSolid,
   },
   {
     to: '/admin/reviews',
