@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
@@ -11,17 +11,18 @@ import { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
-import { formatCurrency, formatDate, formatTime } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString } from '../../utils/format'
 import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
-const PAGE_SIZE = 20
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
 export default function AdminBookingsPage({ noLayout = false }) {
   const { isOwner } = useAuth()
   const { selectedVenue } = useOwnerVenue()
   const [filters, setFilters] = useState({ venueId: '', date: '', status: '', sortBy: 'priority' })
-  const [page, setPage]       = useState(1)
+  const [activeChip, setActiveChip] = useState('all')
+  const [visibleCount, setVisibleCount] = useState(20)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [actionMessage, setActionMessage] = useState(null)
 
   // Review modal state
@@ -49,17 +50,56 @@ export default function AdminBookingsPage({ noLayout = false }) {
 
   const { data, loading, error, refetch } = useApi(fetchFn, [filters, activeVenueId])
   const allBookings = data?.data ?? []
-  const totalPages  = Math.ceil(allBookings.length / PAGE_SIZE)
-  const bookings    = allBookings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  // Quick filter chips & local date logic
+  const today = todayString()
+
+  const needsReviewCount = useMemo(() => {
+    return allBookings.filter((b) => b.status === 'pending').length
+  }, [allBookings])
+
+  const filteredBookings = useMemo(() => {
+    if (activeChip === 'needs-review') {
+      return allBookings.filter((b) => b.status === 'pending')
+    }
+    if (activeChip === 'upcoming') {
+      return allBookings.filter(
+        (b) => (b.status === 'pending' || b.status === 'confirmed') && b.date >= today
+      )
+    }
+    if (activeChip === 'past') {
+      return allBookings.filter(
+        (b) =>
+          ['completed', 'cancelled', 'rejected', 'expired'].includes(b.status) ||
+          b.date < today
+      )
+    }
+    return allBookings
+  }, [allBookings, activeChip, today])
+
+  const bookings = filteredBookings.slice(0, visibleCount)
+  const remainingCount = Math.max(0, filteredBookings.length - visibleCount)
+
+  const chips = [
+    { id: 'all', label: 'All' },
+    { id: 'needs-review', label: `Needs review (${needsReviewCount})` },
+    { id: 'upcoming', label: 'Upcoming' },
+    { id: 'past', label: 'Past' },
+  ]
+
+  const handleChipChange = (chipId) => {
+    setActiveChip(chipId)
+    setVisibleCount(20)
+  }
 
   const handleFilterChange = (e) => {
     setFilters((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-    setPage(1)
+    setVisibleCount(20)
   }
 
   const clearFilters = () => {
     setFilters({ venueId: '', date: '', status: '', sortBy: 'priority' })
-    setPage(1)
+    setVisibleCount(20)
   }
 
   const openReview = (b) => {
@@ -134,79 +174,137 @@ export default function AdminBookingsPage({ noLayout = false }) {
     }
   }
 
-  const hasFilters = (!isOwner && filters.venueId) || filters.date || filters.status || (filters.sortBy && filters.sortBy !== 'priority')
+  const activeFilterCount = [
+    !isOwner && Boolean(filters.venueId),
+    Boolean(filters.date),
+    Boolean(filters.status),
+    Boolean(filters.sortBy && filters.sortBy !== 'priority'),
+  ].filter(Boolean).length
+
+  const hasFilters = activeFilterCount > 0
 
   const content = (
     <>
       <div className="page-container">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="page-title">Bookings</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {loading ? 'Loading…' : `${allBookings.length} bookings total`}
-          </p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="page-title">Bookings</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              {loading ? 'Loading…' : `${filteredBookings.length} bookings total`}
+            </p>
+          </div>
+          <button
+            onClick={refetch}
+            className="btn-secondary btn-sm"
+            title="Refresh"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          onClick={refetch}
-          className="btn-secondary btn-sm"
-          title="Refresh"
-        >
-          <ArrowPathIcon className="h-4 w-4" />
-        </button>
-      </div>
 
-      {/* Filters */}
-      <div className="card p-4 mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <FunnelIcon className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-600">Filters</span>
-          {hasFilters && (
-            <button onClick={clearFilters} className="ml-auto text-xs text-primary-600 hover:text-primary-700 font-medium">
-              Clear all
+        {/* Filters */}
+        <div className="card p-4 mb-4">
+          {/* Mobile toggle button (<md) */}
+          <div className="flex items-center justify-between md:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className="flex items-center gap-2 text-sm font-semibold text-gray-700"
+            >
+              <FunnelIcon className="h-4 w-4 text-gray-500" />
+              <span>Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 text-[11px] font-bold bg-primary-100 text-primary-700 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
             </button>
-          )}
-        </div>
-        <div className={`grid grid-cols-1 sm:grid-cols-2 ${isOwner ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-3`}>
-          {!isOwner && (
-            <div>
-              <label className="label text-xs" htmlFor="filter-venue">Venue</label>
-              <select id="filter-venue" name="venueId" value={filters.venueId}
-                      onChange={handleFilterChange} className="select text-sm">
-                <option value="">All venues</option>
-                {venues.map((v) => (
-                  <option key={v._id} value={v._id}>{v.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-            <div>
-              <label className="label text-xs" htmlFor="filter-date">Date</label>
-              <input id="filter-date" name="date" type="date" value={filters.date}
-                     onChange={handleFilterChange} className="input text-sm" />
-            </div>
-            <div>
-              <label className="label text-xs" htmlFor="filter-status">Status</label>
-              <select id="filter-status" name="status" value={filters.status}
-                      onChange={handleFilterChange} className="select text-sm">
-                <option value="">All statuses</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-                <option value="pending">Pending</option>
-                <option value="rejected">Rejected</option>
-                <option value="expired">Expired</option>
-              </select>
-            </div>
-            <div>
-              <label className="label text-xs" htmlFor="filter-sort">Sort by</label>
-              <select id="filter-sort" name="sortBy" value={filters.sortBy}
-                      onChange={handleFilterChange} className="select text-sm">
-                <option value="priority">Priority (pending first)</option>
-                <option value="recent">Recently updated</option>
-                <option value="session">Session date (newest first)</option>
-              </select>
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Desktop header (md+) */}
+          <div className="hidden md:flex items-center gap-2 mb-3">
+            <FunnelIcon className="h-4 w-4 text-gray-400" />
+            <span className="text-sm font-medium text-gray-600">Filters</span>
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className="ml-auto text-xs text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Filter inputs container */}
+          <div className={filtersOpen ? 'block mt-3 md:mt-0' : 'hidden md:block'}>
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${isOwner ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-3`}>
+              {!isOwner && (
+                <div>
+                  <label className="label text-xs" htmlFor="filter-venue">Venue</label>
+                  <select id="filter-venue" name="venueId" value={filters.venueId}
+                          onChange={handleFilterChange} className="select text-sm">
+                    <option value="">All venues</option>
+                    {venues.map((v) => (
+                      <option key={v._id} value={v._id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="label text-xs" htmlFor="filter-date">Date</label>
+                <input id="filter-date" name="date" type="date" value={filters.date}
+                       onChange={handleFilterChange} className="input text-sm" />
+              </div>
+              <div>
+                <label className="label text-xs" htmlFor="filter-status">Status</label>
+                <select id="filter-status" name="status" value={filters.status}
+                        onChange={handleFilterChange} className="select text-sm">
+                  <option value="">All statuses</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="pending">Pending</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+              <div>
+                <label className="label text-xs" htmlFor="filter-sort">Sort by</label>
+                <select id="filter-sort" name="sortBy" value={filters.sortBy}
+                        onChange={handleFilterChange} className="select text-sm">
+                  <option value="priority">Priority (pending first)</option>
+                  <option value="recent">Recently updated</option>
+                  <option value="session">Session date (newest first)</option>
+                </select>
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* Quick Filter Chips (all screen widths) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 mb-4">
+          {chips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => handleChipChange(chip.id)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                activeChip === chip.id
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
 
         <ErrorMessage message={error} className="mb-4" />
@@ -219,125 +317,228 @@ export default function AdminBookingsPage({ noLayout = false }) {
           </div>
         )}
 
-        <div className="table-wrapper">
-          <div className="overflow-x-auto">
-            <table className="table min-w-[850px]">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  {!isOwner && <th>Venue</th>}
-                  <th>Court</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Amount</th>
-                  <th>Payment</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  [1, 2, 3, 4, 5, 6, 7, 8].map((n) => <SkeletonRow key={n} cols={isOwner ? 7 : 8} />)
-                ) : bookings.length === 0 ? (
-                  <tr>
-                    <td colSpan={isOwner ? 7 : 8} className="py-12">
-                      <EmptyState
-                        icon="📋"
-                        title="No bookings found"
-                        description={hasFilters ? 'Try adjusting your filters.' : 'No bookings yet.'}
-                        action={hasFilters
-                          ? <button onClick={clearFilters} className="btn-secondary">Clear filters</button>
-                          : null
-                        }
-                      />
-                    </td>
-                  </tr>
-                ) : bookings.map((b) => (
-                  <tr key={b._id}>
-                    <td>
-                      <p className="font-medium text-gray-900">{b.playerId?.fullName ?? '—'}</p>
-                      <p className="text-xs text-gray-400">{b.playerId?.email ?? '—'}</p>
-                    </td>
-                    {!isOwner && (
-                      <td>
-                        <p className="font-medium">{b.venueId?.name ?? '—'}</p>
-                        <p className="text-xs text-gray-400">{b.venueId?.area ?? '—'}</p>
-                      </td>
-                    )}
-                    <td className="text-center">#{b.courtId?.courtNumber ?? '—'}</td>
-                    <td className="whitespace-nowrap text-xs">{formatDate(b.date)}</td>
-                    <td className="whitespace-nowrap text-xs">
-                      {formatTime(b.startTime)}–{formatTime(b.endTime)}
-                    </td>
-                    <td className="font-medium text-primary-700">{formatCurrency(b.amount)}</td>
-                    <td className="uppercase text-xs text-gray-500">{b.paymentMethod}</td>
-                    <td>
+        {/* ── Mobile Cards (<md) ── */}
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            [1, 2, 3].map((n) => (
+              <div key={n} className="card p-4 animate-pulse space-y-3 bg-white border border-gray-200">
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                <div className="h-3 bg-gray-200 rounded w-3/4" />
+                <div className="h-8 bg-gray-200 rounded w-full" />
+              </div>
+            ))
+          ) : bookings.length === 0 ? (
+            <div className="card p-8 text-center bg-white border border-gray-200">
+              <EmptyState
+                icon="📋"
+                title="No bookings found"
+                description={hasFilters || activeChip !== 'all' ? 'Try adjusting your filters.' : 'No bookings yet.'}
+                action={
+                  hasFilters || activeChip !== 'all' ? (
+                    <button
+                      onClick={() => {
+                        clearFilters()
+                        setActiveChip('all')
+                      }}
+                      className="btn-secondary"
+                    >
+                      Clear filters
+                    </button>
+                  ) : null
+                }
+              />
+            </div>
+          ) : (
+            bookings.map((b) => (
+              <div
+                key={b._id}
+                className="card p-4 bg-white border border-gray-200 shadow-sm flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">
+                        {b.playerId?.fullName ?? '—'}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {b.playerId?.email ?? '—'}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
                       <Badge status={b.status} />
                       {b.autoConfirmed && (
-                        <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                           Auto-confirmed
                         </span>
                       )}
                       {b.rescheduleCount > 0 && (
-                        <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                           Rescheduled
                         </span>
                       )}
-                      {b.status === 'pending' ? (
-                        <div className="mt-2">
-                          <button
-                            onClick={() => openReview(b)}
-                            className="btn-primary py-1 px-3 text-xs w-full"
-                          >
-                            Review
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-2">
-                          <button
-                            onClick={() => openReview(b)}
-                            className="btn-secondary py-1 px-3 text-xs w-full"
-                          >
-                            View
-                          </button>
-                        </div>
-                      )}
-                      {b.status === 'rejected' && b.rejectionReason && (
-                        <p className="text-[11px] text-gray-500 mt-1.5 max-w-[200px] leading-tight break-words">
-                          <span className="font-medium text-gray-700">Reason:</span> {b.rejectionReason}
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <p className="text-xs text-gray-400">
-                Page {page} of {totalPages} · {allBookings.length} results
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="btn-secondary btn-sm"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="btn-secondary btn-sm"
-                >
-                  Next
-                </button>
+                  {!isOwner && b.venueId && (
+                    <p className="text-xs font-medium text-gray-700 mt-2">
+                      {b.venueId.name} {b.venueId.area ? `· ${b.venueId.area}` : ''}
+                    </p>
+                  )}
+
+                  <p className="text-xs text-gray-600 mt-1">
+                    Court #{b.courtId?.courtNumber ?? '—'} · {formatDate(b.date)} · {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                  </p>
+
+                  <div className="flex items-center gap-2 mt-1 text-xs">
+                    <span className="font-bold text-primary-700">{formatCurrency(b.amount)}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className="uppercase text-gray-500 font-medium">{b.paymentMethod}</span>
+                  </div>
+
+                  {b.status === 'rejected' && b.rejectionReason && (
+                    <p className="text-[11px] text-gray-500 mt-2 bg-gray-50 p-2 rounded border border-gray-100 leading-snug">
+                      <span className="font-medium text-gray-700">Reason:</span> {b.rejectionReason}
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => openReview(b)}
+                    className={`w-full py-2 text-xs font-medium rounded-lg ${
+                      b.status === 'pending' ? 'btn-primary' : 'btn-secondary'
+                    }`}
+                  >
+                    {b.status === 'pending' ? 'Review' : 'View'}
+                  </button>
+                </div>
               </div>
-            </div>
+            ))
           )}
         </div>
+
+        {/* ── Desktop Table (md+) ── */}
+        <div className="hidden md:block">
+          <div className="table-wrapper">
+            <div className="overflow-x-auto">
+              <table className="table min-w-[850px]">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    {!isOwner && <th>Venue</th>}
+                    <th>Court</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Amount</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    [1, 2, 3, 4, 5, 6, 7, 8].map((n) => <SkeletonRow key={n} cols={isOwner ? 7 : 8} />)
+                  ) : bookings.length === 0 ? (
+                    <tr>
+                      <td colSpan={isOwner ? 7 : 8} className="py-12">
+                        <EmptyState
+                          icon="📋"
+                          title="No bookings found"
+                          description={hasFilters || activeChip !== 'all' ? 'Try adjusting your filters.' : 'No bookings yet.'}
+                          action={
+                            hasFilters || activeChip !== 'all' ? (
+                              <button
+                                onClick={() => {
+                                  clearFilters()
+                                  setActiveChip('all')
+                                }}
+                                className="btn-secondary"
+                              >
+                                Clear filters
+                              </button>
+                            ) : null
+                          }
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    bookings.map((b) => (
+                      <tr key={b._id}>
+                        <td>
+                          <p className="font-medium text-gray-900">{b.playerId?.fullName ?? '—'}</p>
+                          <p className="text-xs text-gray-400">{b.playerId?.email ?? '—'}</p>
+                        </td>
+                        {!isOwner && (
+                          <td>
+                            <p className="font-medium">{b.venueId?.name ?? '—'}</p>
+                            <p className="text-xs text-gray-400">{b.venueId?.area ?? '—'}</p>
+                          </td>
+                        )}
+                        <td className="text-center">#{b.courtId?.courtNumber ?? '—'}</td>
+                        <td className="whitespace-nowrap text-xs">{formatDate(b.date)}</td>
+                        <td className="whitespace-nowrap text-xs">
+                          {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                        </td>
+                        <td className="font-medium text-primary-700">{formatCurrency(b.amount)}</td>
+                        <td className="uppercase text-xs text-gray-500">{b.paymentMethod}</td>
+                        <td>
+                          <Badge status={b.status} />
+                          {b.autoConfirmed && (
+                            <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                              Auto-confirmed
+                            </span>
+                          )}
+                          {b.rescheduleCount > 0 && (
+                            <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                              Rescheduled
+                            </span>
+                          )}
+                          {b.status === 'pending' ? (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => openReview(b)}
+                                className="btn-primary py-1 px-3 text-xs w-full"
+                              >
+                                Review
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => openReview(b)}
+                                className="btn-secondary py-1 px-3 text-xs w-full"
+                              >
+                                View
+                              </button>
+                            </div>
+                          )}
+                          {b.status === 'rejected' && b.rejectionReason && (
+                            <p className="text-[11px] text-gray-500 mt-1.5 max-w-[200px] leading-tight break-words">
+                              <span className="font-medium text-gray-700">Reason:</span> {b.rejectionReason}
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Show More Pagination Button ── */}
+        {remainingCount > 0 && (
+          <div className="mt-5 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((c) => c + 20)}
+              className="btn-secondary text-xs px-5 py-2.5 font-semibold"
+            >
+              Show more ({remainingCount} left)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Review Modal */}

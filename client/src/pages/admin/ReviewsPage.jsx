@@ -257,7 +257,7 @@ export default function ReviewsPage({ noLayout = false }) {
               <StarSolid className="h-4 w-4 text-amber-500" />
               <span>
                 {averageRating
-                  ? `Average ★ ${averageRating} from ${visibleReviews.length} ${visibleReviews.length === 1 ? 'review' : 'reviews'}`
+                  ? `Average ${averageRating} from ${visibleReviews.length} ${visibleReviews.length === 1 ? 'review' : 'reviews'}`
                   : 'No reviews yet'}
               </span>
             </div>

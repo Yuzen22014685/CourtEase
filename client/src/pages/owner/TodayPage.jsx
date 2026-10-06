@@ -171,7 +171,7 @@ export default function TodayPage() {
       <div className="card overflow-hidden bg-white border border-gray-200/80 shadow-sm">
         <div className="flex flex-col md:flex-row">
           {/* Photo / Placeholder */}
-          <div className="md:w-64 h-48 md:h-auto shrink-0 bg-gray-100 relative overflow-hidden flex items-center justify-center">
+          <div className="md:w-64 h-48 md:h-48 shrink-0 bg-gray-100 relative overflow-hidden flex items-center justify-center">
             {firstPhoto ? (
               <img
                 src={firstPhoto}
