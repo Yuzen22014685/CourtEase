@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
@@ -68,6 +68,12 @@ export default function ReviewsPage({ noLayout = false }) {
   const reviews = data?.data ?? []
   const total = data?.total ?? 0
   const pages = data?.pages ?? 1
+
+  const visibleReviews = useMemo(() => reviews.filter((r) => !r.isHidden), [reviews])
+  const averageRating = useMemo(() => {
+    if (visibleReviews.length === 0) return null
+    return (visibleReviews.reduce((sum, r) => sum + r.rating, 0) / visibleReviews.length).toFixed(1)
+  }, [visibleReviews])
 
   const handleVenueChange = (e) => {
     setVenueId(e.target.value)
@@ -163,7 +169,9 @@ export default function ReviewsPage({ noLayout = false }) {
         <div>
           <h1 className="page-title">Reviews</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Moderate player reviews and control their visibility across venues.
+            {isOwner
+              ? 'Customer feedback and ratings for your venue.'
+              : 'Moderate player reviews and control their visibility across venues.'}
           </p>
         </div>
         <button
@@ -242,13 +250,27 @@ export default function ReviewsPage({ noLayout = false }) {
 
         <ErrorMessage message={error || actionError} />
 
+        {/* Rating chip for owner */}
+        {isOwner && (
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800">
+              <StarSolid className="h-4 w-4 text-amber-500" />
+              <span>
+                {averageRating
+                  ? `Average ★ ${averageRating} from ${visibleReviews.length} ${visibleReviews.length === 1 ? 'review' : 'reviews'}`
+                  : 'No reviews yet'}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Table Card */}
         <div className="table-wrapper">
           <div className="overflow-x-auto">
             <table className="table min-w-[950px]">
               <thead>
                 <tr>
-                  <th>Venue</th>
+                  {!isOwner && <th>Venue</th>}
                   <th>Reviewer</th>
                   <th>Rating &amp; Comment</th>
                   <th>Booking</th>
@@ -259,10 +281,10 @@ export default function ReviewsPage({ noLayout = false }) {
               </thead>
               <tbody>
                 {loading ? (
-                  [1, 2, 3, 4, 5, 6].map((n) => <SkeletonRow key={n} cols={isOwner ? 6 : 7} />)
+                  [1, 2, 3, 4, 5, 6].map((n) => <SkeletonRow key={n} cols={isOwner ? 5 : 7} />)
                 ) : reviews.length === 0 ? (
                   <tr>
-                    <td colSpan={isOwner ? 6 : 7} className="py-12">
+                    <td colSpan={isOwner ? 5 : 7} className="py-12">
                       <EmptyState
                         icon="💬"
                         title="No reviews found"
@@ -285,10 +307,12 @@ export default function ReviewsPage({ noLayout = false }) {
                   reviews.map((r) => (
                     <tr key={r._id} className={r.isHidden ? 'bg-gray-50/50' : undefined}>
                       {/* Venue */}
-                      <td>
-                        <p className="font-medium text-gray-900">{r.venueId?.name ?? '—'}</p>
-                        <p className="text-xs text-gray-400">{r.venueId?.area ?? '—'}</p>
-                      </td>
+                      {!isOwner && (
+                        <td>
+                          <p className="font-medium text-gray-900">{r.venueId?.name ?? '—'}</p>
+                          <p className="text-xs text-gray-400">{r.venueId?.area ?? '—'}</p>
+                        </td>
+                      )}
 
                       {/* Reviewer */}
                       <td>

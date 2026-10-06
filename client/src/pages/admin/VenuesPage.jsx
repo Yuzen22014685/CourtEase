@@ -80,9 +80,13 @@ export default function AdminVenuesPage({ noLayout = false }) {
         {/* Header with Title and Add Button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="page-title text-2xl font-bold text-gray-900">Venues</h1>
+            <h1 className="page-title text-2xl font-bold text-gray-900">
+              {isOwner ? 'My Venue' : 'Venues'}
+            </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Manage badminton venues, operating details, court allocations, and photo galleries.
+              {isOwner
+                ? 'Update your venue details, photos and court layout.'
+                : 'Manage badminton venues, operating details, court allocations, and photo galleries.'}
             </p>
           </div>
 
@@ -117,51 +121,53 @@ export default function AdminVenuesPage({ noLayout = false }) {
         <ErrorMessage message={error} className="mb-4" />
 
         {/* Filter bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
-          <div className="relative flex-1 max-w-sm">
-            <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by venue name, area, address..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input pl-9 w-full text-xs"
-            />
-          </div>
+        {!isOwner && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+            <div className="relative flex-1 max-w-sm">
+              <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search by venue name, area, address..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input pl-9 w-full text-xs"
+              />
+            </div>
 
-          <div className="flex items-center gap-1.5 self-end sm:self-auto text-xs font-medium">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-colors ${
-                statusFilter === 'all'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              All ({venues.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('active')}
-              className={`px-3 py-1.5 rounded-lg transition-colors ${
-                statusFilter === 'active'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              Active ({venues.filter((v) => v.isActive !== false).length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('inactive')}
-              className={`px-3 py-1.5 rounded-lg transition-colors ${
-                statusFilter === 'inactive'
-                  ? 'bg-gray-900 text-white'
-                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              Inactive ({venues.filter((v) => v.isActive === false).length})
-            </button>
+            <div className="flex items-center gap-1.5 self-end sm:self-auto text-xs font-medium">
+              <button
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-lg transition-colors ${
+                  statusFilter === 'all'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                All ({venues.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('active')}
+                className={`px-3 py-1.5 rounded-lg transition-colors ${
+                  statusFilter === 'active'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                Active ({venues.filter((v) => v.isActive !== false).length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('inactive')}
+                className={`px-3 py-1.5 rounded-lg transition-colors ${
+                  statusFilter === 'inactive'
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                Inactive ({venues.filter((v) => v.isActive === false).length})
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Venues Table */}
         <div className="table-wrapper">

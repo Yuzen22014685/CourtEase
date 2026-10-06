@@ -61,7 +61,7 @@ export default function OwnerLayout() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ── Main Owner Header ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-xs">
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left: Brand + Venue Name / Switcher */}
@@ -144,9 +144,9 @@ export default function OwnerLayout() {
                     key={to}
                     to={to}
                     className={({ isActive }) =>
-                      `flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                      `flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
                         isActive
-                          ? 'bg-primary-50 text-primary-700 font-semibold shadow-xs'
+                          ? 'bg-primary-50 text-primary-700 font-semibold shadow-sm'
                           : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                       }`
                     }
@@ -154,7 +154,7 @@ export default function OwnerLayout() {
                     <Icon className="h-4 w-4 shrink-0" />
                     <span>{label}</span>
                     {hasBadge && pendingCount > 0 && (
-                      <span className="inline-flex items-center justify-center min-w-[1.25rem] h-4.5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                      <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
                         {badgeDisplay}
                       </span>
                     )}
@@ -174,7 +174,7 @@ export default function OwnerLayout() {
           </div>
         ) : venues.length === 0 ? (
           <div className="max-w-md mx-auto py-20 px-4 text-center animate-fadeIn">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 text-3xl shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
               🏸
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">No venue assigned yet</h2>
@@ -201,7 +201,7 @@ export default function OwnerLayout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors relative ${
+                `flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-lg ${
                   isActive ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-gray-800'
                 }`
               }

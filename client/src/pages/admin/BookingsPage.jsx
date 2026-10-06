@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
@@ -75,6 +76,22 @@ export default function AdminBookingsPage({ noLayout = false }) {
     setRejectReason('')
     setModalError(null)
   }
+
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Deep link support (?review=<bookingId>)
+  useEffect(() => {
+    const reviewId = searchParams.get('review')
+    if (reviewId && allBookings.length > 0) {
+      const match = allBookings.find((b) => b._id === reviewId)
+      if (match) {
+        openReview(match)
+        const nextParams = new URLSearchParams(searchParams)
+        nextParams.delete('review')
+        setSearchParams(nextParams, { replace: true })
+      }
+    }
+  }, [searchParams, allBookings, setSearchParams])
 
   const handleExecuteApprove = async () => {
     if (!reviewBooking) return
@@ -208,7 +225,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
               <thead>
                 <tr>
                   <th>Customer</th>
-                  <th>Venue</th>
+                  {!isOwner && <th>Venue</th>}
                   <th>Court</th>
                   <th>Date</th>
                   <th>Time</th>
@@ -219,10 +236,10 @@ export default function AdminBookingsPage({ noLayout = false }) {
               </thead>
               <tbody>
                 {loading ? (
-                  [1, 2, 3, 4, 5, 6, 7, 8].map((n) => <SkeletonRow key={n} cols={8} />)
+                  [1, 2, 3, 4, 5, 6, 7, 8].map((n) => <SkeletonRow key={n} cols={isOwner ? 7 : 8} />)
                 ) : bookings.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12">
+                    <td colSpan={isOwner ? 7 : 8} className="py-12">
                       <EmptyState
                         icon="📋"
                         title="No bookings found"
@@ -240,10 +257,12 @@ export default function AdminBookingsPage({ noLayout = false }) {
                       <p className="font-medium text-gray-900">{b.playerId?.fullName ?? '—'}</p>
                       <p className="text-xs text-gray-400">{b.playerId?.email ?? '—'}</p>
                     </td>
-                    <td>
-                      <p className="font-medium">{b.venueId?.name ?? '—'}</p>
-                      <p className="text-xs text-gray-400">{b.venueId?.area ?? '—'}</p>
-                    </td>
+                    {!isOwner && (
+                      <td>
+                        <p className="font-medium">{b.venueId?.name ?? '—'}</p>
+                        <p className="text-xs text-gray-400">{b.venueId?.area ?? '—'}</p>
+                      </td>
+                    )}
                     <td className="text-center">#{b.courtId?.courtNumber ?? '—'}</td>
                     <td className="whitespace-nowrap text-xs">{formatDate(b.date)}</td>
                     <td className="whitespace-nowrap text-xs">

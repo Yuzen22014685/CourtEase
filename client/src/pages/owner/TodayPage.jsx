@@ -26,6 +26,21 @@ const getLocalToday = () => {
   return `${y}-${m}-${day}`
 }
 
+const parseTimeToMinutes = (t) => {
+  if (!t) return 0
+  const [h = 0, m = 0] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+const getDurationHours = (start, end) => {
+  const diffMinutes = parseTimeToMinutes(end) - parseTimeToMinutes(start)
+  return diffMinutes > 0 ? diffMinutes / 60 : 0
+}
+
+const formatDuration = (hours) => {
+  return hours % 1 === 0 ? `${hours} h` : `${hours.toFixed(1)} h`
+}
+
 export default function TodayPage() {
   const { selectedVenue } = useOwnerVenue()
   const navigate = useNavigate()
@@ -76,7 +91,7 @@ export default function TodayPage() {
     )
   }, [todayBookings])
 
-  // Group today's schedule by court, ordered by court number and start time
+  // Group today's schedule by court, ordered by court number and start time, with consecutive slots merged
   const scheduleByCourt = useMemo(() => {
     const groups = {}
     activeTodayBookings.forEach((b) => {
@@ -89,13 +104,44 @@ export default function TodayPage() {
       groups[courtLabel].push(b)
     })
 
-    // Sort bookings within each court by start time
+    const processed = {}
+    // Sort bookings within each court by start time, then merge consecutive slots
     Object.keys(groups).forEach((court) => {
-      groups[court].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+      const sorted = [...groups[court]].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+      const merged = []
+      for (const b of sorted) {
+        const prev = merged[merged.length - 1]
+        const prevPlayerId = prev?.playerId?._id || prev?.playerId
+        const currPlayerId = b?.playerId?._id || b?.playerId
+
+        if (
+          prev &&
+          String(prevPlayerId) === String(currPlayerId) &&
+          prev.status === b.status &&
+          prev.endTime === b.startTime
+        ) {
+          prev.endTime = b.endTime
+          const hours = getDurationHours(prev.startTime, prev.endTime)
+          prev.durationHours = hours
+          prev.durationLabel = formatDuration(hours)
+        } else {
+          const hours = getDurationHours(b.startTime, b.endTime)
+          merged.push({
+            ...b,
+            durationHours: hours,
+            durationLabel: formatDuration(hours),
+          })
+        }
+      }
+      const totalCourtHours = merged.reduce((sum, item) => sum + item.durationHours, 0)
+      processed[court] = {
+        slots: merged,
+        totalHoursLabel: formatDuration(totalCourtHours),
+      }
     })
 
     // Sort courts by name / court number
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    return Object.entries(processed).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
   }, [activeTodayBookings])
 
   // Count receipts waiting verification
@@ -122,7 +168,7 @@ export default function TodayPage() {
       {error && <ErrorMessage message={error} />}
 
       {/* ── Venue Hero Card ── */}
-      <div className="card overflow-hidden bg-white border border-gray-200/80 shadow-xs">
+      <div className="card overflow-hidden bg-white border border-gray-200/80 shadow-sm">
         <div className="flex flex-col md:flex-row">
           {/* Photo / Placeholder */}
           <div className="md:w-64 h-48 md:h-auto shrink-0 bg-gray-100 relative overflow-hidden flex items-center justify-center">
@@ -277,7 +323,7 @@ export default function TodayPage() {
               return (
                 <div
                   key={b._id}
-                  className="card p-4.5 bg-white border border-gray-200 hover:border-gray-300 transition-shadow flex flex-col justify-between space-y-3"
+                  className="card p-5 bg-white border border-gray-200 hover:border-gray-300 transition-shadow flex flex-col justify-between space-y-3"
                 >
                   <div className="space-y-1.5">
                     <div className="flex items-start justify-between gap-2">
@@ -315,7 +361,7 @@ export default function TodayPage() {
                   <div className="pt-2 border-t border-gray-100 flex items-center justify-end">
                     <button
                       type="button"
-                      onClick={() => navigate('/owner/bookings')}
+                      onClick={() => navigate(`/owner/bookings?review=${b._id}`)}
                       className="btn-primary btn-sm text-xs py-1.5"
                     >
                       Review receipt
@@ -336,7 +382,7 @@ export default function TodayPage() {
             Today's Schedule
           </h2>
           <p className="text-xs text-gray-500">
-            Confirmed and active sessions scheduled for {formatDate(localToday)}.
+            Active sessions (pending and confirmed) for {formatDate(localToday)}.
           </p>
         </div>
 
@@ -350,25 +396,30 @@ export default function TodayPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {scheduleByCourt.map(([courtName, courtBookings]) => (
-              <div key={courtName} className="card p-4.5 bg-white border border-gray-200">
+            {scheduleByCourt.map(([courtName, { slots, totalHoursLabel }]) => (
+              <div key={courtName} className="card p-5 bg-white border border-gray-200">
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
                   <h3 className="font-bold text-gray-900 text-sm">{courtName}</h3>
                   <span className="text-xs text-gray-500 font-medium">
-                    {courtBookings.length} {courtBookings.length === 1 ? 'slot' : 'slots'}
+                    {totalHoursLabel} booked
                   </span>
                 </div>
 
                 <div className="space-y-2.5">
-                  {courtBookings.map((b) => (
+                  {slots.map((b) => (
                     <div
                       key={b._id}
                       className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50/70 border border-gray-100 hover:bg-gray-50 transition-colors"
                     >
                       <div className="min-w-0 pr-3">
-                        <p className="text-xs font-bold text-gray-900">
-                          {formatTime(b.startTime)} – {formatTime(b.endTime)}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-gray-900">
+                            {formatTime(b.startTime)} – {formatTime(b.endTime)}
+                          </p>
+                          <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                            {b.durationLabel}
+                          </span>
+                        </div>
                         <p className="text-xs text-gray-600 truncate mt-0.5">
                           {b.playerId?.fullName || 'Player'}
                         </p>
