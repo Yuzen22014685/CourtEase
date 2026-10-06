@@ -1,14 +1,14 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import { getVenueById, getVenueAvailability, getVenueReviews } from '../../api/venues'
-import { createBooking, uploadReceipt } from '../../api/bookings'
-import { QRCodeSVG } from 'qrcode.react'
+import { createBooking } from '../../api/bookings'
 import Layout from '../../components/layout/Layout'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
+import PayVenueCard from '../../components/bookings/PayVenueCard'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { formatCurrency, formatDate, formatTime, todayString, getImageUrl } from '../../utils/format'
 import {
@@ -28,12 +28,6 @@ import {
 import { StarIcon } from '@heroicons/react/24/solid'
 import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline'
 import clsx from 'clsx'
-
-const PAYMENT_METHODS = [
-  { value: 'card',    label: '💳 Credit / Debit Card' },
-  { value: 'fpx',     label: '🏦 FPX Online Banking' },
-  { value: 'ewallet', label: '📱 e-Wallet (Touch n Go / Boost)' },
-]
 
 /** Unique key for a cart slot */
 const slotKey = (courtId, start) => `${courtId}::${start}`
@@ -97,15 +91,36 @@ export default function VenueDetailPage() {
   // ── Cart: array of { courtId, courtNumber, start, end } ───────
   const [cart, setCart] = useState([])
 
+  // ── Payment methods derived from venue.paymentOptions ─────────
+  const availablePaymentMethods = useMemo(() => {
+    const methods = []
+    if (venue?.paymentOptions?.duitNowQr) {
+      methods.push({ value: 'duitnow_qr', label: 'DuitNow QR' })
+    }
+    if (venue?.paymentOptions?.bankTransfer) {
+      methods.push({ value: 'bank_transfer', label: 'Bank transfer' })
+    }
+    return methods
+  }, [venue?.paymentOptions])
+
   // ── Checkout modal state ──────────────────────────────────────
-  const [checkoutOpen, setCheckoutOpen]   = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('card')
+  const [checkoutOpen, setCheckoutOpen]     = useState(false)
+  const [paymentMethod, setPaymentMethod]   = useState('duitnow_qr')
   const [bookingLoading, setBookingLoading] = useState(false)
   // bookingResults: { successes: [...], failures: [...] } | null
   const [bookingResults, setBookingResults] = useState(null)
   const [uploadComplete, setUploadComplete] = useState(false)
-  const [uploadSkipped, setUploadSkipped] = useState(false)
+  const [uploadSkipped, setUploadSkipped]   = useState(false)
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false)
+
+  // Default to first available payment method when venue options load
+  useEffect(() => {
+    if (availablePaymentMethods.length > 0) {
+      if (!availablePaymentMethods.some((m) => m.value === paymentMethod)) {
+        setPaymentMethod(availablePaymentMethods[0].value)
+      }
+    }
+  }, [availablePaymentMethods, paymentMethod])
 
   // Mobile cart sheet
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
@@ -142,19 +157,29 @@ export default function VenueDetailPage() {
     }))
 
     const results = { successes: [], failures: [] }
+    let sharedPaymentRef = undefined
 
     // Sequential (not parallel) to avoid race conditions on the same court
     for (const slot of cartSnapshot) {
       try {
-        const res = await createBooking({
+        const payload = {
           venueId:     id,
           courtId:     slot.courtId,
           date:        selectedDate,
           startTime:   slot.start,
           endTime:     slot.end,
           paymentMethod,
-        })
+        }
+        if (sharedPaymentRef) {
+          payload.paymentRef = sharedPaymentRef
+        }
+
+        const res = await createBooking(payload)
         const b = res.data.data
+        if (!sharedPaymentRef && b.paymentRef) {
+          sharedPaymentRef = b.paymentRef
+        }
+
         results.successes.push({
           bookingId:   b._id,
           courtId:     slot.courtId,
@@ -162,6 +187,7 @@ export default function VenueDetailPage() {
           start:       slot.start,
           end:         slot.end,
           receiptId:   b.receiptId,
+          paymentRef:  b.paymentRef,
           amount:      b.amount,
           paymentMethod: b.paymentMethod,
         })
@@ -188,7 +214,9 @@ export default function VenueDetailPage() {
 
   const handleCloseCheckout = () => {
     setCheckoutOpen(false)
-    setPaymentMethod('card')
+    if (availablePaymentMethods.length > 0) {
+      setPaymentMethod(availablePaymentMethods[0].value)
+    }
   }
 
   const handleCloseResults = () => {
@@ -573,6 +601,7 @@ export default function VenueDetailPage() {
           date={selectedDate}
           totalPrice={totalPrice}
           paymentMethod={paymentMethod}
+          availablePaymentMethods={availablePaymentMethods}
           onPaymentChange={setPaymentMethod}
           onConfirm={handleCheckout}
           onCancel={handleCloseCheckout}
@@ -591,7 +620,7 @@ export default function VenueDetailPage() {
         }
         title={
           !uploadComplete && !uploadSkipped && bookingResults?.successes?.length > 0
-            ? 'Upload Proof of Payment'
+            ? 'Step 2 — Pay the venue, then upload your receipt'
             : bookingResults?.failures?.length === 0
             ? '🎉 Bookings submitted!'
             : bookingResults?.successes?.length === 0
@@ -602,10 +631,16 @@ export default function VenueDetailPage() {
       >
         {bookingResults && (
           (!uploadComplete && !uploadSkipped && bookingResults.successes.length > 0) ? (
-            <UploadReceiptPanel 
-              bookingIds={bookingResults.successes.map(b => b.bookingId)} 
-              onSuccess={() => setUploadComplete(true)} 
-            />
+            <div className="space-y-6">
+              <PayVenueCard
+                bookingId={bookingResults.successes[0].bookingId}
+                chosenMethod={paymentMethod}
+              />
+              <UploadReceiptPanel 
+                bookingIds={bookingResults.successes.map((b) => b.bookingId)} 
+                onSuccess={() => setUploadComplete(true)} 
+              />
+            </div>
           ) : (
             <ResultsPanel
               results={bookingResults}
@@ -722,32 +757,37 @@ function SlotMatrix({ matrix, cartSet, selectedDate, onSlotClick }) {
 
 /* ── Cart Panel ───────────────────────────────────────────────────────────── */
 function CartPanel({ cart, venue, date, totalPrice, onRemove, onClear, onCheckout }) {
+  const hasPaymentOptions = Boolean(venue?.paymentOptions?.duitNowQr || venue?.paymentOptions?.bankTransfer)
+
   if (cart.length === 0) {
     return (
       <div className="card p-6 text-center">
-        <ShoppingCartIcon className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+        <ShoppingCartIcon className="h-8 w-8 text-gray-300 mx-auto mb-2" />
         <p className="text-sm font-medium text-gray-500">Your cart is empty</p>
-        <p className="text-xs text-gray-400 mt-1">Click available slots to add them</p>
+        <p className="text-xs text-gray-400 mt-1">Select available slots from the schedule</p>
       </div>
     )
   }
 
   return (
     <div className="card overflow-hidden">
-      {/* Cart header */}
-      <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <ShoppingCartIcon className="h-4 w-4 text-primary-600" />
-          <span className="font-semibold text-gray-900 text-sm">
-            Cart · {cart.length} slot{cart.length !== 1 ? 's' : ''}
-          </span>
+          <ShoppingCartIcon className="h-5 w-5 text-primary-600" />
+          <h3 className="font-semibold text-gray-900 text-sm">
+            Selected Slots ({cart.length})
+          </h3>
         </div>
-        <button onClick={onClear} className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors">
+        <button
+          onClick={onClear}
+          className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+        >
           Clear all
         </button>
       </div>
 
-      {/* Cart items */}
+      {/* Slot list */}
       <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto">
         {cart.map((slot) => {
           const key = `${slot.courtId}::${slot.start}`
@@ -788,21 +828,41 @@ function CartPanel({ cart, venue, date, totalPrice, onRemove, onClear, onCheckou
         <button
           id="checkout-btn"
           onClick={onCheckout}
+          disabled={cart.length === 0 || !hasPaymentOptions}
           className="btn-primary w-full"
         >
           Confirm Booking →
         </button>
-        <p className="text-xs text-gray-400 text-center">Mock payment — no real transaction</p>
+        {!hasPaymentOptions && (
+          <p className="text-xs text-red-500 text-center font-medium">
+            This venue hasn't set up payment details yet.
+          </p>
+        )}
+        <p className="text-xs text-gray-400 text-center">
+          You pay the venue directly. CourtEase never handles your money.
+        </p>
       </div>
     </div>
   )
 }
 
 /* ── Checkout Panel ───────────────────────────────────────────────────────── */
-function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPaymentChange, onConfirm, onCancel, loading }) {
-  // ── Normal checkout ────────────────────────────────────────────────────────
+function CheckoutPanel({
+  cart,
+  venue,
+  date,
+  totalPrice,
+  paymentMethod,
+  availablePaymentMethods = [],
+  onPaymentChange,
+  onConfirm,
+  onCancel,
+  loading,
+}) {
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [showTermsWarning, setShowTermsWarning] = useState(false)
+
+  const hasPaymentOptions = availablePaymentMethods.length > 0
 
   const handleConfirmClick = () => {
     if (!termsAccepted) {
@@ -814,15 +874,15 @@ function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPayment
   }
 
   return (
-    <div className="space-y-5">
-      {/* Order summary */}
-      <div className="bg-gray-50 rounded-xl p-4 space-y-2 max-h-52 overflow-y-auto">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-          {cart.length} slot{cart.length !== 1 ? 's' : ''} · {formatDate(date)}
-        </p>
+    <div className="space-y-6">
+      {/* Booking summary */}
+      <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+        <div className="flex justify-between text-gray-500 text-xs">
+          <span>{venue?.name}</span>
+          <span>{cart.length} slot{cart.length !== 1 ? 's' : ''} · {formatDate(date)}</span>
+        </div>
         {cart.map((slot) => (
-          <div key={`${slot.courtId}::${slot.start}`}
-               className="flex items-center justify-between text-sm">
+          <div key={slotKey(slot.courtId, slot.start)} className="flex justify-between text-xs">
             <span className="text-gray-700">
               Court {slot.courtNumber} · {formatTime(slot.start)}–{formatTime(slot.end)}
             </span>
@@ -839,24 +899,34 @@ function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPayment
       </div>
 
       {/* Payment method */}
-      <div>
-        <label className="label" htmlFor="payment-method">Payment method</label>
-        <select
-          id="payment-method"
-          value={paymentMethod}
-          onChange={(e) => onPaymentChange(e.target.value)}
-          className="select"
-          disabled={loading}
-        >
-          {PAYMENT_METHODS.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
-          ))}
-        </select>
-        
-        {paymentMethod === 'ewallet' && (
-          <div className="mt-4 p-4 bg-white border border-gray-200 rounded-xl flex flex-col items-center">
-            <QRCodeSVG value={`courtease-pay-${totalPrice}`} size={128} />
-            <p className="mt-3 text-xs text-gray-500 text-center font-medium">Scan with your e-wallet app to complete payment</p>
+      <div className="space-y-2">
+        <label className="label">Payment method</label>
+        {!hasPaymentOptions ? (
+          <p className="text-sm text-gray-500 italic">This venue hasn't set up payment details yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {availablePaymentMethods.map((m) => (
+              <label
+                key={m.value}
+                className={clsx(
+                  'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors',
+                  paymentMethod === m.value
+                    ? 'border-primary-500 bg-primary-50/40 text-gray-900 font-medium'
+                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="paymentMethod"
+                  value={m.value}
+                  checked={paymentMethod === m.value}
+                  onChange={(e) => onPaymentChange(e.target.value)}
+                  disabled={loading}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                />
+                <span className="text-sm">{m.label}</span>
+              </label>
+            ))}
           </div>
         )}
       </div>
@@ -867,6 +937,10 @@ function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPayment
           Terms &amp; Conditions
         </p>
         <ul className="space-y-2 text-sm text-gray-600">
+          <li className="flex items-start gap-2">
+            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+            <span>Payment is made directly to the venue by DuitNow QR or bank transfer. CourtEase does not process or hold payments.</span>
+          </li>
           <li className="flex items-start gap-2">
             <span className="mt-0.5 text-gray-400 shrink-0">•</span>
             <span>All bookings are non-refundable.</span>
@@ -931,15 +1005,26 @@ function CheckoutPanel({ cart, venue, date, totalPrice, paymentMethod, onPayment
         <button
           id="confirm-booking-btn"
           onClick={handleConfirmClick}
-          disabled={loading || cart.length === 0}
+          disabled={loading || cart.length === 0 || !hasPaymentOptions}
           className="btn-primary flex-1"
         >
-          {loading
-            ? <><Spinner size="sm" /> Processing…</>
-            : `Pay ${formatCurrency(totalPrice)}`}
+          {loading ? (
+            <span className="inline-flex items-center gap-2">
+              <Spinner size="sm" /> Processing…
+            </span>
+          ) : (
+            'Book & get payment details'
+          )}
         </button>
       </div>
-      <p className="text-xs text-gray-400 text-center">Mock payment — no real transaction processed</p>
+      {!hasPaymentOptions && (
+        <p className="text-xs text-red-500 text-center -mt-2 font-medium">
+          This venue hasn't set up payment details yet.
+        </p>
+      )}
+      <p className="text-xs text-gray-400 text-center">
+        You pay the venue directly. CourtEase never handles your money.
+      </p>
     </div>
   )
 }

@@ -13,3 +13,5 @@ export const uploadReceipt = (id, formData) => api.post(`/bookings/${id}/upload-
 })
 
 export const submitReview = (id, data) => api.post(`/bookings/${id}/review`, data)
+
+export const getBookingPaymentInfo = (id) => api.get(`/bookings/${id}/payment-info`)
