@@ -26,6 +26,12 @@ const {
   hideReview,
   restoreReview,
 } = require('../controllers/reviewAdminController');
+const {
+  getOwners,
+  createOwner,
+  resendOwnerInvite,
+  updateVenueOwner,
+} = require('../controllers/ownerAdminController');
 const upload = require('../middleware/upload');
 
 // Base guard: all routes require JWT and role of admin or venue_owner
@@ -76,6 +82,19 @@ router.post('/venues/:id/layout', requireVenueAccess('id'), upload.single('layou
 
 // DELETE /api/admin/venues/:id/layout (Venue access required)
 router.delete('/venues/:id/layout', requireVenueAccess('id'), deleteCourtLayout);
+
+// PATCH /api/admin/venues/:id/owner (Admin only)
+router.patch('/venues/:id/owner', adminOnly, updateVenueOwner);
+
+// ─── Owner Management ──────────────────────────────────────────────────────────
+// GET /api/admin/owners (Admin only)
+router.get('/owners', adminOnly, getOwners);
+
+// POST /api/admin/owners (Admin only)
+router.post('/owners', adminOnly, createOwner);
+
+// POST /api/admin/owners/:id/resend-invite (Admin only)
+router.post('/owners/:id/resend-invite', adminOnly, resendOwnerInvite);
 
 // ─── Review Moderation ────────────────────────────────────────────────────────
 // GET /api/admin/reviews

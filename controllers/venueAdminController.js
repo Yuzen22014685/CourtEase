@@ -3,6 +3,7 @@ const fs = require('fs');
 const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Review = require('../models/Review');
+const User = require('../models/User');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,11 +51,31 @@ const getAdminVenues = async (req, res, next) => {
     const ids = venues.map((v) => v._id);
     const ratingMap = await computeVenueRatings(ids);
 
+    let ownerMap = new Map();
+    if (req.user.role === 'admin') {
+      const ownerIds = [...new Set(venues.map((v) => v.ownerId).filter(Boolean))];
+      if (ownerIds.length > 0) {
+        const owners = await User.find({ _id: { $in: ownerIds } })
+          .select('_id fullName email')
+          .lean();
+        for (const o of owners) {
+          ownerMap.set(o._id.toString(), {
+            _id: o._id,
+            fullName: o.fullName,
+            email: o.email,
+          });
+        }
+      }
+    }
+
     const data = venues.map((v) => {
       const plain = v.toObject();
       const r = ratingMap.get(v._id.toString());
       plain.rating = r ? r.avg : null;
       plain.reviewCount = r ? r.count : 0;
+      if (req.user.role === 'admin') {
+        plain.owner = plain.ownerId ? (ownerMap.get(plain.ownerId.toString()) || null) : null;
+      }
       return plain;
     });
 
@@ -190,9 +211,10 @@ const updateVenue = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Venue not found' });
     }
 
+    delete req.body.ownerId;
+
     if (req.user.role === 'venue_owner') {
       delete req.body.isActive;
-      delete req.body.ownerId;
       delete req.body.rating;
       delete req.body.reviews;
     }
