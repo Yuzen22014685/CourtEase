@@ -45,7 +45,8 @@ const computeVenueRatings = async (venueIds) => {
 // ---------------------------------------------------------------------------
 const getAdminVenues = async (req, res, next) => {
   try {
-    const venues = await Venue.find().sort({ createdAt: -1 }).select('-__v -reviews');
+    const query = req.user.role === 'venue_owner' ? { ownerId: req.user._id } : {};
+    const venues = await Venue.find(query).sort({ createdAt: -1 }).select('-__v -reviews');
     const ids = venues.map((v) => v._id);
     const ratingMap = await computeVenueRatings(ids);
 
@@ -187,6 +188,13 @@ const updateVenue = async (req, res, next) => {
     const venue = await Venue.findById(req.params.id);
     if (!venue) {
       return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    if (req.user.role === 'venue_owner') {
+      delete req.body.isActive;
+      delete req.body.ownerId;
+      delete req.body.rating;
+      delete req.body.reviews;
     }
 
     const {

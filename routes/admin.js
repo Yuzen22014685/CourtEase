@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { protect, adminOnly } = require('../middleware/auth');
+const { protect, adminOnly, requireRole } = require('../middleware/auth');
+const { requireVenueAccess } = require('../utils/venueAccess');
 const {
   getPendingCount,
   getAllBookings,
@@ -27,8 +28,8 @@ const {
 } = require('../controllers/reviewAdminController');
 const upload = require('../middleware/upload');
 
-// All admin routes require JWT + admin role
-router.use(protect, adminOnly);
+// Base guard: all routes require JWT and role of admin or venue_owner
+router.use(protect, requireRole('admin', 'venue_owner'));
 
 // GET /api/admin/bookings
 router.get('/bookings', getAllBookings);
@@ -55,35 +56,35 @@ router.get('/analytics/utilization', getUtilization);
 // GET /api/admin/venues
 router.get('/venues', getAdminVenues);
 
-// POST /api/admin/venues
-router.post('/venues', createVenue);
+// POST /api/admin/venues (Admin only)
+router.post('/venues', adminOnly, createVenue);
 
-// PATCH /api/admin/venues/:id
-router.patch('/venues/:id', updateVenue);
+// PATCH /api/admin/venues/:id (Venue access required)
+router.patch('/venues/:id', requireVenueAccess('id'), updateVenue);
 
-// POST /api/admin/venues/:id/photos
-router.post('/venues/:id/photos', upload.array('photos', 5), uploadVenuePhotos);
+// POST /api/admin/venues/:id/photos (Venue access required before file upload)
+router.post('/venues/:id/photos', requireVenueAccess('id'), upload.array('photos', 5), uploadVenuePhotos);
 
-// DELETE /api/admin/venues/:id/photos
-router.delete('/venues/:id/photos', deleteVenuePhoto);
+// DELETE /api/admin/venues/:id/photos (Venue access required)
+router.delete('/venues/:id/photos', requireVenueAccess('id'), deleteVenuePhoto);
 
-// PATCH /api/admin/venues/:id/photos/order
-router.patch('/venues/:id/photos/order', reorderVenuePhotos);
+// PATCH /api/admin/venues/:id/photos/order (Venue access required)
+router.patch('/venues/:id/photos/order', requireVenueAccess('id'), reorderVenuePhotos);
 
-// POST /api/admin/venues/:id/layout
-router.post('/venues/:id/layout', upload.single('layout'), uploadCourtLayout);
+// POST /api/admin/venues/:id/layout (Venue access required before file upload)
+router.post('/venues/:id/layout', requireVenueAccess('id'), upload.single('layout'), uploadCourtLayout);
 
-// DELETE /api/admin/venues/:id/layout
-router.delete('/venues/:id/layout', deleteCourtLayout);
+// DELETE /api/admin/venues/:id/layout (Venue access required)
+router.delete('/venues/:id/layout', requireVenueAccess('id'), deleteCourtLayout);
 
 // ─── Review Moderation ────────────────────────────────────────────────────────
 // GET /api/admin/reviews
 router.get('/reviews', getAdminReviews);
 
-// PATCH /api/admin/reviews/:id/hide
-router.patch('/reviews/:id/hide', hideReview);
+// PATCH /api/admin/reviews/:id/hide (Admin only)
+router.patch('/reviews/:id/hide', adminOnly, hideReview);
 
-// PATCH /api/admin/reviews/:id/restore
-router.patch('/reviews/:id/restore', restoreReview);
+// PATCH /api/admin/reviews/:id/restore (Admin only)
+router.patch('/reviews/:id/restore', adminOnly, restoreReview);
 
 module.exports = router;

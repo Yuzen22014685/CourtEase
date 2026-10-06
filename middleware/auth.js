@@ -44,4 +44,17 @@ const adminOnly = (req, res, next) => {
   return res.status(403).json({ success: false, message: 'Admin access required' });
 };
 
-module.exports = { protect, adminOnly };
+/**
+ * Restrict route to specific roles — must be used after protect
+ */
+const requireRole = (...roles) => {
+  return (req, res, next) => {
+    if (req.user && roles.includes(req.user.role)) {
+      return next();
+    }
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  };
+};
+
+module.exports = { protect, adminOnly, requireRole };
+

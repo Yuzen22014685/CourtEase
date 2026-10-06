@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const Notification = require('../models/Notification');
+const { getOwnedVenueIds, canAccessVenue } = require('../utils/venueAccess');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "HH:MM" → minutes since midnight
@@ -44,13 +46,18 @@ const sortByAdminPriority = (a, b) => {
 // Shared helper: build the Mongo filter for analytics queries.
 // Includes only active bookings (pending / confirmed / completed),
 // within [sinceStr, todayStr] on the booking date field.
+// venueFilter can be a single ObjectId/string, an array of ObjectIds, or undefined.
 // ---------------------------------------------------------------------------
-const buildAnalyticsBookingFilter = (venueId, sinceStr, todayStr) => {
+const buildAnalyticsBookingFilter = (venueFilter, sinceStr, todayStr) => {
   const filter = {
     status: { $in: ['pending', 'confirmed', 'completed'] },
     date: { $gte: sinceStr, $lte: todayStr },
   };
-  if (venueId) filter.venueId = venueId;
+  if (Array.isArray(venueFilter)) {
+    filter.venueId = { $in: venueFilter };
+  } else if (venueFilter) {
+    filter.venueId = venueFilter;
+  }
   return filter;
 };
 
@@ -60,7 +67,22 @@ const buildAnalyticsBookingFilter = (venueId, sinceStr, todayStr) => {
 // ---------------------------------------------------------------------------
 const getPendingCount = async (req, res, next) => {
   try {
-    const count = await Booking.countDocuments({ status: 'pending' });
+    const filter = { status: 'pending' };
+    if (req.user.role === 'venue_owner') {
+      const ownedIds = await getOwnedVenueIds(req.user);
+      if (req.query.venueId) {
+        if (!mongoose.isValidObjectId(req.query.venueId) || !ownedIds.some((id) => id.toString() === String(req.query.venueId))) {
+          return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
+        }
+        filter.venueId = req.query.venueId;
+      } else {
+        filter.venueId = { $in: ownedIds };
+      }
+    } else if (req.query.venueId) {
+      filter.venueId = req.query.venueId;
+    }
+
+    const count = await Booking.countDocuments(filter);
     res.json({ success: true, count });
   } catch (err) {
     next(err);
@@ -73,8 +95,21 @@ const getPendingCount = async (req, res, next) => {
 const getAllBookings = async (req, res, next) => {
   try {
     const filter = {};
+    if (req.user.role === 'venue_owner') {
+      const ownedIds = await getOwnedVenueIds(req.user);
+      if (req.query.venueId) {
+        if (!mongoose.isValidObjectId(req.query.venueId) || !ownedIds.some((id) => id.toString() === String(req.query.venueId))) {
+          return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
+        }
+        filter.venueId = req.query.venueId;
+      } else {
+        filter.venueId = { $in: ownedIds };
+      }
+    } else if (req.query.venueId) {
+      filter.venueId = req.query.venueId;
+    }
+
     if (req.query.status) filter.status = req.query.status;
-    if (req.query.venueId) filter.venueId = req.query.venueId;
     if (req.query.date) filter.date = req.query.date;
 
     const { sortBy } = req.query;
@@ -114,7 +149,8 @@ const getRevenueAnalytics = async (req, res, next) => {
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
 
-    const venues = await Venue.find({});
+    const venueQuery = req.user.role === 'venue_owner' ? { ownerId: req.user._id } : {};
+    const venues = await Venue.find(venueQuery);
 
     const results = await Promise.all(
       venues.map(async (venue) => {
@@ -168,10 +204,21 @@ const getPeakHours = async (req, res, next) => {
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
 
-    // venueId is optional — pass undefined when absent so the helper omits it
-    const venueId = req.query.venueId || undefined;
+    let venueFilter = req.query.venueId || undefined;
+    if (req.user.role === 'venue_owner') {
+      const ownedIds = await getOwnedVenueIds(req.user);
+      if (req.query.venueId) {
+        if (!mongoose.isValidObjectId(req.query.venueId) || !ownedIds.some((id) => id.toString() === String(req.query.venueId))) {
+          return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
+        }
+        venueFilter = req.query.venueId;
+      } else {
+        venueFilter = ownedIds;
+      }
+    }
+
     const bookings = await Booking.find(
-      buildAnalyticsBookingFilter(venueId, sinceStr, todayStr)
+      buildAnalyticsBookingFilter(venueFilter, sinceStr, todayStr)
     ).select('startTime endTime');
 
     // Count bookings per hour bucket
@@ -215,7 +262,8 @@ const getUtilization = async (req, res, next) => {
     since.setDate(since.getDate() - days);
     const sinceStr = since.toISOString().split('T')[0];
 
-    const venues = await Venue.find({});
+    const venueQuery = req.user.role === 'venue_owner' ? { ownerId: req.user._id } : {};
+    const venues = await Venue.find(venueQuery);
 
     const results = await Promise.all(
       venues.map(async (venue) => {
@@ -258,9 +306,13 @@ const getUtilization = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const approveBooking = async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id).populate('venueId', 'name');
+    const booking = await Booking.findById(req.params.id).populate('venueId', 'name ownerId');
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    const hasAccess = await canAccessVenue(req.user, booking.venueId?._id);
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
     }
     if (booking.status !== 'pending') {
       return res.status(400).json({ success: false, message: 'This booking is no longer pending.' });
@@ -298,9 +350,13 @@ const rejectBooking = async (req, res, next) => {
       });
     }
 
-    const booking = await Booking.findById(req.params.id).populate('venueId', 'name');
+    const booking = await Booking.findById(req.params.id).populate('venueId', 'name ownerId');
     if (!booking) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+    const hasAccess = await canAccessVenue(req.user, booking.venueId?._id);
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
     }
     if (booking.status !== 'pending') {
       return res.status(400).json({ success: false, message: 'This booking is no longer pending.' });

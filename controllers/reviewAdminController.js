@@ -1,6 +1,8 @@
+const mongoose = require('mongoose');
 const Review = require('../models/Review');
 const Venue = require('../models/Venue');
 const Notification = require('../models/Notification');
+const { getOwnedVenueIds } = require('../utils/venueAccess');
 
 // ---------------------------------------------------------------------------
 // GET /api/admin/reviews?page=1&venueId=&status=visible|hidden
@@ -13,9 +15,20 @@ const getAdminReviews = async (req, res, next) => {
     const skip = (page - 1) * PAGE_SIZE;
 
     const filter = {};
-    if (req.query.venueId) {
+    if (req.user.role === 'venue_owner') {
+      const ownedIds = await getOwnedVenueIds(req.user);
+      if (req.query.venueId) {
+        if (!mongoose.isValidObjectId(req.query.venueId) || !ownedIds.some((id) => id.toString() === String(req.query.venueId))) {
+          return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
+        }
+        filter.venueId = req.query.venueId;
+      } else {
+        filter.venueId = { $in: ownedIds };
+      }
+    } else if (req.query.venueId) {
       filter.venueId = req.query.venueId;
     }
+
     if (req.query.status === 'visible') {
       filter.isHidden = { $ne: true };
     } else if (req.query.status === 'hidden') {
