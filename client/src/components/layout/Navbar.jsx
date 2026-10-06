@@ -11,6 +11,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { getUnreadCount, getNotifications, markNotificationRead } from '../../api/notifications'
 import { formatDistanceToNow } from 'date-fns'
+import { homePathForRole } from '../../utils/routes'
 
 const desktopNavLinkClass = ({ isActive }) =>
   `px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -146,7 +147,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
     navigate(targetUrl)
   }
 
-  const homeLink = isStaff ? '/admin/dashboard' : '/venues'
+  const homeLink = homePathForRole(user?.role)
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
@@ -277,9 +278,6 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                 <span className="font-medium text-gray-700">{user.fullName}</span>
                 {isAdmin && (
                   <span className="badge bg-primary-100 text-primary-700 text-xs">Admin</span>
-                )}
-                {isOwner && (
-                  <span className="badge bg-primary-100 text-primary-700 text-xs">Venue Owner</span>
                 )}
               </div>
               <button

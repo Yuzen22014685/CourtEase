@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
 import { getAdminReviews, hideReview, restoreReview, getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
@@ -27,8 +28,9 @@ const STATUS_TABS = [
   { id: 'hidden', label: 'Hidden' },
 ]
 
-export default function ReviewsPage() {
+export default function ReviewsPage({ noLayout = false }) {
   const { isOwner } = useAuth()
+  const { selectedVenue } = useOwnerVenue()
   const [venueId, setVenueId] = useState('')
   const [statusTab, setStatusTab] = useState('')
   const [page, setPage] = useState(1)
@@ -50,15 +52,18 @@ export default function ReviewsPage() {
   const { data: venuesData } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = venuesData?.data ?? []
 
+  // Active venue ID: owner's selected venue or admin's chosen filter
+  const activeVenueId = isOwner && selectedVenue?._id ? selectedVenue._id : venueId
+
   // Fetch reviews (paginated 20 per page)
   const fetchReviews = useCallback(() => {
     const params = { page }
-    if (venueId) params.venueId = venueId
+    if (activeVenueId) params.venueId = activeVenueId
     if (statusTab) params.status = statusTab
     return getAdminReviews(params)
-  }, [page, venueId, statusTab])
+  }, [page, activeVenueId, statusTab])
 
-  const { data, loading, error, refetch } = useApi(fetchReviews, [page, venueId, statusTab])
+  const { data, loading, error, refetch } = useApi(fetchReviews, [page, activeVenueId, statusTab])
 
   const reviews = data?.data ?? []
   const total = data?.total ?? 0
@@ -80,7 +85,7 @@ export default function ReviewsPage() {
     setPage(1)
   }
 
-  const hasFilters = Boolean(venueId || statusTab)
+  const hasFilters = Boolean((!isOwner && venueId) || statusTab)
 
   // Hide review flow
   const openHideModal = (review) => {
@@ -151,11 +156,25 @@ export default function ReviewsPage() {
     }
   }
 
-  return (
-    <AdminLayout
-      title="Reviews"
-      subtitle="Moderate player reviews and control their visibility across venues."
-    >
+  const content = (
+    <>
+      <div className="page-container space-y-6">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h1 className="page-title">Reviews</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Moderate player reviews and control their visibility across venues.
+          </p>
+        </div>
+        <button
+          onClick={refetch}
+          className="btn-secondary btn-sm"
+          title="Refresh"
+        >
+          <ArrowPathIcon className="h-4 w-4" />
+        </button>
+      </div>
+
       <div className="space-y-6">
         {/* Top filter bar */}
         <div className="card p-4 space-y-4">
@@ -182,22 +201,24 @@ export default function ReviewsPage() {
 
             {/* Venue filter & clear */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <FunnelIcon className="h-4 w-4 text-gray-400 shrink-0" />
-                <select
-                  id="filter-venue"
-                  value={venueId}
-                  onChange={handleVenueChange}
-                  className="select text-xs py-1.5 w-48 sm:w-56"
-                >
-                  <option value="">All venues</option>
-                  {venues.map((v) => (
-                    <option key={v._id} value={v._id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!isOwner && (
+                <div className="flex items-center gap-2">
+                  <FunnelIcon className="h-4 w-4 text-gray-400 shrink-0" />
+                  <select
+                    id="filter-venue"
+                    value={venueId}
+                    onChange={handleVenueChange}
+                    className="select text-xs py-1.5 w-48 sm:w-56"
+                  >
+                    <option value="">All venues</option>
+                    {venues.map((v) => (
+                      <option key={v._id} value={v._id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {hasFilters && (
                 <button
@@ -482,6 +503,10 @@ export default function ReviewsPage() {
         onCancel={closeRestoreConfirm}
         confirmVariant="primary"
       />
-    </AdminLayout>
+      </div>
+    </>
   )
+
+  if (noLayout) return content
+  return <AdminLayout>{content}</AdminLayout>
 }

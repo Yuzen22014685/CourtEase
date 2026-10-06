@@ -18,7 +18,7 @@ import {
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 
-export default function AdminVenuesPage() {
+export default function AdminVenuesPage({ noLayout = false }) {
   const { isOwner } = useAuth()
   const { data, loading, error, refetch } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = data?.data ?? []
@@ -74,8 +74,8 @@ export default function AdminVenuesPage() {
     )
   }
 
-  return (
-    <AdminLayout>
+  const content = (
+    <>
       <div className="page-container">
         {/* Header with Title and Add Button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -289,6 +289,9 @@ export default function AdminVenuesPage() {
         onSaved={handleSaved}
         existingAreas={existingAreas}
       />
-    </AdminLayout>
+    </>
   )
+
+  if (noLayout) return content
+  return <AdminLayout>{content}</AdminLayout>
 }

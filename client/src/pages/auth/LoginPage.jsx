@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { homePathForRole } from '../../utils/routes'
 import { login, resendVerification } from '../../api/auth'
 import PasswordInput from '../../components/ui/PasswordInput'
 import ErrorMessage from '../../components/ui/ErrorMessage'
@@ -8,11 +9,18 @@ import Spinner from '../../components/ui/Spinner'
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { loginUser } = useAuth()
+  const { user, loginUser } = useAuth()
 
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate(homePathForRole(user.role), { replace: true })
+    }
+  }, [user, navigate])
 
   // Unverified email handling
   const [notVerified, setNotVerified] = useState(false)
@@ -63,11 +71,7 @@ export default function LoginPage() {
       const res = await login(form)
       const data = res.data.data
       loginUser(data)
-      if (data.role === 'admin' || data.role === 'venue_owner') {
-        navigate('/admin/dashboard', { replace: true })
-      } else {
-        navigate('/venues', { replace: true })
-      }
+      navigate(homePathForRole(data.role), { replace: true })
     } catch (err) {
       if (err.response?.status === 403 && err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
         setNotVerified(true)

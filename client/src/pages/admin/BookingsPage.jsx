@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
 import { getAllBookings, approveBooking, rejectBooking, getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
@@ -14,11 +16,12 @@ import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } f
 const PAGE_SIZE = 20
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
-export default function AdminBookingsPage() {
+export default function AdminBookingsPage({ noLayout = false }) {
+  const { isOwner } = useAuth()
+  const { selectedVenue } = useOwnerVenue()
   const [filters, setFilters] = useState({ venueId: '', date: '', status: '', sortBy: 'priority' })
   const [page, setPage]       = useState(1)
   const [actionMessage, setActionMessage] = useState(null)
-  const [actionError, setActionError]     = useState(null)
 
   // Review modal state
   const [reviewBooking, setReviewBooking] = useState(null)
@@ -31,16 +34,19 @@ export default function AdminBookingsPage() {
   const { data: venuesData } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = venuesData?.data ?? []
 
+  // Active venue ID: owner's selected venue or admin's chosen filter
+  const activeVenueId = isOwner && selectedVenue?._id ? selectedVenue._id : filters.venueId
+
   // Bookings
   const fetchFn = useCallback(() => {
     const params = { sortBy: filters.sortBy || 'priority' }
-    if (filters.venueId) params.venueId = filters.venueId
+    if (activeVenueId)   params.venueId = activeVenueId
     if (filters.date)    params.date    = filters.date
     if (filters.status)  params.status  = filters.status
     return getAllBookings(params)
-  }, [filters])
+  }, [filters, activeVenueId])
 
-  const { data, loading, error, refetch } = useApi(fetchFn, [filters])
+  const { data, loading, error, refetch } = useApi(fetchFn, [filters, activeVenueId])
   const allBookings = data?.data ?? []
   const totalPages  = Math.ceil(allBookings.length / PAGE_SIZE)
   const bookings    = allBookings.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -111,39 +117,40 @@ export default function AdminBookingsPage() {
     }
   }
 
-  const hasFilters = filters.venueId || filters.date || filters.status || (filters.sortBy && filters.sortBy !== 'priority')
+  const hasFilters = (!isOwner && filters.venueId) || filters.date || filters.status || (filters.sortBy && filters.sortBy !== 'priority')
 
-  return (
-    <AdminLayout>
+  const content = (
+    <>
       <div className="page-container">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="page-title">Bookings</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {loading ? 'Loading…' : `${allBookings.length} bookings total`}
-            </p>
-          </div>
-          <button
-            onClick={refetch}
-            className="btn-secondary btn-sm"
-            title="Refresh"
-          >
-            <ArrowPathIcon className="h-4 w-4" />
-          </button>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="page-title">Bookings</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {loading ? 'Loading…' : `${allBookings.length} bookings total`}
+          </p>
         </div>
+        <button
+          onClick={refetch}
+          className="btn-secondary btn-sm"
+          title="Refresh"
+        >
+          <ArrowPathIcon className="h-4 w-4" />
+        </button>
+      </div>
 
-        {/* Filters */}
-        <div className="card p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <FunnelIcon className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-600">Filters</span>
-            {hasFilters && (
-              <button onClick={clearFilters} className="ml-auto text-xs text-primary-600 hover:text-primary-700 font-medium">
-                Clear all
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Filters */}
+      <div className="card p-4 mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <FunnelIcon className="h-4 w-4 text-gray-400" />
+          <span className="text-sm font-medium text-gray-600">Filters</span>
+          {hasFilters && (
+            <button onClick={clearFilters} className="ml-auto text-xs text-primary-600 hover:text-primary-700 font-medium">
+              Clear all
+            </button>
+          )}
+        </div>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 ${isOwner ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-3`}>
+          {!isOwner && (
             <div>
               <label className="label text-xs" htmlFor="filter-venue">Venue</label>
               <select id="filter-venue" name="venueId" value={filters.venueId}
@@ -154,6 +161,7 @@ export default function AdminBookingsPage() {
                 ))}
               </select>
             </div>
+          )}
             <div>
               <label className="label text-xs" htmlFor="filter-date">Date</label>
               <input id="filter-date" name="date" type="date" value={filters.date}
@@ -184,7 +192,7 @@ export default function AdminBookingsPage() {
           </div>
         </div>
 
-        <ErrorMessage message={error || actionError} className="mb-4" />
+        <ErrorMessage message={error} className="mb-4" />
 
         {actionMessage && (
           <div className="flex items-center gap-3 p-4 bg-primary-50 border border-primary-200
@@ -559,6 +567,9 @@ export default function AdminBookingsPage() {
           </div>
         )}
       </Modal>
-    </AdminLayout>
+    </>
   )
+
+  if (noLayout) return content
+  return <AdminLayout>{content}</AdminLayout>
 }

@@ -1,10 +1,11 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/ui/Spinner'
+import { homePathForRole } from '../utils/routes'
 
-/** Player-only routes: blocks staff (admin & venue_owner) → /admin/dashboard */
+/** Player-only routes: blocks staff (admin & venue_owner) → uses homePathForRole */
 export default function PlayerRoute({ children }) {
-  const { user, loading, isStaff } = useAuth()
+  const { user, loading, isAdmin, isOwner } = useAuth()
 
   if (loading) {
     return (
@@ -15,6 +16,6 @@ export default function PlayerRoute({ children }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (isStaff) return <Navigate to="/admin/dashboard" replace />
+  if (isAdmin || isOwner) return <Navigate to={homePathForRole(user.role)} replace />
   return children
 }

@@ -1,8 +1,13 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import ProtectedRoute from './ProtectedRoute'
+import { homePathForRole } from '../utils/routes'
 import PlayerRoute from './PlayerRoute'
 import AdminRoute from './AdminRoute'
+import OwnerRoute from './OwnerRoute'
+
+// Owner layout & context
+import OwnerLayout from '../components/layout/OwnerLayout'
+import { OwnerVenueProvider } from '../context/OwnerVenueContext'
 
 // Auth pages
 import LoginPage          from '../pages/auth/LoginPage'
@@ -25,13 +30,16 @@ import AdminReviewsPage  from '../pages/admin/ReviewsPage'
 import AdminBookingsPage from '../pages/admin/BookingsPage'
 import AnalyticsPage     from '../pages/admin/AnalyticsPage'
 
+// Owner pages
+import TodayPage from '../pages/owner/TodayPage'
+
 import NotFoundPage from '../pages/NotFoundPage'
 
 function RootRedirect() {
-  const { user, loading, isStaff } = useAuth()
+  const { user, loading } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/login" replace />
-  return <Navigate to={isStaff ? '/admin/dashboard' : '/venues'} replace />
+  return <Navigate to={homePathForRole(user.role)} replace />
 }
 
 export default function AppRouter() {
@@ -78,6 +86,25 @@ export default function AppRouter() {
       <Route path="/admin/analytics" element={
         <AdminRoute><AnalyticsPage /></AdminRoute>
       } />
+
+      {/* Owner Portal */}
+      <Route
+        path="/owner"
+        element={
+          <OwnerRoute>
+            <OwnerVenueProvider>
+              <OwnerLayout />
+            </OwnerVenueProvider>
+          </OwnerRoute>
+        }
+      >
+        <Route index element={<Navigate to="today" replace />} />
+        <Route path="today" element={<TodayPage />} />
+        <Route path="bookings" element={<AdminBookingsPage noLayout />} />
+        <Route path="venue" element={<AdminVenuesPage noLayout />} />
+        <Route path="reviews" element={<AdminReviewsPage noLayout />} />
+        <Route path="insights" element={<AnalyticsPage noLayout />} />
+      </Route>
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />

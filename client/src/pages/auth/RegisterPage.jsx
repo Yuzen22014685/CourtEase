@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { homePathForRole } from '../../utils/routes'
 import { register } from '../../api/auth'
 import PasswordInput from '../../components/ui/PasswordInput'
 import PasswordChecklist, { checkPasswordValidity } from '../../components/ui/PasswordChecklist'
@@ -18,6 +20,13 @@ const INITIAL = {
 
 export default function RegisterPage() {
   const navigate  = useNavigate()
+  const { user }  = useAuth()
+
+  useEffect(() => {
+    if (user) {
+      navigate(homePathForRole(user.role), { replace: true })
+    }
+  }, [user, navigate])
 
   const [form, setForm]     = useState(INITIAL)
   const [error, setError]   = useState('')

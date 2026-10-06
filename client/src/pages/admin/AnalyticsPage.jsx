@@ -1,13 +1,15 @@
 import { useCallback } from 'react'
+import { useAuth } from '../../context/AuthContext'
+import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
-import { getUtilization, getRevenueAnalytics } from '../../api/admin'
+import { getUtilization, getRevenueAnalytics, getPeakHours } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import { formatCurrency } from '../../utils/format'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, Cell, LabelList,
+  LineChart, Line, Legend, Cell, LabelList, ReferenceLine,
 } from 'recharts'
 import { ChartBarIcon, ArrowTrendingUpIcon } from '@heroicons/react/24/outline'
 import VenueTick from '../../components/ui/VenueTick'
@@ -15,7 +17,11 @@ import VenueTick from '../../components/ui/VenueTick'
 const UTIL_COLOURS = ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0']
 
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ noLayout = false }) {
+  const { isOwner } = useAuth()
+  const { selectedVenue } = useOwnerVenue()
+  const showOwnerPeakHours = noLayout || isOwner
+
   const { data: utilData, loading: utilLoading, error: utilError } = useApi(
     useCallback(() => getUtilization(30), [])
   )
@@ -24,6 +30,24 @@ export default function AnalyticsPage() {
   const { data: trendData, loading: trendLoading, error: trendError } = useApi(
     useCallback(() => getRevenueAnalytics(30), [])
   )
+
+  // Peak hours chart for owner view
+  const { data: peakData, loading: peakLoading, error: peakError } = useApi(
+    useCallback(() => {
+      if (!showOwnerPeakHours) return Promise.resolve({ data: { data: [] } })
+      return getPeakHours(30, selectedVenue?._id || '')
+    }, [showOwnerPeakHours, selectedVenue?._id]),
+    [showOwnerPeakHours, selectedVenue?._id]
+  )
+
+  const peakChartData = (peakData?.data ?? []).map((d) => ({
+    name: d.label,
+    bookings: d.bookings,
+  }))
+
+  const avgBookings = peakChartData.length > 0
+    ? (peakChartData.reduce((sum, d) => sum + d.bookings, 0) / peakChartData.length).toFixed(1)
+    : 0
 
   const utilChartData = (utilData?.data ?? []).map((d, i) => ({
     name: d.venueName.split(' ').slice(0, 2).join(' '),
@@ -39,9 +63,8 @@ export default function AnalyticsPage() {
     bookings: d.bookingCount,
   }))
 
-  return (
-    <AdminLayout>
-      <div className="page-container">
+  const content = (
+    <div className="page-container">
         <div className="mb-8">
           <h1 className="page-title">Analytics</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -225,7 +248,44 @@ export default function AnalyticsPage() {
             )}
           </div>
         </div>
+
+        {/* Peak Hours Chart (owner view) */}
+        {showOwnerPeakHours && (
+          <div className="card p-5 mt-6">
+            <div className="flex items-center gap-2 mb-1">
+              <ChartBarIcon className="h-5 w-5 text-primary-600" />
+              <h2 className="font-semibold text-gray-900">Peak Booking Hours</h2>
+            </div>
+            <p className="text-xs text-gray-400 mb-5">
+              Last 30 days · Peak: {peakData?.peakHour ?? '—'}
+            </p>
+
+            {peakLoading ? (
+              <div className="h-48 flex items-center justify-center">
+                <Spinner size="lg" />
+              </div>
+            ) : peakError ? (
+              <ErrorMessage message={peakError} />
+            ) : peakChartData.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-10">No peak hour data yet.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={peakChartData} margin={{ top: 0, right: 4, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} interval={1} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                    formatter={(v) => [v, 'Bookings']} />
+                  <ReferenceLine y={Number(avgBookings)} stroke="#f59e0b" strokeDasharray="3 3" label={{ position: 'top', value: `Average: ${avgBookings}/hr`, fill: '#d97706', fontSize: 10 }} />
+                  <Bar dataKey="bookings" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        )}
       </div>
-    </AdminLayout>
   )
+
+  if (noLayout) return content
+  return <AdminLayout>{content}</AdminLayout>
 }
