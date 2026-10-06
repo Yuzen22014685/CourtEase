@@ -207,6 +207,12 @@ export default function AdminVenuesPage({ noLayout = false }) {
                   filteredVenues.map((v) => {
                     const coverPhoto = v.photos?.[0]
                     const isVenueActive = v.isActive !== false
+                    const hasPaymentDetails = Boolean(
+                      v.paymentInfo?.duitNowQr?.trim() ||
+                      (v.paymentInfo?.bankName?.trim() &&
+                        v.paymentInfo?.accountName?.trim() &&
+                        v.paymentInfo?.accountNumber?.trim())
+                    )
 
                     return (
                       <tr key={v._id} className="hover:bg-gray-50/70 transition-colors">
@@ -234,7 +240,14 @@ export default function AdminVenuesPage({ noLayout = false }) {
                             </div>
 
                             <div className="min-w-0">
-                              <p className="font-semibold text-gray-900 text-sm truncate">{v.name}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-gray-900 text-sm truncate">{v.name}</p>
+                                {!hasPaymentDetails && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                    No payment details
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-gray-400 text-xs truncate max-w-xs">{v.address}</p>
                             </div>
                           </div>

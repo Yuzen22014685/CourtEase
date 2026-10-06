@@ -33,6 +33,12 @@ export const uploadCourtLayout = (id, formData) =>
   })
 export const deleteCourtLayout = (id) =>
   api.delete(`/admin/venues/${id}/layout`)
+export const uploadPaymentQr = (id, formData) =>
+  api.post(`/admin/venues/${id}/payment-qr`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const deletePaymentQr = (id) =>
+  api.delete(`/admin/venues/${id}/payment-qr`)
 
 // Review moderation
 export const getAdminReviews = (params) => api.get('/admin/reviews', { params })

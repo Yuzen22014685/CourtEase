@@ -13,6 +13,8 @@ import {
   reorderVenuePhotos,
   uploadCourtLayout,
   deleteCourtLayout,
+  uploadPaymentQr,
+  deletePaymentQr,
   getOwners,
   updateVenueOwner,
 } from '../../api/admin'
@@ -27,6 +29,8 @@ import {
   InformationCircleIcon,
   MapIcon,
   ArrowUpTrayIcon,
+  BanknotesIcon,
+  QrCodeIcon,
 } from '@heroicons/react/24/outline'
 
 const DEFAULT_AREAS = [
@@ -108,6 +112,15 @@ export default function VenueFormModal({
   const [layoutError, setLayoutError] = useState(null)
   const layoutFileInputRef = useRef(null)
 
+  // Payment info state (DuitNow QR & Bank Transfer)
+  const [duitNowQr, setDuitNowQr] = useState('')
+  const [uploadingQr, setUploadingQr] = useState(false)
+  const [qrError, setQrError] = useState(null)
+  const qrFileInputRef = useRef(null)
+  const [bankName, setBankName] = useState('')
+  const [accountName, setAccountName] = useState('')
+  const [accountNumber, setAccountNumber] = useState('')
+
   // Form submit state & scroll ref
   const formTopRef = useRef(null)
   const [submitting, setSubmitting] = useState(false)
@@ -123,6 +136,7 @@ export default function VenueFormModal({
       setFormError(null)
       setPhotoError(null)
       setLayoutError(null)
+      setQrError(null)
       setSuccessNotice(null)
       setActiveTab('details')
       return
@@ -159,6 +173,12 @@ export default function VenueFormModal({
       setPhotos(venue.photos || [])
       setLayoutImage(venue.layoutImage || null)
       setSelectedOwnerId(venue.ownerId ? String(venue.ownerId) : '')
+
+      // Payment details
+      setDuitNowQr(venue.paymentInfo?.duitNowQr || '')
+      setBankName(venue.paymentInfo?.bankName || '')
+      setAccountName(venue.paymentInfo?.accountName || '')
+      setAccountNumber(venue.paymentInfo?.accountNumber || '')
     } else {
       setCurrentVenueId(null)
       setName('')
@@ -179,6 +199,12 @@ export default function VenueFormModal({
       setPhotos([])
       setLayoutImage(null)
       setSelectedOwnerId('')
+
+      // Payment details reset
+      setDuitNowQr('')
+      setBankName('')
+      setAccountName('')
+      setAccountNumber('')
     }
   }, [isOpen, venue])
 
@@ -328,6 +354,14 @@ export default function VenueFormModal({
       location: locationPayload,
     }
 
+    if (isEdit) {
+      payload.paymentInfo = {
+        bankName: bankName.trim(),
+        accountName: accountName.trim(),
+        accountNumber: accountNumber.trim(),
+      }
+    }
+
     setSubmitting(true)
     try {
       if (isEdit) {
@@ -426,6 +460,85 @@ export default function VenueFormModal({
       setLayoutError(err.response?.data?.message || 'Failed to remove court layout.')
     } finally {
       setUploadingLayout(false)
+    }
+  }
+
+  // ── DuitNow QR management methods ──────────────────────────────────────────
+  const handleQrUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setQrError(null)
+
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setQrError('Only JPG and PNG images are allowed for DuitNow QR.')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setQrError('QR image exceeds the 5MB size limit.')
+      e.target.value = ''
+      return
+    }
+
+    const targetId = currentVenueId || venue?._id
+    if (!targetId) {
+      setQrError('Please save the venue details before uploading a QR code.')
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('qr', file)
+
+    setUploadingQr(true)
+    try {
+      const res = await uploadPaymentQr(targetId, formData)
+      const newQr = res.data.duitNowQr
+      setDuitNowQr(newQr)
+      setSuccessNotice('DuitNow QR uploaded successfully!')
+      onSaved?.({
+        ...(venue || {}),
+        _id: targetId,
+        paymentInfo: {
+          ...(venue?.paymentInfo || {}),
+          duitNowQr: newQr,
+          bankName,
+          accountName,
+          accountNumber,
+        },
+      }, false)
+      if (qrFileInputRef.current) qrFileInputRef.current.value = ''
+    } catch (err) {
+      setQrError(err.response?.data?.message || 'Failed to upload DuitNow QR.')
+    } finally {
+      setUploadingQr(false)
+    }
+  }
+
+  const handleDeleteQr = async () => {
+    const targetId = currentVenueId || venue?._id
+    if (!targetId) return
+    setQrError(null)
+
+    setUploadingQr(true)
+    try {
+      await deletePaymentQr(targetId)
+      setDuitNowQr('')
+      setSuccessNotice('DuitNow QR removed.')
+      onSaved?.({
+        ...(venue || {}),
+        _id: targetId,
+        paymentInfo: {
+          ...(venue?.paymentInfo || {}),
+          duitNowQr: '',
+          bankName,
+          accountName,
+          accountNumber,
+        },
+      }, false)
+    } catch (err) {
+      setQrError(err.response?.data?.message || 'Failed to remove DuitNow QR.')
+    } finally {
+      setUploadingQr(false)
     }
   }
 
@@ -533,6 +646,13 @@ export default function VenueFormModal({
 
   const effectiveVenueId = currentVenueId || venue?._id
 
+  const qrActive = Boolean(duitNowQr && String(duitNowQr).trim())
+  const bankActive = Boolean(
+    bankName && String(bankName).trim() &&
+    accountName && String(accountName).trim() &&
+    accountNumber && String(accountNumber).trim()
+  )
+
   return (
     <>
       <Modal
@@ -574,6 +694,24 @@ export default function VenueFormModal({
                 <PhotoIcon className="h-4 w-4" />
                 Photos ({photos.length}/10)
               </button>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('payment')
+                    setQrError(null)
+                    setFormError(null)
+                  }}
+                  className={`pb-3 px-1 border-b-2 transition-colors flex items-center gap-1.5 ${
+                    activeTab === 'payment'
+                      ? 'border-primary-600 text-primary-600 font-semibold'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <BanknotesIcon className="h-4 w-4" />
+                  Payment
+                </button>
+              )}
             </div>
           )}
 
@@ -1182,6 +1320,194 @@ export default function VenueFormModal({
                 </button>
               </div>
             </div>
+          )}
+
+          {/* TAB 3: PAYMENT */}
+          {activeTab === 'payment' && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div ref={formTopRef} />
+              <ErrorMessage message={formError} />
+
+              {/* Help text at top */}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl flex items-start gap-2.5 text-xs text-blue-900">
+                <InformationCircleIcon className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                <p>
+                  Players pay your venue directly by DuitNow QR or bank transfer. CourtEase never handles the money.
+                </p>
+              </div>
+
+              {/* Status line */}
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs text-gray-700 flex items-center gap-1.5 flex-wrap">
+                <span className="font-medium text-gray-900">Players can pay by:</span>
+                <span className={qrActive ? 'text-emerald-700 font-semibold' : 'text-red-500 font-medium'}>
+                  DuitNow QR {qrActive ? '✓' : '✗'}
+                </span>
+                <span className="text-gray-400">·</span>
+                <span className={bankActive ? 'text-emerald-700 font-semibold' : 'text-red-500 font-medium'}>
+                  Bank transfer {bankActive ? '✓' : '✗'}
+                </span>
+              </div>
+
+              {/* DuitNow QR section */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <QrCodeIcon className="h-4 w-4 text-primary-600" />
+                      DuitNow QR Code
+                    </h4>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Upload your venue's official DuitNow QR code (PNG or JPG, max 5MB).
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={qrFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      onChange={handleQrUpload}
+                      disabled={uploadingQr}
+                      className="hidden"
+                      id="venue-qr-input"
+                    />
+                    <label
+                      htmlFor="venue-qr-input"
+                      className={`btn-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 cursor-pointer ${
+                        uploadingQr ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                    >
+                      {uploadingQr ? (
+                        <>
+                          <Spinner size="sm" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowUpTrayIcon className="h-3.5 w-3.5" />
+                          <span>{duitNowQr ? 'Replace QR' : 'Upload QR'}</span>
+                        </>
+                      )}
+                    </label>
+
+                    {duitNowQr && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteQr}
+                        disabled={uploadingQr}
+                        className="btn-danger text-xs px-2.5 py-1.5 inline-flex items-center gap-1"
+                        title="Remove DuitNow QR"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <ErrorMessage message={qrError} />
+
+                {duitNowQr ? (
+                  <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-white p-2 flex items-center justify-center">
+                    <img
+                      src={getImageUrl(duitNowQr)}
+                      alt="DuitNow QR Code"
+                      className="max-h-56 w-auto object-contain rounded"
+                    />
+                  </div>
+                ) : (
+                  <div className="py-6 px-4 border border-dashed border-gray-200 rounded-lg text-center bg-white text-xs text-gray-400 font-medium">
+                    No DuitNow QR uploaded
+                  </div>
+                )}
+              </div>
+
+              {/* Bank transfer section */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <BanknotesIcon className="h-4 w-4 text-primary-600" />
+                    Bank Transfer Details
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Enter bank account details for direct bank transfer payments.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Bank Name
+                    </label>
+                    <input
+                      id="payment-bank-name"
+                      type="text"
+                      maxLength={60}
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      placeholder="e.g. Maybank / CIMB Bank / Public Bank"
+                      className="input w-full text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Account Holder Name
+                    </label>
+                    <input
+                      id="payment-account-name"
+                      type="text"
+                      maxLength={80}
+                      value={accountName}
+                      onChange={(e) => setAccountName(e.target.value)}
+                      placeholder="e.g. Georgetown Badminton Club"
+                      className="input w-full text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Account Number
+                    </label>
+                    <input
+                      id="payment-account-number"
+                      type="text"
+                      maxLength={30}
+                      value={accountNumber}
+                      onChange={(e) => setAccountNumber(e.target.value)}
+                      placeholder="e.g. 5123 4567 8901 (digits, spaces, dashes)"
+                      className="input w-full text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="btn-secondary text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  id="save-payment-venue-btn"
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-primary px-5 text-sm flex items-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Spinner size="sm" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
           )}
         </div>
       </Modal>

@@ -16,6 +16,7 @@ import {
   ArrowRightIcon,
   DocumentCheckIcon,
   SparklesIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline'
 
 const getLocalToday = () => {
@@ -149,6 +150,18 @@ export default function TodayPage() {
     return pendingBookings.filter((b) => Boolean(b.receiptImage)).length
   }, [pendingBookings])
 
+  // Check if selected venue has payment details configured
+  const hasPaymentDetails = useMemo(() => {
+    if (!selectedVenue) return true
+    const qr = Boolean(selectedVenue.paymentInfo?.duitNowQr?.trim())
+    const bank = Boolean(
+      selectedVenue.paymentInfo?.bankName?.trim() &&
+      selectedVenue.paymentInfo?.accountName?.trim() &&
+      selectedVenue.paymentInfo?.accountNumber?.trim()
+    )
+    return qr || bank
+  }, [selectedVenue])
+
   if (!selectedVenue) return null
 
   if (loading) {
@@ -166,6 +179,22 @@ export default function TodayPage() {
   return (
     <div className="page-container space-y-8 animate-fadeIn">
       {error && <ErrorMessage message={error} />}
+
+      {/* Amber banner when missing payment details */}
+      {!hasPaymentDetails && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2.5 text-amber-800 text-sm font-medium">
+            <InformationCircleIcon className="h-5 w-5 text-amber-600 shrink-0" />
+            <span>Players can't book your venue until you add payment details.</span>
+          </div>
+          <button
+            onClick={() => navigate('/owner/venue')}
+            className="btn-primary bg-amber-600 hover:bg-amber-700 text-white text-xs px-3.5 py-1.5 shrink-0 self-start sm:self-auto"
+          >
+            Add payment details
+          </button>
+        </div>
+      )}
 
       {/* ── Venue Hero Card ── */}
       <div className="card overflow-hidden bg-white border border-gray-200/80 shadow-sm">
