@@ -28,10 +28,10 @@ import AnalyticsPage     from '../pages/admin/AnalyticsPage'
 import NotFoundPage from '../pages/NotFoundPage'
 
 function RootRedirect() {
-  const { user, loading, isAdmin } = useAuth()
+  const { user, loading, isStaff } = useAuth()
   if (loading) return null
   if (!user) return <Navigate to="/login" replace />
-  return <Navigate to={isAdmin ? '/admin/dashboard' : '/venues'} replace />
+  return <Navigate to={isStaff ? '/admin/dashboard' : '/venues'} replace />
 }
 
 export default function AppRouter() {

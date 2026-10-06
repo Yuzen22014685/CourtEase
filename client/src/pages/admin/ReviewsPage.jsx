@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
-import { getAdminReviews, hideReview, restoreReview } from '../../api/admin'
-import { getVenues } from '../../api/venues'
+import { getAdminReviews, hideReview, restoreReview, getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
@@ -28,6 +28,7 @@ const STATUS_TABS = [
 ]
 
 export default function ReviewsPage() {
+  const { isOwner } = useAuth()
   const [venueId, setVenueId] = useState('')
   const [statusTab, setStatusTab] = useState('')
   const [page, setPage] = useState(1)
@@ -46,7 +47,7 @@ export default function ReviewsPage() {
   const [restoreLoading, setRestoreLoading] = useState(false)
 
   // Venues for filter dropdown
-  const { data: venuesData } = useApi(useCallback(() => getVenues(), []))
+  const { data: venuesData } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = venuesData?.data ?? []
 
   // Fetch reviews (paginated 20 per page)
@@ -232,15 +233,15 @@ export default function ReviewsPage() {
                   <th>Booking</th>
                   <th>Review Date</th>
                   <th>Status</th>
-                  <th className="text-right">Actions</th>
+                  {!isOwner && <th className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  [1, 2, 3, 4, 5, 6].map((n) => <SkeletonRow key={n} cols={7} />)
+                  [1, 2, 3, 4, 5, 6].map((n) => <SkeletonRow key={n} cols={isOwner ? 6 : 7} />)
                 ) : reviews.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12">
+                    <td colSpan={isOwner ? 6 : 7} className="py-12">
                       <EmptyState
                         icon="💬"
                         title="No reviews found"
@@ -336,23 +337,25 @@ export default function ReviewsPage() {
                       </td>
 
                       {/* Actions */}
-                      <td className="text-right whitespace-nowrap">
-                        {r.isHidden ? (
-                          <button
-                            onClick={() => openRestoreConfirm(r)}
-                            className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1 px-2.5"
-                          >
-                            Restore
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => openHideModal(r)}
-                            className="btn-secondary btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 text-xs py-1 px-2.5"
-                          >
-                            Hide
-                          </button>
-                        )}
-                      </td>
+                      {!isOwner && (
+                        <td className="text-right whitespace-nowrap">
+                          {r.isHidden ? (
+                            <button
+                              onClick={() => openRestoreConfirm(r)}
+                              className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1 px-2.5"
+                            >
+                              Restore
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openHideModal(r)}
+                              className="btn-secondary btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 text-xs py-1 px-2.5"
+                            >
+                              Hide
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

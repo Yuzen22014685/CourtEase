@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useApi } from '../../hooks/useApi'
-import { getAllBookings, approveBooking, rejectBooking } from '../../api/admin'
-import { getVenues } from '../../api/venues'
+import { getAllBookings, approveBooking, rejectBooking, getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
@@ -29,7 +28,7 @@ export default function AdminBookingsPage() {
   const [modalError, setModalError]       = useState(null)
 
   // Venues for filter dropdown
-  const { data: venuesData } = useApi(useCallback(() => getVenues(), []))
+  const { data: venuesData } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = venuesData?.data ?? []
 
   // Bookings

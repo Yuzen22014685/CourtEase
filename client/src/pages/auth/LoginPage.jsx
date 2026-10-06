@@ -63,7 +63,7 @@ export default function LoginPage() {
       const res = await login(form)
       const data = res.data.data
       loginUser(data)
-      if (data.role === 'admin') {
+      if (data.role === 'admin' || data.role === 'venue_owner') {
         navigate('/admin/dashboard', { replace: true })
       } else {
         navigate('/venues', { replace: true })

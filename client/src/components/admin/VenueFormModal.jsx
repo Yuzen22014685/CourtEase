@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import Modal from '../ui/Modal'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Spinner from '../ui/Spinner'
@@ -64,6 +65,7 @@ export default function VenueFormModal({
   onSaved,
   existingAreas = [],
 }) {
+  const { isOwner } = useAuth()
   const isEdit = Boolean(venue?._id)
   const [activeTab, setActiveTab] = useState('details') // 'details' | 'photos'
 
@@ -647,32 +649,34 @@ export default function VenueFormModal({
                   </div>
 
                   {/* Active Toggle Switch */}
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl mt-3 sm:mt-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-gray-800">Active Venue</span>
-                      <button
-                        type="button"
-                        id="venue-active-toggle"
-                        role="switch"
-                        aria-checked={isActive}
-                        onClick={() => setIsActive(!isActive)}
-                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          isActive ? 'bg-primary-600' : 'bg-gray-300'
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            isActive ? 'translate-x-5' : 'translate-x-0'
+                  {!isOwner && (
+                    <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl mt-3 sm:mt-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-800">Active Venue</span>
+                        <button
+                          type="button"
+                          id="venue-active-toggle"
+                          role="switch"
+                          aria-checked={isActive}
+                          onClick={() => setIsActive(!isActive)}
+                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isActive ? 'bg-primary-600' : 'bg-gray-300'
                           }`}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                              isActive ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {isActive
+                          ? 'Visible and open for bookings'
+                          : 'Hidden from players (cannot be booked)'}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      {isActive
-                        ? 'Visible and open for bookings'
-                        : 'Hidden from players (cannot be booked)'}
-                    </p>
-                  </div>
+                  )}
                 </div>
               </div>
 

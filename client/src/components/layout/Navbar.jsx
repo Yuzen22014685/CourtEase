@@ -27,7 +27,7 @@ const mobileNavLinkClass = ({ isActive }) =>
   }`
 
 export default function Navbar({ onMenuClick, pendingCount = 0 }) {
-  const { user, logoutUser, isAdmin } = useAuth()
+  const { user, logoutUser, isAdmin, isOwner, isStaff } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -72,7 +72,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
   }, [isMobileMenuOpen])
 
   useEffect(() => {
-    if (!user || isAdmin) return
+    if (!user || isStaff) return
 
     const fetchCount = () => {
       getUnreadCount().then(res => {
@@ -83,7 +83,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
     fetchCount()
     const interval = setInterval(fetchCount, 60000)
     return () => clearInterval(interval)
-  }, [user, isAdmin])
+  }, [user, isStaff])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -146,7 +146,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
     navigate(targetUrl)
   }
 
-  const homeLink = isAdmin ? '/admin/dashboard' : '/venues'
+  const homeLink = isStaff ? '/admin/dashboard' : '/venues'
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
@@ -154,7 +154,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
         <div className="flex items-center justify-between h-16">
           {/* Brand & Admin Hamburger */}
           <div className="flex items-center gap-2">
-            {isAdmin && onMenuClick && (
+            {isStaff && onMenuClick && (
               <button
                 type="button"
                 onClick={onMenuClick}
@@ -181,7 +181,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
           </div>
 
           {/* Player nav links */}
-          {!isAdmin && user && (
+          {!isStaff && user && (
             <nav className="hidden sm:flex items-center gap-1">
               <NavLink
                 to="/venues"
@@ -207,7 +207,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
           {/* Right side */}
           {user ? (
             <div className="flex items-center gap-3">
-              {!isAdmin && (
+              {!isStaff && (
                 <div className="relative" ref={dropdownRef}>
                   <button
                     onClick={toggleDropdown}
@@ -278,11 +278,14 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                 {isAdmin && (
                   <span className="badge bg-primary-100 text-primary-700 text-xs">Admin</span>
                 )}
+                {isOwner && (
+                  <span className="badge bg-primary-100 text-primary-700 text-xs">Venue Owner</span>
+                )}
               </div>
               <button
                 id="logout-btn"
                 onClick={handleLogout}
-                className={`${isAdmin ? 'flex' : 'hidden sm:flex'} items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600
+                className={`${isStaff ? 'flex' : 'hidden sm:flex'} items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600
                            rounded-lg hover:text-red-600 hover:bg-red-50 transition-colors`}
               >
                 <ArrowRightOnRectangleIcon className="h-4 w-4" />
@@ -290,7 +293,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
               </button>
 
               {/* Mobile hamburger button (players only) */}
-              {!isAdmin && (
+              {!isStaff && (
                 <button
                   ref={mobileBtnRef}
                   type="button"
@@ -317,7 +320,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
       </div>
 
       {/* Mobile dropdown panel (players only) */}
-      {!isAdmin && user && isMobileMenuOpen && (
+      {!isStaff && user && isMobileMenuOpen && (
         <div
           ref={mobileMenuRef}
           className="sm:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm animate-fadeIn"

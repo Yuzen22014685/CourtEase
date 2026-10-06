@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useApi } from '../../hooks/useApi'
-import { getAllBookings, getRevenueAnalytics, getPeakHours } from '../../api/admin'
-import { getVenues } from '../../api/venues'
+import { getAllBookings, getRevenueAnalytics, getPeakHours, getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
 import Badge from '../../components/ui/Badge'
 import Spinner from '../../components/ui/Spinner'
@@ -44,7 +43,7 @@ export default function DashboardPage() {
     useCallback(() => getRevenueAnalytics(7), [])
   )
   // Venues (for filter)
-  const { data: venuesData } = useApi(useCallback(() => getVenues(), []))
+  const { data: venuesData } = useApi(useCallback(() => getAdminVenues(), []))
   const [peakVenueId, setPeakVenueId] = useState('')
 
   // Peak hours chart

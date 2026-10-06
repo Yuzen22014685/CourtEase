@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
 import { getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
@@ -18,6 +19,7 @@ import {
 } from '@heroicons/react/24/outline'
 
 export default function AdminVenuesPage() {
+  const { isOwner } = useAuth()
   const { data, loading, error, refetch } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = data?.data ?? []
 
@@ -84,14 +86,16 @@ export default function AdminVenuesPage() {
             </p>
           </div>
 
-          <button
-            id="add-venue-btn"
-            onClick={handleOpenAdd}
-            className="btn-primary inline-flex items-center gap-2 self-start sm:self-auto"
-          >
-            <PlusIcon className="h-4 w-4" />
-            <span>Add venue</span>
-          </button>
+          {!isOwner && (
+            <button
+              id="add-venue-btn"
+              onClick={handleOpenAdd}
+              className="btn-primary inline-flex items-center gap-2 self-start sm:self-auto"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span>Add venue</span>
+            </button>
+          )}
         </div>
 
         {/* Success Toast */}

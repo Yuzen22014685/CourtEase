@@ -53,7 +53,7 @@ const navItems = [
 ]
 
 export default function AdminSidebar({ isOpen = false, onClose, pendingCount: propPendingCount }) {
-  const { user } = useAuth()
+  const { user, isOwner } = useAuth()
   const [localPendingCount, setLocalPendingCount] = useState(0)
 
   useEffect(() => {
@@ -192,7 +192,7 @@ export default function AdminSidebar({ isOpen = false, onClose, pendingCount: pr
               </div>
               <div>
                 <span className="font-bold text-gray-900">Court<span className="text-primary-600">Ease</span></span>
-                <p className="text-xs text-gray-400">Admin Console</p>
+                <p className="text-xs text-gray-400">{isOwner ? 'Venue Owner Portal' : 'Admin Console'}</p>
               </div>
             </div>
             <button
@@ -223,7 +223,7 @@ export default function AdminSidebar({ isOpen = false, onClose, pendingCount: pr
             </div>
             <div>
               <span className="font-bold text-gray-900">Court<span className="text-primary-600">Ease</span></span>
-              <p className="text-xs text-gray-400">Admin Console</p>
+              <p className="text-xs text-gray-400">{isOwner ? 'Venue Owner Portal' : 'Admin Console'}</p>
             </div>
           </div>
         </div>

@@ -2,9 +2,9 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Spinner from '../components/ui/Spinner'
 
-/** Admin-only routes: blocks players → /venues */
+/** Staff routes (admin & venue_owner): blocks players → /venues */
 export default function AdminRoute({ children }) {
-  const { user, loading, isAdmin } = useAuth()
+  const { user, loading, isStaff } = useAuth()
 
   if (loading) {
     return (
@@ -15,6 +15,6 @@ export default function AdminRoute({ children }) {
   }
 
   if (!user) return <Navigate to="/login" replace />
-  if (!isAdmin) return <Navigate to="/venues" replace />
+  if (!isStaff) return <Navigate to="/venues" replace />
   return children
 }
