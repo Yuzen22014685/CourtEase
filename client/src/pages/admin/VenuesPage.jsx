@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
 import { getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
@@ -20,6 +21,7 @@ import {
 
 export default function AdminVenuesPage({ noLayout = false }) {
   const { isAdmin, isOwner } = useAuth()
+  const { refetchVenues } = useOwnerVenue()
   const { data, loading, error, refetch } = useApi(useCallback(() => getAdminVenues(), []))
   const venues = data?.data ?? []
 
@@ -67,6 +69,9 @@ export default function AdminVenuesPage({ noLayout = false }) {
 
   const handleSaved = (savedVenue, isNew) => {
     refetch()
+    if (isOwner) {
+      refetchVenues({ silent: true })
+    }
     setToastMessage(
       isNew
         ? `Venue "${savedVenue.name}" created successfully!`

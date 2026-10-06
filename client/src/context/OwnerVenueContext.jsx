@@ -9,8 +9,11 @@ export function OwnerVenueProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const fetchVenues = useCallback(async () => {
-    setLoading(true)
+  const fetchVenues = useCallback(async (options = {}) => {
+    const isSilent = Boolean(options?.silent)
+    if (!isSilent) {
+      setLoading(true)
+    }
     setError(null)
     try {
       const res = await getAdminVenues()
@@ -29,7 +32,9 @@ export function OwnerVenueProvider({ children }) {
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load venues')
     } finally {
-      setLoading(false)
+      if (!isSilent) {
+        setLoading(false)
+      }
     }
   }, [])
 
