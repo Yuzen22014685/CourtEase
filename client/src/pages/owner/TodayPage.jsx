@@ -125,12 +125,17 @@ export default function TodayPage() {
           const hours = getDurationHours(prev.startTime, prev.endTime)
           prev.durationHours = hours
           prev.durationLabel = formatDuration(hours)
+          if (Array.isArray(b.items) && b.items.length > 0) {
+            prev.allItems = (prev.allItems || []).concat(b.items)
+          }
         } else {
           const hours = getDurationHours(b.startTime, b.endTime)
+          const initialItems = Array.isArray(b.items) ? [...b.items] : []
           merged.push({
             ...b,
             durationHours: hours,
             durationLabel: formatDuration(hours),
+            allItems: initialItems,
           })
         }
       }
@@ -375,6 +380,14 @@ export default function TodayPage() {
                       <p className="text-[11px] text-gray-500">
                         Ref {formatPaymentRef(b)} · {formatPaymentMethod(b.paymentMethod)}
                       </p>
+                      {b.items && b.items.length > 0 && (
+                        <p
+                          className="text-xs text-purple-700 font-medium truncate pt-0.5"
+                          title={b.items.map((it) => `${it.quantity} × ${it.name}`).join(', ')}
+                        >
+                          + add-ons: {b.items.map((it) => `${it.quantity} × ${it.name}`).join(', ')}
+                        </p>
+                      )}
                     </div>
 
                     <div className="pt-1">
@@ -438,27 +451,41 @@ export default function TodayPage() {
                 </div>
 
                 <div className="space-y-2.5">
-                  {slots.map((b) => (
-                    <div
-                      key={b._id}
-                      className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50/70 border border-gray-100 hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="min-w-0 pr-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-gray-900">
-                            {formatTime(b.startTime)} – {formatTime(b.endTime)}
+                  {slots.map((b) => {
+                    const slotItems = b.allItems || b.items || []
+                    const itemCount = slotItems.reduce((sum, it) => sum + (it.quantity || 1), 0)
+                    return (
+                      <div
+                        key={b._id}
+                        className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50/70 border border-gray-100 hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-gray-900">
+                              {formatTime(b.startTime)} – {formatTime(b.endTime)}
+                            </p>
+                            <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                              {b.durationLabel}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 truncate mt-0.5">
+                            {b.playerId?.fullName || 'Player'}
                           </p>
-                          <span className="text-[11px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                            {b.durationLabel}
-                          </span>
                         </div>
-                        <p className="text-xs text-gray-600 truncate mt-0.5">
-                          {b.playerId?.fullName || 'Player'}
-                        </p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {itemCount > 0 && (
+                            <span
+                              className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200"
+                              title={slotItems.map((it) => `${it.quantity} × ${it.name}`).join(', ')}
+                            >
+                              🛍 {itemCount} item{itemCount === 1 ? '' : 's'}
+                            </span>
+                          )}
+                          <Badge status={b.status} />
+                        </div>
                       </div>
-                      <Badge status={b.status} />
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}

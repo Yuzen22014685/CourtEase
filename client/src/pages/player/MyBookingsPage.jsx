@@ -525,6 +525,58 @@ function BookingCard({ booking, isHighlighted, onOpenUpload, onOpenCancel, onOpe
         </div>
       </div>
 
+      {/* Add-ons */}
+      {booking.items && booking.items.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-gray-700">Add-ons</span>
+            <span className="text-[11px] text-gray-400">Collect at the venue</span>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-2.5 space-y-1.5 border border-gray-100">
+            {booking.items.map((item, idx) => (
+              <div key={idx} className="text-xs space-y-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-medium text-gray-800">
+                      {item.quantity} × {item.name}
+                    </span>
+                    {item.category === 'service' && item.readyInfo && (
+                      <span className="inline-flex items-center text-[10px] font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded px-1.5 py-0.5">
+                        Ready in {item.readyInfo.replace(/^ready\s*(in)?\s*/i, '')}
+                      </span>
+                    )}
+                  </div>
+                  {item.unitPrice !== undefined && (
+                    <span className="text-gray-500 font-medium shrink-0">
+                      {formatCurrency(item.unitPrice * item.quantity)}
+                    </span>
+                  )}
+                </div>
+                {item.note && (
+                  <p className="text-[11px] text-gray-500 italic pl-2">
+                    {item.note}
+                  </p>
+                )}
+              </div>
+            ))}
+
+            <div className="flex justify-between items-center pt-1.5 border-t border-gray-200/60 text-xs">
+              <span className="text-gray-500">Add-ons subtotal</span>
+              <span className="font-semibold text-gray-900">
+                {formatCurrency(
+                  booking.itemsTotal ??
+                    booking.items.reduce(
+                      (sum, it) => sum + (it.unitPrice || 0) * (it.quantity || 1),
+                      0
+                    )
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Payment Reference & Status */}
       <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex items-center gap-2 text-gray-500">

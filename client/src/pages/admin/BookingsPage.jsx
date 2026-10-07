@@ -65,6 +65,19 @@ export default function AdminBookingsPage({ noLayout = false }) {
     ).length
   }, [reviewBooking, allBookings])
 
+  const expectedTotals = useMemo(() => {
+    if (!reviewBooking) return { courts: 0, addOns: 0, total: 0 }
+    const sameRefBookings = reviewBooking.paymentRef
+      ? allBookings.filter((b) => b.paymentRef === reviewBooking.paymentRef)
+      : [reviewBooking]
+
+    const list = sameRefBookings.length > 0 ? sameRefBookings : [reviewBooking]
+    const courts = list.reduce((sum, b) => sum + (b.amount || 0), 0)
+    const addOns = list.reduce((sum, b) => sum + (b.itemsTotal || 0), 0)
+    const total = courts + addOns
+    return { courts, addOns, total }
+  }, [reviewBooking, allBookings])
+
   const filteredBookings = useMemo(() => {
     if (activeChip === 'needs-review') {
       return allBookings.filter((b) => b.status === 'pending')
@@ -383,6 +396,11 @@ export default function AdminBookingsPage({ noLayout = false }) {
                           Rescheduled
                         </span>
                       )}
+                      {b.items && b.items.length > 0 && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                          + {b.items.length} add-on{b.items.length === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -498,6 +516,11 @@ export default function AdminBookingsPage({ noLayout = false }) {
                           {b.rescheduleCount > 0 && (
                             <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                               Rescheduled
+                            </span>
+                          )}
+                          {b.items && b.items.length > 0 && (
+                            <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                              + {b.items.length} add-on{b.items.length === 1 ? '' : 's'}
                             </span>
                           )}
                           {b.status === 'pending' ? (
@@ -623,6 +646,62 @@ export default function AdminBookingsPage({ noLayout = false }) {
               </div>
             </div>
 
+            {/* Add-ons — hand over at the venue */}
+            {reviewBooking.items && reviewBooking.items.length > 0 && (
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs space-y-3">
+                <div className="flex items-center justify-between border-b border-gray-200/70 pb-2">
+                  <h4 className="font-semibold text-gray-900">
+                    Add-ons — hand over at the venue
+                  </h4>
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {reviewBooking.items.length} item{reviewBooking.items.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {reviewBooking.items.map((item, idx) => (
+                    <div key={idx} className="space-y-0.5 pb-2 last:pb-0 border-b last:border-0 border-gray-100">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium text-gray-800">
+                            {item.quantity} × {item.name}
+                          </span>
+                          {item.category === 'service' && item.readyInfo && (
+                            <span className="inline-flex items-center text-[10px] font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded px-1.5 py-0.5">
+                              Ready in {item.readyInfo.replace(/^ready\s*(in)?\s*/i, '')}
+                            </span>
+                          )}
+                        </div>
+                        {item.unitPrice !== undefined && (
+                          <span className="font-semibold text-gray-800 shrink-0">
+                            {formatCurrency(item.unitPrice * item.quantity)}
+                          </span>
+                        )}
+                      </div>
+                      {item.note && (
+                        <p className="text-[11px] text-gray-500 italic pl-2">
+                          Note: {item.note}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200/70 text-xs font-semibold">
+                  <span className="text-gray-600">Add-ons subtotal</span>
+                  <span className="text-gray-900 font-bold">
+                    {formatCurrency(
+                      reviewBooking.itemsTotal ??
+                        reviewBooking.items.reduce(
+                          (sum, it) => sum + (it.unitPrice || 0) * (it.quantity || 1),
+                          0
+                        )
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Payment Reference Highlighted Row */}
             <div className="bg-primary-50/70 border border-primary-200 rounded-xl p-3.5 space-y-1.5 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -647,6 +726,20 @@ export default function AdminBookingsPage({ noLayout = false }) {
                   Paid together with {sharedOtherBookingsCount} other booking(s) — one transfer, one receipt.
                 </p>
               )}
+
+              <div className="pt-2 border-t border-primary-200/60 space-y-0.5">
+                <div className="flex flex-wrap items-baseline gap-1.5">
+                  <span className="font-semibold text-gray-900">
+                    Expected transfer total: <strong className="font-bold text-primary-700">{formatCurrency(expectedTotals.total)}</strong>
+                  </span>
+                  <span className="text-gray-500 text-[11px]">
+                    (courts {formatCurrency(expectedTotals.courts)} + add-ons {formatCurrency(expectedTotals.addOns)})
+                  </span>
+                </div>
+                <p className="text-gray-500 text-[11px]">
+                  The receipt amount should match this total.
+                </p>
+              </div>
             </div>
 
             {/* Receipt Image / Warning */}
