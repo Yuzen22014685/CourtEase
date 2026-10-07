@@ -12,6 +12,7 @@ import SkeletonCard from '../../components/ui/SkeletonCard'
 import Modal from '../../components/ui/Modal'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
 import PayVenueCard from '../../components/bookings/PayVenueCard'
+import OrderCard, { getPlayerPaymentBadge } from '../../components/bookings/OrderCard'
 import { formatCurrency, formatDate, formatTime, isUpcoming, formatPaymentRef, formatPaymentMethod } from '../../utils/format'
 import clsx from 'clsx'
 import {
@@ -46,6 +47,41 @@ const toMinutes = (t) => {
 const todayMY = () => {
   return new Date()
     .toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
+}
+
+/**
+ * Group bookings by paymentRef while preserving earliest-booking order.
+ * Bookings without paymentRef remain single items.
+ */
+function groupBookingsByPaymentRef(bookingList) {
+  const result = []
+  const seenPaymentRefs = new Set()
+
+  for (const booking of bookingList) {
+    if (booking.paymentRef) {
+      if (seenPaymentRefs.has(booking.paymentRef)) {
+        continue
+      }
+      seenPaymentRefs.add(booking.paymentRef)
+      const groupBookings = bookingList.filter(
+        (b) => b.paymentRef === booking.paymentRef
+      )
+      result.push({
+        type: 'order',
+        key: `order-${booking.paymentRef}`,
+        paymentRef: booking.paymentRef,
+        bookings: groupBookings,
+      })
+    } else {
+      result.push({
+        type: 'single',
+        key: `single-${booking._id}`,
+        booking,
+      })
+    }
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +194,10 @@ export default function MyBookingsPage() {
   }, [loading, bookings, uploadReceiptParam, highlightParam, reviewParam, setSearchParams, highlightBooking])
 
   const displayed = activeTab === 'upcoming' ? upcoming : sortedPast
+  const groupedDisplayed = useMemo(
+    () => groupBookingsByPaymentRef(displayed),
+    [displayed]
+  )
   const uploadTargetBooking = uploadModalBookingId
     ? bookings.find((b) => b._id === uploadModalBookingId)
     : null
@@ -245,16 +285,27 @@ export default function MyBookingsPage() {
           />
         ) : (
           <div className="grid gap-4">
-            {displayed.map((booking) => (
-              <BookingCard
-                key={booking._id}
-                booking={booking}
-                isHighlighted={highlightedBookingId === booking._id}
-                onOpenUpload={setUploadModalBookingId}
-                onOpenCancel={setCancelModalBookingId}
-                onOpenReview={setReviewModalBookingId}
-              />
-            ))}
+            {groupedDisplayed.map((item) =>
+              item.type === 'order' ? (
+                <OrderCard
+                  key={item.key}
+                  order={item}
+                  highlightedBookingId={highlightedBookingId}
+                  onOpenUpload={setUploadModalBookingId}
+                  onOpenCancel={setCancelModalBookingId}
+                  onOpenReview={setReviewModalBookingId}
+                />
+              ) : (
+                <BookingCard
+                  key={item.key}
+                  booking={item.booking}
+                  isHighlighted={highlightedBookingId === item.booking._id}
+                  onOpenUpload={setUploadModalBookingId}
+                  onOpenCancel={setCancelModalBookingId}
+                  onOpenReview={setReviewModalBookingId}
+                />
+              )
+            )}
           </div>
         )}
 
@@ -405,6 +456,7 @@ function BookingCard({ booking, isHighlighted, onOpenUpload, onOpenCancel, onOpe
   const venueName = booking.venueId?.name ?? '—'
   const courtNum  = booking.courtId?.courtNumber ?? '—'
   const isPendingWithoutReceipt = booking.status === 'pending' && !booking.receiptImage
+  const paymentBadge = getPlayerPaymentBadge([booking])
 
   return (
     <div
@@ -585,8 +637,14 @@ function BookingCard({ booking, isHighlighted, onOpenUpload, onOpenCancel, onOpe
           <span className="font-medium text-gray-700">{formatPaymentMethod(booking.paymentMethod)}</span>
         </div>
         <Badge
-          status={booking.paymentStatus}
-          label={booking.paymentStatus === 'pending' ? 'Awaiting payment' : undefined}
+          status={paymentBadge ? paymentBadge.status : booking.paymentStatus}
+          label={
+            paymentBadge
+              ? paymentBadge.label
+              : booking.paymentStatus === 'pending'
+              ? 'Awaiting payment'
+              : undefined
+          }
         />
       </div>
     </div>

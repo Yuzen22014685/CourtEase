@@ -27,9 +27,10 @@ export default function AdminBookingsPage({ noLayout = false }) {
 
   // Review modal state
   const [reviewBooking, setReviewBooking] = useState(null)
-  const [reviewMode, setReviewMode]       = useState('default') // 'default' | 'confirm-approve' | 'reject-form'
+  const [reviewMode, setReviewMode]       = useState('default') // 'default' | 'confirm-approve' | 'confirm-approve-all' | 'reject-form' | 'reject-all-form'
   const [rejectReason, setRejectReason]   = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [actionProgress, setActionProgress] = useState('')
   const [modalError, setModalError]       = useState(null)
 
   // Venues for filter dropdown
@@ -76,6 +77,13 @@ export default function AdminBookingsPage({ noLayout = false }) {
     const addOns = list.reduce((sum, b) => sum + (b.itemsTotal || 0), 0)
     const total = courts + addOns
     return { courts, addOns, total }
+  }, [reviewBooking, allBookings])
+
+  const pendingInGroup = useMemo(() => {
+    if (!reviewBooking?.paymentRef) return []
+    return allBookings.filter(
+      (b) => b.paymentRef === reviewBooking.paymentRef && b.status === 'pending'
+    )
   }, [reviewBooking, allBookings])
 
   const filteredBookings = useMemo(() => {
@@ -135,6 +143,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
     setReviewMode('default')
     setRejectReason('')
     setModalError(null)
+    setActionProgress('')
   }
 
   const [searchParams, setSearchParams] = useSearchParams()
@@ -171,6 +180,43 @@ export default function AdminBookingsPage({ noLayout = false }) {
     }
   }
 
+  const handleExecuteApproveAll = async () => {
+    if (!pendingInGroup.length) return
+    setActionLoading(true)
+    setModalError(null)
+    setActionProgress('')
+
+    let successCount = 0
+    for (let i = 0; i < pendingInGroup.length; i++) {
+      const b = pendingInGroup[i]
+      const courtStr = b.courtId?.courtNumber != null ? `Court #${b.courtId.courtNumber}` : 'Booking'
+      setActionProgress(`Approving ${i + 1} of ${pendingInGroup.length} (${courtStr})...`)
+
+      try {
+        await approveBooking(b._id)
+        successCount++
+      } catch (err) {
+        const msg = err.response?.data?.message || 'Failed to approve booking'
+        setModalError(
+          `Failed on ${courtStr} (${formatTime(b.startTime)}–${formatTime(b.endTime)}): ${msg}. Remaining bookings were not approved.`
+        )
+        refetch()
+        window.dispatchEvent(new Event('pending-count-changed'))
+        setActionLoading(false)
+        setActionProgress('')
+        return
+      }
+    }
+
+    setActionMessage(`Approved all ${successCount} bookings in this payment!`)
+    refetch()
+    closeReview()
+    window.dispatchEvent(new Event('pending-count-changed'))
+    setActionLoading(false)
+    setActionProgress('')
+    setTimeout(() => setActionMessage(null), 4000)
+  }
+
   const handleExecuteReject = async () => {
     if (!reviewBooking) return
     const trimmed = rejectReason.trim()
@@ -192,6 +238,49 @@ export default function AdminBookingsPage({ noLayout = false }) {
     } finally {
       setActionLoading(false)
     }
+  }
+
+  const handleExecuteRejectAll = async () => {
+    if (!pendingInGroup.length) return
+    const trimmed = rejectReason.trim()
+    if (trimmed.length < 5) {
+      setModalError('Rejection reason must be at least 5 characters.')
+      return
+    }
+
+    setActionLoading(true)
+    setModalError(null)
+    setActionProgress('')
+
+    let successCount = 0
+    for (let i = 0; i < pendingInGroup.length; i++) {
+      const b = pendingInGroup[i]
+      const courtStr = b.courtId?.courtNumber != null ? `Court #${b.courtId.courtNumber}` : 'Booking'
+      setActionProgress(`Rejecting ${i + 1} of ${pendingInGroup.length} (${courtStr})...`)
+
+      try {
+        await rejectBooking(b._id, trimmed)
+        successCount++
+      } catch (err) {
+        const msg = err.response?.data?.message || 'Failed to reject booking'
+        setModalError(
+          `Failed on ${courtStr} (${formatTime(b.startTime)}–${formatTime(b.endTime)}): ${msg}. Remaining bookings were not rejected.`
+        )
+        refetch()
+        window.dispatchEvent(new Event('pending-count-changed'))
+        setActionLoading(false)
+        setActionProgress('')
+        return
+      }
+    }
+
+    setActionMessage(`Rejected all ${successCount} bookings.`)
+    refetch()
+    closeReview()
+    window.dispatchEvent(new Event('pending-count-changed'))
+    setActionLoading(false)
+    setActionProgress('')
+    setTimeout(() => setActionMessage(null), 4000)
   }
 
   const activeFilterCount = [
@@ -823,21 +912,44 @@ export default function AdminBookingsPage({ noLayout = false }) {
 
                 {/* Action Section */}
                 {reviewMode === 'default' && (
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100">
-                    <button
-                      type="button"
-                      onClick={() => setReviewMode('reject-form')}
-                      className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
-                    >
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReviewMode('confirm-approve')}
-                      className="btn-primary px-4 py-2 text-sm bg-green-600 hover:bg-green-700 border-green-600"
-                    >
-                      Approve
-                    </button>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-gray-100">
+                    {/* Secondary batch options when multiple pending bookings in this payment */}
+                    {pendingInGroup.length > 1 ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setReviewMode('reject-all-form')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors"
+                        >
+                          Reject all {pendingInGroup.length}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReviewMode('confirm-approve-all')}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 transition-colors"
+                        >
+                          Approve all {pendingInGroup.length} in this payment
+                        </button>
+                      </div>
+                    ) : <div />}
+
+                    {/* Single Approve and Reject buttons kept exactly as they are */}
+                    <div className="flex items-center justify-end gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setReviewMode('reject-form')}
+                        className="px-4 py-2 rounded-lg text-sm font-medium text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReviewMode('confirm-approve')}
+                        className="btn-primary px-4 py-2 text-sm bg-green-600 hover:bg-green-700 border-green-600"
+                      >
+                        Approve
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -864,6 +976,40 @@ export default function AdminBookingsPage({ noLayout = false }) {
                       >
                         {actionLoading && <Spinner size="sm" />}
                         Confirm approve
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Batch Approve Confirmation Inline */}
+                {reviewMode === 'confirm-approve-all' && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3.5 space-y-2.5 animate-fadeIn">
+                    <p className="text-sm font-medium text-green-900">
+                      Are you sure you want to approve all {pendingInGroup.length} pending bookings in this payment?
+                    </p>
+                    {actionProgress && (
+                      <div className="flex items-center gap-2 text-xs text-green-800 font-medium bg-green-100/60 p-2 rounded-lg">
+                        <Spinner size="sm" />
+                        <span>{actionProgress}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => { setReviewMode('default'); setModalError(null); }}
+                        className="btn-secondary btn-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={handleExecuteApproveAll}
+                        className="btn-primary btn-sm bg-green-600 hover:bg-green-700 border-green-600 text-white flex items-center gap-1.5"
+                      >
+                        {actionLoading && <Spinner size="sm" />}
+                        Confirm approve all ({pendingInGroup.length})
                       </button>
                     </div>
                   </div>
@@ -911,6 +1057,59 @@ export default function AdminBookingsPage({ noLayout = false }) {
                       >
                         {actionLoading && <Spinner size="sm" />}
                         Confirm reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Batch Reject Form with required reason */}
+                {reviewMode === 'reject-all-form' && (
+                  <div className="bg-red-50/70 border border-red-200 rounded-xl p-3.5 space-y-3 animate-fadeIn">
+                    <div>
+                      <label htmlFor="rejection-all-reason" className="block text-xs font-semibold text-red-900 mb-1">
+                        Reason for rejecting all {pendingInGroup.length} bookings <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        id="rejection-all-reason"
+                        rows={3}
+                        maxLength={300}
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="Enter reason for rejection (min 5 characters)..."
+                        className="input text-sm w-full bg-white border-red-200 focus:border-red-500 focus:ring-red-500"
+                      />
+                      <div className="flex justify-between items-center text-[11px] text-gray-500 mt-1">
+                        <span className={rejectReason.trim().length < 5 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                          {rejectReason.trim().length < 5
+                            ? `Minimum 5 characters required (${rejectReason.trim().length}/5)`
+                            : 'Reason requirement met'}
+                        </span>
+                        <span>{rejectReason.length}/300</span>
+                      </div>
+                    </div>
+                    {actionProgress && (
+                      <div className="flex items-center gap-2 text-xs text-red-800 font-medium bg-red-100/60 p-2 rounded-lg">
+                        <Spinner size="sm" />
+                        <span>{actionProgress}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => { setReviewMode('default'); setRejectReason(''); setModalError(null); }}
+                        className="btn-secondary btn-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionLoading || rejectReason.trim().length < 5}
+                        onClick={handleExecuteRejectAll}
+                        className="btn-danger btn-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                      >
+                        {actionLoading && <Spinner size="sm" />}
+                        Confirm reject all ({pendingInGroup.length})
                       </button>
                     </div>
                   </div>
