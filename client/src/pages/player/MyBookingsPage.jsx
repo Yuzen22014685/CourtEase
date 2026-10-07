@@ -11,7 +11,8 @@ import EmptyState from '../../components/ui/EmptyState'
 import SkeletonCard from '../../components/ui/SkeletonCard'
 import Modal from '../../components/ui/Modal'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
-import { formatCurrency, formatDate, formatTime, isUpcoming } from '../../utils/format'
+import PayVenueCard from '../../components/bookings/PayVenueCard'
+import { formatCurrency, formatDate, formatTime, isUpcoming, formatPaymentRef, formatPaymentMethod } from '../../utils/format'
 import clsx from 'clsx'
 import {
   CalendarDaysIcon,
@@ -160,6 +161,17 @@ export default function MyBookingsPage() {
   const uploadTargetBooking = uploadModalBookingId
     ? bookings.find((b) => b._id === uploadModalBookingId)
     : null
+
+  const uploadBookingIds = useMemo(() => {
+    if (!uploadTargetBooking) return []
+    if (uploadTargetBooking.status === 'pending' && uploadTargetBooking.paymentRef) {
+      const matching = bookings
+        .filter((b) => b.status === 'pending' && b.paymentRef === uploadTargetBooking.paymentRef)
+        .map((b) => b._id)
+      return matching.length > 0 ? matching : [uploadTargetBooking._id]
+    }
+    return [uploadTargetBooking._id]
+  }, [uploadTargetBooking, bookings])
   const rescheduleTargetBooking = rescheduleModalBookingId
     ? bookings.find((b) => b._id === rescheduleModalBookingId)
     : null
@@ -254,44 +266,58 @@ export default function MyBookingsPage() {
           size="lg"
         >
           {uploadModalBookingId && (
-            <>
-              {uploadTargetBooking && (
-                <div className="bg-gray-50 border border-gray-200/80 rounded-lg p-3 text-sm space-y-2 mb-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-gray-900">
-                      {uploadTargetBooking.venueId?.name ?? '—'} · Court {uploadTargetBooking.courtId?.courtNumber ?? '—'}
-                    </span>
-                    <span className="font-semibold text-primary-600 shrink-0">
-                      {formatCurrency(uploadTargetBooking.amount)}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-gray-600">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
-                        <span>{formatDate(uploadTargetBooking.date)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ClockIcon className="h-4 w-4 text-gray-400" />
-                        <span>{formatTime(uploadTargetBooking.startTime)} – {formatTime(uploadTargetBooking.endTime)}</span>
-                      </div>
-                    </div>
-                    {uploadTargetBooking.receiptId && (
-                      <span className="text-xs text-gray-400">
-                        Receipt: <span className="font-mono text-gray-600">{uploadTargetBooking.receiptId}</span>
+            <div className="space-y-4">
+              {uploadTargetBooking?.status === 'pending' ? (
+                <PayVenueCard
+                  bookingId={uploadTargetBooking._id}
+                  chosenMethod={uploadTargetBooking.paymentMethod}
+                />
+              ) : (
+                uploadTargetBooking && (
+                  <div className="bg-gray-50 border border-gray-200/80 rounded-lg p-3 text-sm space-y-2 mb-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-gray-900">
+                        {uploadTargetBooking.venueId?.name ?? '—'} · Court {uploadTargetBooking.courtId?.courtNumber ?? '—'}
                       </span>
-                    )}
+                      <span className="font-semibold text-primary-600 shrink-0">
+                        {formatCurrency(uploadTargetBooking.amount)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-gray-600">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <CalendarDaysIcon className="h-4 w-4 text-gray-400" />
+                          <span>{formatDate(uploadTargetBooking.date)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <ClockIcon className="h-4 w-4 text-gray-400" />
+                          <span>{formatTime(uploadTargetBooking.startTime)} – {formatTime(uploadTargetBooking.endTime)}</span>
+                        </div>
+                      </div>
+                      {uploadTargetBooking.receiptId && (
+                        <span className="text-xs text-gray-400">
+                          Receipt: <span className="font-mono text-gray-600">{uploadTargetBooking.receiptId}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
+                )
+              )}
+
+              {uploadBookingIds.length > 1 && (
+                <div className="p-3 bg-primary-50/70 border border-primary-200 rounded-xl text-xs text-primary-800 font-medium">
+                  This receipt will be attached to {uploadBookingIds.length} bookings paid together.
                 </div>
               )}
+
               <UploadReceiptPanel
-                bookingIds={[uploadModalBookingId]}
+                bookingIds={uploadBookingIds}
                 onSuccess={() => {
                   setUploadModalBookingId(null)
                   refetch()
                 }}
               />
-            </>
+            </div>
           )}
         </Modal>
 
@@ -499,10 +525,17 @@ function BookingCard({ booking, isHighlighted, onOpenUpload, onOpenCancel, onOpe
         </div>
       </div>
 
-      {/* Receipt ID */}
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-xs text-gray-400">Receipt: <span className="font-mono">{booking.receiptId}</span></span>
-        <Badge status={booking.paymentStatus} />
+      {/* Payment Reference & Status */}
+      <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 text-gray-500">
+          <span>Ref <span className="font-mono font-medium text-gray-700">{formatPaymentRef(booking)}</span></span>
+          <span className="text-gray-300">·</span>
+          <span className="font-medium text-gray-700">{formatPaymentMethod(booking.paymentMethod)}</span>
+        </div>
+        <Badge
+          status={booking.paymentStatus}
+          label={booking.paymentStatus === 'pending' ? 'Awaiting payment' : undefined}
+        />
       </div>
     </div>
   )

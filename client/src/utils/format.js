@@ -64,3 +64,26 @@ export const getImageUrl = (url) => {
   const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/api\/?$/, '')
   return `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`
 }
+
+/** Format payment method string to human-readable label */
+export const formatPaymentMethod = (method) => {
+  switch (method) {
+    case 'duitnow_qr':
+      return 'DuitNow QR'
+    case 'bank_transfer':
+      return 'Bank transfer'
+    case 'card':
+      return 'Card'
+    case 'fpx':
+      return 'FPX'
+    case 'ewallet':
+      return 'e-Wallet'
+    default:
+      return '—'
+  }
+}
+
+/** Format payment reference with fallback to receiptId or em-dash */
+export const formatPaymentRef = (booking) =>
+  booking?.paymentRef || booking?.receiptId || '—'
+

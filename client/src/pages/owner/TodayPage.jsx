@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { getAllBookings, getRevenueAnalytics } from '../../api/admin'
-import { formatCurrency, formatDate, formatTime, getImageUrl } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, getImageUrl, formatPaymentRef, formatPaymentMethod } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
@@ -371,6 +371,9 @@ export default function TodayPage() {
                       </p>
                       <p className="text-gray-500">
                         Amount: <span className="font-semibold text-gray-900">{formatCurrency(b.amount)}</span>
+                      </p>
+                      <p className="text-[11px] text-gray-500">
+                        Ref {formatPaymentRef(b)} · {formatPaymentMethod(b.paymentMethod)}
                       </p>
                     </div>
 

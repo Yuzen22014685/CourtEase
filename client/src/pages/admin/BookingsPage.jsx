@@ -11,7 +11,7 @@ import { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
-import { formatCurrency, formatDate, formatTime, todayString } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString, formatPaymentMethod, formatPaymentRef } from '../../utils/format'
 import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
@@ -57,6 +57,13 @@ export default function AdminBookingsPage({ noLayout = false }) {
   const needsReviewCount = useMemo(() => {
     return allBookings.filter((b) => b.status === 'pending').length
   }, [allBookings])
+
+  const sharedOtherBookingsCount = useMemo(() => {
+    if (!reviewBooking?.paymentRef) return 0
+    return allBookings.filter(
+      (b) => b._id !== reviewBooking._id && b.paymentRef === reviewBooking.paymentRef
+    ).length
+  }, [reviewBooking, allBookings])
 
   const filteredBookings = useMemo(() => {
     if (activeChip === 'needs-review') {
@@ -392,7 +399,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
                   <div className="flex items-center gap-2 mt-1 text-xs">
                     <span className="font-bold text-primary-700">{formatCurrency(b.amount)}</span>
                     <span className="text-gray-300">·</span>
-                    <span className="uppercase text-gray-500 font-medium">{b.paymentMethod}</span>
+                    <span className="text-gray-600 font-medium">{formatPaymentMethod(b.paymentMethod)}</span>
                   </div>
 
                   {b.status === 'rejected' && b.rejectionReason && (
@@ -480,7 +487,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
                           {formatTime(b.startTime)}–{formatTime(b.endTime)}
                         </td>
                         <td className="font-medium text-primary-700">{formatCurrency(b.amount)}</td>
-                        <td className="uppercase text-xs text-gray-500">{b.paymentMethod}</td>
+                        <td className="text-xs text-gray-700 font-medium">{formatPaymentMethod(b.paymentMethod)}</td>
                         <td>
                           <Badge status={b.status} />
                           {b.autoConfirmed && (
@@ -561,8 +568,8 @@ export default function AdminBookingsPage({ noLayout = false }) {
                   <span className="font-bold text-base text-primary-600">
                     {formatCurrency(reviewBooking.amount)}
                   </span>
-                  <p className="text-[11px] text-gray-400 uppercase tracking-wide">
-                    {reviewBooking.paymentMethod}
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    {formatPaymentMethod(reviewBooking.paymentMethod)}
                   </p>
                 </div>
               </div>
@@ -587,6 +594,13 @@ export default function AdminBookingsPage({ noLayout = false }) {
                   </span>
                 </div>
                 <div>
+                  <span className="text-gray-400 block mb-0.5">Payment Status</span>
+                  <Badge
+                    status={reviewBooking.paymentStatus}
+                    label={reviewBooking.paymentStatus === 'pending' ? 'Awaiting payment' : undefined}
+                  />
+                </div>
+                <div>
                   <span className="text-gray-400 block mb-0.5">Status</span>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Badge status={reviewBooking.status} />
@@ -607,6 +621,32 @@ export default function AdminBookingsPage({ noLayout = false }) {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Payment Reference Highlighted Row */}
+            <div className="bg-primary-50/70 border border-primary-200 rounded-xl p-3.5 space-y-1.5 text-xs">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-semibold text-gray-900">Payment reference:</span>
+                  <span className="font-mono font-bold text-sm text-primary-700 select-all tracking-wider">
+                    {formatPaymentRef(reviewBooking)}
+                  </span>
+                </div>
+                <div className="text-gray-700">
+                  <span className="text-gray-500">Paid by: </span>
+                  <span className="font-medium text-gray-900">{formatPaymentMethod(reviewBooking.paymentMethod)}</span>
+                </div>
+              </div>
+
+              <p className="text-gray-500 text-[11px]">
+                Match this with the transfer note on the receipt.
+              </p>
+
+              {sharedOtherBookingsCount > 0 && (
+                <p className="text-primary-800 font-medium text-[11px] pt-1 border-t border-primary-200/60">
+                  Paid together with {sharedOtherBookingsCount} other booking(s) — one transfer, one receipt.
+                </p>
+              )}
             </div>
 
             {/* Receipt Image / Warning */}
