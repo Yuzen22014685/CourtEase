@@ -10,6 +10,10 @@ import ErrorMessage from '../../components/ui/ErrorMessage'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
 import PayVenueCard from '../../components/bookings/PayVenueCard'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
+import CheckoutStepIndicator from '../../components/bookings/CheckoutStepIndicator'
+import CheckoutAddOnsStep from '../../components/bookings/CheckoutAddOnsStep'
+import CheckoutReviewStep from '../../components/bookings/CheckoutReviewStep'
+import CheckoutDoneSummary from '../../components/bookings/CheckoutDoneSummary'
 import { formatCurrency, formatDate, formatTime, todayString, getImageUrl } from '../../utils/format'
 import {
   MapPinIcon,
@@ -105,6 +109,7 @@ export default function VenueDetailPage() {
 
   // ── Checkout modal state ──────────────────────────────────────
   const [checkoutOpen, setCheckoutOpen]     = useState(false)
+  const [checkoutStep, setCheckoutStep]     = useState('review')
   const [paymentMethod, setPaymentMethod]   = useState('duitnow_qr')
   const [bookingLoading, setBookingLoading] = useState(false)
   // bookingResults: { successes: [...], failures: [...] } | null
@@ -115,9 +120,9 @@ export default function VenueDetailPage() {
   const [shopItems, setShopItems]           = useState([])
   const [selectedAddOns, setSelectedAddOns] = useState({})
 
-  // Load venue's shop items when checkout modal opens
+  // Load venue's shop items when venue page loads (so first step is known before opening)
   useEffect(() => {
-    if (!checkoutOpen || !id) return
+    if (!id) return
     let mounted = true
     getVenueShopItems(id)
       .then((res) => {
@@ -129,7 +134,7 @@ export default function VenueDetailPage() {
     return () => {
       mounted = false
     }
-  }, [checkoutOpen, id])
+  }, [id])
 
   // Default to first available payment method when venue options load
   useEffect(() => {
@@ -139,6 +144,52 @@ export default function VenueDetailPage() {
       }
     }
   }, [availablePaymentMethods, paymentMethod])
+
+  // Stepper definition based on whether venue has available shop items
+  const checkoutSteps = useMemo(() => {
+    if (shopItems.length > 0) {
+      return [
+        { id: 'addons', label: 'Add-ons' },
+        { id: 'review', label: 'Review' },
+        { id: 'pay', label: 'Pay' },
+        { id: 'done', label: 'Done' },
+      ]
+    }
+    return [
+      { id: 'review', label: 'Review' },
+      { id: 'pay', label: 'Pay' },
+      { id: 'done', label: 'Done' },
+    ]
+  }, [shopItems.length])
+
+  // Open checkout starting at 'addons' (if items exist) or 'review'
+  const handleStartCheckout = () => {
+    setCheckoutStep(shopItems.length > 0 ? 'addons' : 'review')
+    setCheckoutOpen(true)
+  }
+
+  // Reset checkout flow completely
+  const handleResetCheckout = () => {
+    setCheckoutOpen(false)
+    setCheckoutStep(shopItems.length > 0 ? 'addons' : 'review')
+    setBookingResults(null)
+    setSelectedAddOns({})
+    setUploadComplete(false)
+    setUploadSkipped(false)
+    setSkipConfirmOpen(false)
+    setBookingLoading(false)
+  }
+
+  // Handle modal close depending on active step
+  const handleModalClose = () => {
+    if (checkoutStep === 'addons' || checkoutStep === 'review') {
+      setCheckoutOpen(false)
+    } else if (checkoutStep === 'pay') {
+      setSkipConfirmOpen(true)
+    } else if (checkoutStep === 'done') {
+      handleResetCheckout()
+    }
+  }
 
   // Mobile cart sheet
   const [mobileCartOpen, setMobileCartOpen] = useState(false)
@@ -212,15 +263,17 @@ export default function VenueDetailPage() {
         }
 
         results.successes.push({
-          bookingId:   b._id,
-          courtId:     slot.courtId,
-          courtNumber: slot.courtNumber,
-          start:       slot.start,
-          end:         slot.end,
-          receiptId:   b.receiptId,
-          paymentRef:  b.paymentRef,
-          amount:      b.amount,
+          bookingId:     b._id,
+          courtId:       slot.courtId,
+          courtNumber:   slot.courtNumber,
+          start:         slot.start,
+          end:           slot.end,
+          receiptId:     b.receiptId,
+          paymentRef:    b.paymentRef,
+          amount:        b.amount,
           paymentMethod: b.paymentMethod,
+          items:         b.items || [],
+          itemsTotal:    b.itemsTotal || 0,
         })
       } catch (err) {
         const message = err.response?.data?.message || 'Booking failed. Please try again.'
@@ -235,25 +288,15 @@ export default function VenueDetailPage() {
     }
 
     setBookingLoading(false)
-    setUploadComplete(false)
-    setUploadSkipped(false)
-    setSkipConfirmOpen(false)
     setBookingResults(results)
-    setSelectedAddOns({})
     clearCart()
     refetchAvail()
-  }
 
-  const handleCloseCheckout = () => {
-    setCheckoutOpen(false)
-    setSelectedAddOns({})
-    if (availablePaymentMethods.length > 0) {
-      setPaymentMethod(availablePaymentMethods[0].value)
+    if (results.successes.length > 0) {
+      setCheckoutStep('pay')
+    } else {
+      setCheckoutStep('done')
     }
-  }
-
-  const handleCloseResults = () => {
-    setBookingResults(null)
   }
 
   // Derived
@@ -261,7 +304,7 @@ export default function VenueDetailPage() {
   const totalPrice = cart.length * (venue?.pricePerHour ?? 0)
   const matrix     = availData?.matrix ?? []
 
-  const isMobileBarVisible = cart.length > 0 && !mobileCartOpen && !checkoutOpen && !bookingResults
+  const isMobileBarVisible = cart.length > 0 && !mobileCartOpen && !checkoutOpen
 
   // ── Loading / error states ────────────────────────────────────
   if (venueLoading) return (
@@ -582,7 +625,7 @@ export default function VenueDetailPage() {
                 totalPrice={totalPrice}
                 onRemove={removeFromCart}
                 onClear={clearCart}
-                onCheckout={() => setCheckoutOpen(true)}
+                onCheckout={handleStartCheckout}
               />
             </div>
           </div>
@@ -617,76 +660,111 @@ export default function VenueDetailPage() {
           totalPrice={totalPrice}
           onRemove={(key) => { removeFromCart(key) }}
           onClear={() => { clearCart(); setMobileCartOpen(false) }}
-          onCheckout={() => { setMobileCartOpen(false); setCheckoutOpen(true) }}
+          onCheckout={() => { setMobileCartOpen(false); handleStartCheckout() }}
         />
       </Modal>
 
-      {/* ── Checkout modal: payment + confirm ── */}
+      {/* ── Single Unified Checkout Modal ── */}
       <Modal
-        isOpen={checkoutOpen && !bookingResults}
-        onClose={handleCloseCheckout}
-        title="Confirm Booking"
-        size="lg"
-      >
-        <CheckoutPanel
-          cart={cart}
-          venue={venue}
-          date={selectedDate}
-          totalPrice={totalPrice}
-          paymentMethod={paymentMethod}
-          availablePaymentMethods={availablePaymentMethods}
-          onPaymentChange={setPaymentMethod}
-          onConfirm={handleCheckout}
-          onCancel={handleCloseCheckout}
-          loading={bookingLoading}
-          shopItems={shopItems}
-          selectedAddOns={selectedAddOns}
-          onAddOnChange={setSelectedAddOns}
-        />
-      </Modal>
-
-      {/* ── Results modal (success / partial failure) ── */}
-      <Modal
-        isOpen={!!bookingResults}
-        disableBackdropClick={!uploadComplete && !uploadSkipped && bookingResults?.successes?.length > 0}
-        onClose={
-          (!uploadComplete && !uploadSkipped && bookingResults?.successes?.length > 0)
-            ? () => setSkipConfirmOpen(true)
-            : handleCloseResults
-        }
+        isOpen={checkoutOpen}
+        disableBackdropClick={checkoutStep === 'pay'}
+        onClose={handleModalClose}
         title={
-          !uploadComplete && !uploadSkipped && bookingResults?.successes?.length > 0
-            ? 'Step 2 — Pay the venue, then upload your receipt'
-            : bookingResults?.failures?.length === 0
-            ? '🎉 Bookings submitted!'
+          checkoutStep === 'addons'
+            ? 'Select Add-ons'
+            : checkoutStep === 'review'
+            ? 'Review Booking'
+            : checkoutStep === 'pay'
+            ? 'Step 3 — Pay the venue, then upload your receipt'
             : bookingResults?.successes?.length === 0
-            ? 'All bookings failed'
-            : 'Booking summary'
+            ? 'Booking Failed'
+            : 'Booking Summary'
         }
         size="lg"
       >
-        {bookingResults && (
-          (!uploadComplete && !uploadSkipped && bookingResults.successes.length > 0) ? (
+        <div className="space-y-5">
+          <CheckoutStepIndicator
+            steps={checkoutSteps}
+            currentStep={checkoutStep}
+            failedAll={Boolean(bookingResults && bookingResults.successes?.length === 0)}
+          />
+
+          {checkoutStep === 'addons' && (
+            <CheckoutAddOnsStep
+              venue={venue}
+              shopItems={shopItems}
+              selectedAddOns={selectedAddOns}
+              courtPriceTotal={totalPrice}
+              onQuantityChange={(itemId, newQty) => {
+                const clamped = Math.max(0, Math.min(10, newQty))
+                setSelectedAddOns((prev) => ({
+                  ...prev,
+                  [itemId]: {
+                    quantity: clamped,
+                    note: prev[itemId]?.note || '',
+                  },
+                }))
+              }}
+              onNoteChange={(itemId, note) => {
+                setSelectedAddOns((prev) => ({
+                  ...prev,
+                  [itemId]: {
+                    quantity: prev[itemId]?.quantity || 0,
+                    note: note.slice(0, 100),
+                  },
+                }))
+              }}
+              onContinue={() => setCheckoutStep('review')}
+              onSkip={() => {
+                setSelectedAddOns({})
+                setCheckoutStep('review')
+              }}
+            />
+          )}
+
+          {checkoutStep === 'review' && (
+            <CheckoutReviewStep
+              cart={cart}
+              venue={venue}
+              date={selectedDate}
+              selectedAddOns={selectedAddOns}
+              shopItems={shopItems}
+              paymentMethod={paymentMethod}
+              availablePaymentMethods={availablePaymentMethods}
+              onPaymentChange={setPaymentMethod}
+              canGoBack={shopItems.length > 0}
+              onBack={() => setCheckoutStep('addons')}
+              onSubmit={handleCheckout}
+              loading={bookingLoading}
+            />
+          )}
+
+          {checkoutStep === 'pay' && bookingResults?.successes?.length > 0 && (
             <div className="space-y-6">
               <PayVenueCard
                 bookingId={bookingResults.successes[0].bookingId}
                 chosenMethod={paymentMethod}
               />
-              <UploadReceiptPanel 
-                bookingIds={bookingResults.successes.map((b) => b.bookingId)} 
-                onSuccess={() => setUploadComplete(true)} 
+              <UploadReceiptPanel
+                bookingIds={bookingResults.successes.map((b) => b.bookingId)}
+                onSuccess={() => {
+                  setUploadComplete(true)
+                  setCheckoutStep('done')
+                }}
               />
             </div>
-          ) : (
-            <ResultsPanel
+          )}
+
+          {checkoutStep === 'done' && (
+            <CheckoutDoneSummary
               results={bookingResults}
               venue={venue}
               date={selectedDate}
               uploadSkipped={uploadSkipped}
-              onClose={handleCloseResults}
+              onBookMore={handleResetCheckout}
             />
-          )
-        )}
+          )}
+        </div>
       </Modal>
 
       {/* ── Skip Upload Confirmation ── */}
@@ -699,6 +777,7 @@ export default function VenueDetailPage() {
         onConfirm={() => {
           setSkipConfirmOpen(false)
           setUploadSkipped(true)
+          setCheckoutStep('done')
         }}
         onCancel={() => setSkipConfirmOpen(false)}
       />
@@ -882,436 +961,4 @@ function CartPanel({ cart, venue, date, totalPrice, onRemove, onClear, onCheckou
   )
 }
 
-/* ── Checkout Panel ───────────────────────────────────────────────────────── */
-function CheckoutPanel({
-  cart,
-  venue,
-  date,
-  totalPrice,
-  paymentMethod,
-  availablePaymentMethods = [],
-  onPaymentChange,
-  onConfirm,
-  onCancel,
-  loading,
-  shopItems = [],
-  selectedAddOns = {},
-  onAddOnChange,
-}) {
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [showTermsWarning, setShowTermsWarning] = useState(false)
 
-  const hasPaymentOptions = availablePaymentMethods.length > 0
-
-  const handleQuantityChange = (itemId, newQty) => {
-    const clamped = Math.max(0, Math.min(10, newQty))
-    onAddOnChange((prev) => ({
-      ...prev,
-      [itemId]: {
-        quantity: clamped,
-        note: prev[itemId]?.note || '',
-      },
-    }))
-  }
-
-  const handleNoteChange = (itemId, note) => {
-    onAddOnChange((prev) => ({
-      ...prev,
-      [itemId]: {
-        quantity: prev[itemId]?.quantity || 0,
-        note: note.slice(0, 100),
-      },
-    }))
-  }
-
-  const addOnsTotal = useMemo(() => {
-    return shopItems.reduce((sum, item) => {
-      const qty = selectedAddOns[item._id]?.quantity || 0
-      return sum + (item.price || 0) * qty
-    }, 0)
-  }, [shopItems, selectedAddOns])
-
-  const grandTotal = totalPrice + addOnsTotal
-
-  const handleConfirmClick = () => {
-    if (!termsAccepted) {
-      setShowTermsWarning(true)
-      return
-    }
-    setShowTermsWarning(false)
-    onConfirm()
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Booking summary */}
-      <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
-        <div className="flex justify-between text-gray-500 text-xs">
-          <span>{venue?.name}</span>
-          <span>{cart.length} slot{cart.length !== 1 ? 's' : ''} · {formatDate(date)}</span>
-        </div>
-        {cart.map((slot) => (
-          <div key={slotKey(slot.courtId, slot.start)} className="flex justify-between text-xs">
-            <span className="text-gray-700">
-              Court {slot.courtNumber} · {formatTime(slot.start)}–{formatTime(slot.end)}
-            </span>
-            <span className="font-medium text-gray-800 shrink-0 ml-2">
-              {formatCurrency(venue?.pricePerHour ?? 0)}
-            </span>
-          </div>
-        ))}
-        <hr className="border-gray-200 my-2" />
-        <div className="space-y-1 text-xs">
-          <div className="flex justify-between text-gray-600">
-            <span>Courts</span>
-            <span className="font-medium text-gray-800">{formatCurrency(totalPrice)}</span>
-          </div>
-          {addOnsTotal > 0 && (
-            <div className="flex justify-between text-gray-600">
-              <span>Add-ons</span>
-              <span className="font-medium text-gray-800">{formatCurrency(addOnsTotal)}</span>
-            </div>
-          )}
-        </div>
-        <hr className="border-gray-200 my-2" />
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-gray-800">Total</span>
-          <span className="text-lg font-bold text-primary-600">{formatCurrency(grandTotal)}</span>
-        </div>
-      </div>
-
-      {/* ── Add-ons from venue ── */}
-      {shopItems.length > 0 && (
-        <div className="space-y-3">
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">
-              Add-ons from {venue?.name}
-            </h4>
-            <p className="text-xs text-gray-500">
-              Collected at the venue. Paid together with your booking.
-            </p>
-          </div>
-
-          <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden bg-white">
-            {shopItems.map((item) => {
-              const currentQty = selectedAddOns[item._id]?.quantity || 0
-              const currentNote = selectedAddOns[item._id]?.note || ''
-
-              return (
-                <div key={item._id} className="p-3.5 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                        {item.category === 'service' && item.readyInfo && (
-                          <span className="text-[11px] font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded px-1.5 py-0.5">
-                            {item.readyInfo}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs font-semibold text-gray-700 mt-0.5">
-                        {formatCurrency(item.price)}
-                      </div>
-                      {item.description && (
-                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                          {item.description}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Quantity Stepper */}
-                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => handleQuantityChange(item._id, currentQty - 1)}
-                        disabled={currentQty <= 0 || loading}
-                        className="px-2.5 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold transition-colors"
-                        aria-label={`Decrease quantity of ${item.name}`}
-                      >
-                        −
-                      </button>
-                      <span className="px-2.5 py-1 text-xs font-semibold text-gray-900 min-w-[1.75rem] text-center select-none bg-white">
-                        {currentQty}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleQuantityChange(item._id, currentQty + 1)}
-                        disabled={currentQty >= 10 || loading}
-                        className="px-2.5 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold transition-colors"
-                        aria-label={`Increase quantity of ${item.name}`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Service Note Input */}
-                  {item.category === 'service' && currentQty > 0 && (
-                    <div className="pt-1.5">
-                      <label
-                        htmlFor={`addon-note-${item._id}`}
-                        className="block text-xs font-medium text-gray-700 mb-1"
-                      >
-                        {item.notePrompt || 'Question for the player'}
-                      </label>
-                      <input
-                        id={`addon-note-${item._id}`}
-                        type="text"
-                        maxLength={100}
-                        value={currentNote}
-                        onChange={(e) => handleNoteChange(item._id, e.target.value)}
-                        placeholder={item.notePrompt || 'e.g. Note / instructions'}
-                        disabled={loading}
-                        className="input text-xs py-1.5 px-3"
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Payment method */}
-      <div className="space-y-2">
-        <label className="label">Payment method</label>
-        {!hasPaymentOptions ? (
-          <p className="text-sm text-gray-500 italic">This venue hasn't set up payment details yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {availablePaymentMethods.map((m) => (
-              <label
-                key={m.value}
-                className={clsx(
-                  'flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors',
-                  paymentMethod === m.value
-                    ? 'border-primary-500 bg-primary-50/40 text-gray-900 font-medium'
-                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
-                )}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value={m.value}
-                  checked={paymentMethod === m.value}
-                  onChange={(e) => onPaymentChange(e.target.value)}
-                  disabled={loading}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                />
-                <span className="text-sm">{m.label}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── Terms & Conditions ─────────────────────────────────────────────── */}
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Terms &amp; Conditions
-        </p>
-        <ul className="space-y-2 text-sm text-gray-600">
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
-            <span>Payment is made directly to the venue by DuitNow QR or bank transfer. CourtEase does not process or hold payments.</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
-            <span>All bookings are non-refundable.</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
-            <span>You can reschedule a booking once, up to 24 hours before the session starts (same venue, same duration).</span>
-          </li>
-          {/* Remove if ALLOW_CANCEL_WITHOUT_REFUND is set to false in config/bookingPolicy.js */}
-          <li className="flex items-start gap-2">
-            <span className="mt-0.5 text-gray-400 shrink-0">•</span>
-            <span>You can cancel a booking any time before the session starts, but the booking fee will not be refunded.</span>
-          </li>
-        </ul>
-
-        {/* Checkbox */}
-        <label
-          htmlFor="terms-checkbox"
-          className="flex items-start gap-2.5 cursor-pointer group pt-1"
-        >
-          <input
-            id="terms-checkbox"
-            type="checkbox"
-            checked={termsAccepted}
-            onChange={(e) => {
-              setTermsAccepted(e.target.checked)
-              if (e.target.checked) setShowTermsWarning(false)
-            }}
-            disabled={loading}
-            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600
-                       focus:ring-primary-500 cursor-pointer accent-primary-600 shrink-0"
-          />
-          <span className="text-sm text-gray-700 group-hover:text-gray-900 leading-snug">
-            I have read and agree to the Terms &amp; Conditions
-          </span>
-        </label>
-
-        {/* Inline warning — shown only when player tries to pay without ticking */}
-        {showTermsWarning && (
-          <p className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
-            <ExclamationTriangleIcon className="h-3.5 w-3.5 shrink-0" />
-            Please accept the Terms &amp; Conditions before proceeding.
-          </p>
-        )}
-      </div>
-      {/* ─────────────────────────────────────────────────────────────────────── */}
-
-      {loading && (
-        <div className="flex items-center gap-3 p-3 bg-primary-50 rounded-xl">
-          <Spinner size="sm" />
-          <p className="text-sm text-primary-700">
-            Processing bookings sequentially… please wait.
-          </p>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button onClick={onCancel} className="btn-secondary flex-1" disabled={loading}>
-          Back
-        </button>
-        <button
-          id="confirm-booking-btn"
-          onClick={handleConfirmClick}
-          disabled={loading || cart.length === 0 || !hasPaymentOptions}
-          className="btn-primary flex-1"
-        >
-          {loading ? (
-            <span className="inline-flex items-center gap-2">
-              <Spinner size="sm" /> Processing…
-            </span>
-          ) : (
-            'Book & get payment details'
-          )}
-        </button>
-      </div>
-      {!hasPaymentOptions && (
-        <p className="text-xs text-red-500 text-center -mt-2 font-medium">
-          This venue hasn't set up payment details yet.
-        </p>
-      )}
-      <p className="text-xs text-gray-400 text-center">
-        You pay the venue directly. CourtEase never handles your money.
-      </p>
-    </div>
-  )
-}
-
-/* ── Results Panel ────────────────────────────────────────────────────────── */
-// Each item in results.successes / results.failures is a flat POJO with all
-// slot fields copied as primitives — no live object references, no API response
-// objects. This panel only reads from data it owns outright.
-function ResultsPanel({ results, venue, date, uploadSkipped, onClose }) {
-  const { successes, failures } = results
-  const allOk     = failures.length === 0
-  const allFailed = successes.length === 0
-  const totalPaid = successes.reduce((sum, s) => sum + (s.amount ?? 0), 0)
-
-  return (
-    <div className="space-y-5">
-      {/* Overall status */}
-      <div className={clsx(
-        'flex flex-col items-center gap-3 py-4',
-        allOk ? 'text-primary-700' : allFailed ? 'text-red-600' : 'text-amber-600'
-      )}>
-        <div className={clsx(
-          'w-14 h-14 rounded-full flex items-center justify-center',
-          allOk ? 'bg-primary-100' : allFailed ? 'bg-red-100' : 'bg-amber-100'
-        )}>
-          {allOk
-            ? <CheckCircleIcon className="h-8 w-8 text-primary-600" />
-            : allFailed
-            ? <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
-            : <ExclamationTriangleIcon className="h-8 w-8 text-amber-500" />
-          }
-        </div>
-        <div className="text-center">
-          <p className="font-bold text-gray-900 text-base">
-            {allOk
-              ? uploadSkipped 
-                ? 'Bookings submitted! Awaiting payment receipt.' 
-                : 'Receipt submitted! Your booking is awaiting admin approval.'
-              : allFailed
-              ? 'All bookings failed'
-              : `${successes.length} succeeded · ${failures.length} failed`}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">{venue?.name} · {formatDate(date)}</p>
-        </div>
-      </div>
-
-      {/* Successful bookings — each item has courtNumber, start, end, receiptId, amount */}
-      {successes.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-            <CheckCircleIcon className="h-3.5 w-3.5 text-primary-500" />
-            Confirmed ({successes.length})
-          </p>
-          <div className="bg-primary-50 rounded-xl divide-y divide-primary-100 overflow-hidden">
-            {successes.map((item) => (
-              <div key={item.receiptId} className="px-4 py-3 text-sm">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      Court {item.courtNumber} · {formatTime(item.start)}–{formatTime(item.end)}
-                    </p>
-                    <p className="text-xs text-gray-500 font-mono mt-0.5">{item.receiptId}</p>
-                  </div>
-                  <span className="font-semibold text-primary-700 shrink-0">
-                    {formatCurrency(item.amount)}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {successes.length > 1 && (
-              <div className="px-4 py-3 flex justify-between text-sm font-bold text-primary-800">
-                <span>Total paid</span>
-                <span>{formatCurrency(totalPaid)}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Failed bookings — each item has courtNumber, start, end, error */}
-      {failures.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
-            <ExclamationTriangleIcon className="h-3.5 w-3.5 text-red-500" />
-            Failed ({failures.length})
-          </p>
-          <div className="bg-red-50 rounded-xl divide-y divide-red-100 overflow-hidden">
-            {failures.map((item) => (
-              <div key={`${item.courtId}::${item.start}`} className="px-4 py-3 text-sm">
-                <p className="font-medium text-gray-900">
-                  Court {item.courtNumber} · {formatTime(item.start)}–{formatTime(item.end)}
-                </p>
-                <p className="text-xs text-red-600 mt-1">{item.error}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button onClick={onClose} className="btn-secondary flex-1">
-          Book more slots
-        </button>
-        <Link
-          to="/my-bookings"
-          className="btn-primary flex-1 text-center justify-center"
-          onClick={onClose}
-        >
-          My Bookings
-        </Link>
-      </div>
-    </div>
-  )
-}
