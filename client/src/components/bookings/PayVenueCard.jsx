@@ -91,6 +91,9 @@ export default function PayVenueCard({ bookingId, chosenMethod }) {
   }
 
   const { venueName, paymentInfo, paymentRef, groupTotal } = paymentData
+  const addonItems = paymentData.items || groupTotal?.items || []
+  const hasAddOns = (groupTotal?.itemsTotal ?? 0) > 0
+  const slotCount = groupTotal?.count ?? 1
 
   const hasQr = Boolean(paymentInfo?.duitNowQr && String(paymentInfo.duitNowQr).trim())
   const hasBank = Boolean(
@@ -179,7 +182,7 @@ export default function PayVenueCard({ bookingId, chosenMethod }) {
   return (
     <div className="card p-5 sm:p-6 bg-white border border-gray-200 shadow-sm space-y-5">
       {/* Title & Group Total */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b border-gray-100 pb-4">
         <div>
           <h4 className="text-base sm:text-lg font-bold text-gray-900">
             Pay {venueName} directly
@@ -193,10 +196,34 @@ export default function PayVenueCard({ bookingId, chosenMethod }) {
           <div className="text-lg sm:text-xl font-extrabold text-primary-600">
             {formatCurrency(groupTotal?.amount ?? 0)}
           </div>
-          {groupTotal?.count > 1 && (
-            <span className="text-xs font-medium text-gray-500">
-              ({groupTotal.count} slots)
-            </span>
+          {hasAddOns ? (
+            <div className="mt-1.5 space-y-0.5 text-xs text-gray-600 sm:text-right">
+              <div>
+                Courts: {formatCurrency(groupTotal?.courtTotal ?? 0)} ({slotCount} slot{slotCount !== 1 ? 's' : ''})
+              </div>
+              <div>
+                Add-ons: {formatCurrency(groupTotal?.itemsTotal ?? 0)}
+              </div>
+              {addonItems.map((item, idx) => (
+                <div key={idx} className="text-[11px] text-gray-500">
+                  <span>{item.quantity} × {item.name}</span>
+                  {item.note && (
+                    <p className="text-[10px] text-gray-400 italic">
+                      {item.note}
+                    </p>
+                  )}
+                </div>
+              ))}
+              <div className="font-semibold text-gray-900 pt-0.5">
+                Total: {formatCurrency(groupTotal?.amount ?? 0)}
+              </div>
+            </div>
+          ) : (
+            groupTotal?.count > 1 && (
+              <span className="text-xs font-medium text-gray-500">
+                ({groupTotal.count} slots)
+              </span>
+            )
           )}
         </div>
       </div>

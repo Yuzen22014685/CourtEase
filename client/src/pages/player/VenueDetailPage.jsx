@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
-import { getVenueById, getVenueAvailability, getVenueReviews } from '../../api/venues'
+import { getVenueById, getVenueAvailability, getVenueReviews, getVenueShopItems } from '../../api/venues'
 import { createBooking } from '../../api/bookings'
 import Layout from '../../components/layout/Layout'
 import Modal from '../../components/ui/Modal'
@@ -112,6 +112,24 @@ export default function VenueDetailPage() {
   const [uploadComplete, setUploadComplete] = useState(false)
   const [uploadSkipped, setUploadSkipped]   = useState(false)
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false)
+  const [shopItems, setShopItems]           = useState([])
+  const [selectedAddOns, setSelectedAddOns] = useState({})
+
+  // Load venue's shop items when checkout modal opens
+  useEffect(() => {
+    if (!checkoutOpen || !id) return
+    let mounted = true
+    getVenueShopItems(id)
+      .then((res) => {
+        if (mounted) setShopItems(res.data?.data || [])
+      })
+      .catch(() => {
+        if (mounted) setShopItems([])
+      })
+    return () => {
+      mounted = false
+    }
+  }, [checkoutOpen, id])
 
   // Default to first available payment method when venue options load
   useEffect(() => {
@@ -156,6 +174,17 @@ export default function VenueDetailPage() {
       end:         s.end,
     }))
 
+    // Build items = [{ itemId, quantity, note }] for quantity > 0
+    const bookingItems = Object.entries(selectedAddOns)
+      .filter(([_, val]) => val && val.quantity > 0)
+      .map(([itemId, val]) => {
+        const item = { itemId, quantity: val.quantity }
+        if (val.note && val.note.trim()) {
+          item.note = val.note.trim()
+        }
+        return item
+      })
+
     const results = { successes: [], failures: [] }
     let sharedPaymentRef = undefined
 
@@ -172,6 +201,8 @@ export default function VenueDetailPage() {
         }
         if (sharedPaymentRef) {
           payload.paymentRef = sharedPaymentRef
+        } else if (bookingItems.length > 0) {
+          payload.items = bookingItems
         }
 
         const res = await createBooking(payload)
@@ -208,12 +239,14 @@ export default function VenueDetailPage() {
     setUploadSkipped(false)
     setSkipConfirmOpen(false)
     setBookingResults(results)
+    setSelectedAddOns({})
     clearCart()
     refetchAvail()
   }
 
   const handleCloseCheckout = () => {
     setCheckoutOpen(false)
+    setSelectedAddOns({})
     if (availablePaymentMethods.length > 0) {
       setPaymentMethod(availablePaymentMethods[0].value)
     }
@@ -606,6 +639,9 @@ export default function VenueDetailPage() {
           onConfirm={handleCheckout}
           onCancel={handleCloseCheckout}
           loading={bookingLoading}
+          shopItems={shopItems}
+          selectedAddOns={selectedAddOns}
+          onAddOnChange={setSelectedAddOns}
         />
       </Modal>
 
@@ -858,11 +894,44 @@ function CheckoutPanel({
   onConfirm,
   onCancel,
   loading,
+  shopItems = [],
+  selectedAddOns = {},
+  onAddOnChange,
 }) {
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [showTermsWarning, setShowTermsWarning] = useState(false)
 
   const hasPaymentOptions = availablePaymentMethods.length > 0
+
+  const handleQuantityChange = (itemId, newQty) => {
+    const clamped = Math.max(0, Math.min(10, newQty))
+    onAddOnChange((prev) => ({
+      ...prev,
+      [itemId]: {
+        quantity: clamped,
+        note: prev[itemId]?.note || '',
+      },
+    }))
+  }
+
+  const handleNoteChange = (itemId, note) => {
+    onAddOnChange((prev) => ({
+      ...prev,
+      [itemId]: {
+        quantity: prev[itemId]?.quantity || 0,
+        note: note.slice(0, 100),
+      },
+    }))
+  }
+
+  const addOnsTotal = useMemo(() => {
+    return shopItems.reduce((sum, item) => {
+      const qty = selectedAddOns[item._id]?.quantity || 0
+      return sum + (item.price || 0) * qty
+    }, 0)
+  }, [shopItems, selectedAddOns])
+
+  const grandTotal = totalPrice + addOnsTotal
 
   const handleConfirmClick = () => {
     if (!termsAccepted) {
@@ -892,11 +961,117 @@ function CheckoutPanel({
           </div>
         ))}
         <hr className="border-gray-200 my-2" />
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between text-gray-600">
+            <span>Courts</span>
+            <span className="font-medium text-gray-800">{formatCurrency(totalPrice)}</span>
+          </div>
+          {addOnsTotal > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>Add-ons</span>
+              <span className="font-medium text-gray-800">{formatCurrency(addOnsTotal)}</span>
+            </div>
+          )}
+        </div>
+        <hr className="border-gray-200 my-2" />
         <div className="flex items-center justify-between">
           <span className="font-semibold text-gray-800">Total</span>
-          <span className="text-lg font-bold text-primary-600">{formatCurrency(totalPrice)}</span>
+          <span className="text-lg font-bold text-primary-600">{formatCurrency(grandTotal)}</span>
         </div>
       </div>
+
+      {/* ── Add-ons from venue ── */}
+      {shopItems.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900">
+              Add-ons from {venue?.name}
+            </h4>
+            <p className="text-xs text-gray-500">
+              Collected at the venue. Paid together with your booking.
+            </p>
+          </div>
+
+          <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden bg-white">
+            {shopItems.map((item) => {
+              const currentQty = selectedAddOns[item._id]?.quantity || 0
+              const currentNote = selectedAddOns[item._id]?.note || ''
+
+              return (
+                <div key={item._id} className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                        {item.category === 'service' && item.readyInfo && (
+                          <span className="text-[11px] font-medium text-primary-700 bg-primary-50 border border-primary-200 rounded px-1.5 py-0.5">
+                            {item.readyInfo}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs font-semibold text-gray-700 mt-0.5">
+                        {formatCurrency(item.price)}
+                      </div>
+                      {item.description && (
+                        <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Quantity Stepper */}
+                    <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleQuantityChange(item._id, currentQty - 1)}
+                        disabled={currentQty <= 0 || loading}
+                        className="px-2.5 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+                        aria-label={`Decrease quantity of ${item.name}`}
+                      >
+                        −
+                      </button>
+                      <span className="px-2.5 py-1 text-xs font-semibold text-gray-900 min-w-[1.75rem] text-center select-none bg-white">
+                        {currentQty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleQuantityChange(item._id, currentQty + 1)}
+                        disabled={currentQty >= 10 || loading}
+                        className="px-2.5 py-1 text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+                        aria-label={`Increase quantity of ${item.name}`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Service Note Input */}
+                  {item.category === 'service' && currentQty > 0 && (
+                    <div className="pt-1.5">
+                      <label
+                        htmlFor={`addon-note-${item._id}`}
+                        className="block text-xs font-medium text-gray-700 mb-1"
+                      >
+                        {item.notePrompt || 'Question for the player'}
+                      </label>
+                      <input
+                        id={`addon-note-${item._id}`}
+                        type="text"
+                        maxLength={100}
+                        value={currentNote}
+                        onChange={(e) => handleNoteChange(item._id, e.target.value)}
+                        placeholder={item.notePrompt || 'e.g. Note / instructions'}
+                        disabled={loading}
+                        className="input text-xs py-1.5 px-3"
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Payment method */}
       <div className="space-y-2">

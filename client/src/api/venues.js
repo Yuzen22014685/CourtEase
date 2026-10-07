@@ -9,3 +9,5 @@ export const getVenueAvailability = (id, date) =>
 
 export const getVenueReviews = (id, page = 1) =>
   api.get(`/venues/${id}/reviews`, { params: { page } })
+
+export const getVenueShopItems = (id) => api.get(`/venues/${id}/shop-items`)
