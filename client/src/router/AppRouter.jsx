@@ -33,6 +33,7 @@ import AnalyticsPage     from '../pages/admin/AnalyticsPage'
 
 // Owner pages
 import TodayPage from '../pages/owner/TodayPage'
+import ShopPage  from '../pages/owner/ShopPage'
 
 import NotFoundPage from '../pages/NotFoundPage'
 
@@ -106,6 +107,7 @@ export default function AppRouter() {
         <Route path="today" element={<TodayPage />} />
         <Route path="bookings" element={<AdminBookingsPage noLayout />} />
         <Route path="venue" element={<AdminVenuesPage noLayout />} />
+        <Route path="shop" element={<ShopPage />} />
         <Route path="reviews" element={<AdminReviewsPage noLayout />} />
         <Route path="insights" element={<AnalyticsPage noLayout />} />
       </Route>

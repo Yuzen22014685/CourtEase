@@ -51,4 +51,10 @@ export const createOwner = (data) => api.post('/admin/owners', data)
 export const resendOwnerInvite = (id) => api.post(`/admin/owners/${id}/resend-invite`)
 export const updateVenueOwner = (id, ownerId) => api.patch(`/admin/venues/${id}/owner`, { ownerId })
 
+// Shop items
+export const getShopItems = (venueId) => api.get(`/admin/venues/${venueId}/shop-items`)
+export const createShopItem = (venueId, data) => api.post(`/admin/venues/${venueId}/shop-items`, data)
+export const updateShopItem = (venueId, itemId, data) => api.patch(`/admin/venues/${venueId}/shop-items/${itemId}`, data)
+export const deleteShopItem = (venueId, itemId) => api.delete(`/admin/venues/${venueId}/shop-items/${itemId}`)
+
 

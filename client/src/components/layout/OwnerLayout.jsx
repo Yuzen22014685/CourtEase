@@ -12,12 +12,14 @@ import {
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
   SparklesIcon,
+  ShoppingBagIcon,
 } from '@heroicons/react/24/outline'
 
 const tabs = [
   { to: '/owner/today', label: 'Today', icon: SparklesIcon },
   { to: '/owner/bookings', label: 'Bookings', icon: CalendarDaysIcon, hasBadge: true },
   { to: '/owner/venue', label: 'My Venue', icon: BuildingOffice2Icon },
+  { to: '/owner/shop', label: 'Shop', icon: ShoppingBagIcon },
   { to: '/owner/reviews', label: 'Reviews', icon: ChatBubbleLeftRightIcon },
   { to: '/owner/insights', label: 'Insights', icon: ChartBarIcon },
 ]
@@ -201,7 +203,7 @@ export default function OwnerLayout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center flex-1 h-full py-1 text-[11px] font-medium transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-lg ${
+                `flex flex-col items-center justify-center flex-1 h-full py-1 text-[10px] font-medium transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-lg ${
                   isActive ? 'text-primary-600 font-semibold' : 'text-gray-500 hover:text-gray-800'
                 }`
               }
@@ -214,7 +216,7 @@ export default function OwnerLayout() {
                   </span>
                 )}
               </div>
-              <span className="mt-1 truncate max-w-[64px]">{label}</span>
+              <span className="mt-1 truncate max-w-[52px]">{label}</span>
             </NavLink>
           ))}
         </nav>
