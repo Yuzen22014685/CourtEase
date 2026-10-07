@@ -22,6 +22,10 @@ const {
   deleteCourtLayout,
   uploadPaymentQr,
   deletePaymentQr,
+  getVenueShopItems,
+  createShopItem,
+  updateShopItem,
+  deleteShopItem,
 } = require('../controllers/venueAdminController');
 const {
   getAdminReviews,
@@ -90,6 +94,19 @@ router.post('/venues/:id/payment-qr', requireVenueAccess('id'), upload.single('q
 
 // DELETE /api/admin/venues/:id/payment-qr (Venue access required)
 router.delete('/venues/:id/payment-qr', requireVenueAccess('id'), deletePaymentQr);
+
+// ─── Shop Items ───────────────────────────────────────────────────────────────
+// GET /api/admin/venues/:id/shop-items (Venue access required)
+router.get('/venues/:id/shop-items', requireVenueAccess('id'), getVenueShopItems);
+
+// POST /api/admin/venues/:id/shop-items (Venue access required)
+router.post('/venues/:id/shop-items', requireVenueAccess('id'), createShopItem);
+
+// PATCH /api/admin/venues/:id/shop-items/:itemId (Venue access required)
+router.patch('/venues/:id/shop-items/:itemId', requireVenueAccess('id'), updateShopItem);
+
+// DELETE /api/admin/venues/:id/shop-items/:itemId (Venue access required)
+router.delete('/venues/:id/shop-items/:itemId', requireVenueAccess('id'), deleteShopItem);
 
 // PATCH /api/admin/venues/:id/owner (Admin only)
 router.patch('/venues/:id/owner', adminOnly, updateVenueOwner);

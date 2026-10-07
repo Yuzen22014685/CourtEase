@@ -37,6 +37,19 @@ const bookingSchema = new mongoose.Schema({
     endTime:   { type: String },
     courtId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
   },
+  items: [
+    {
+      _id: false,
+      itemId: { type: mongoose.Schema.Types.ObjectId, ref: 'ShopItem' },
+      name: { type: String, required: true },
+      category: { type: String, enum: ['product', 'service'], required: true },
+      unitPrice: { type: Number, required: true },
+      quantity: { type: Number, required: true, min: 1, max: 10 },
+      note: { type: String, maxlength: 100, default: '' },
+      readyInfo: { type: String, maxlength: 60, default: '' },
+    },
+  ],
+  itemsTotal: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // Index for fast lookup by player and venue

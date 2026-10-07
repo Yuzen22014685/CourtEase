@@ -1,9 +1,11 @@
 const path = require('path');
 const fs = require('fs');
+const mongoose = require('mongoose');
 const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Review = require('../models/Review');
 const User = require('../models/User');
+const ShopItem = require('../models/ShopItem');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -664,6 +666,155 @@ const deletePaymentQr = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// GET /api/admin/venues/:id/shop-items
+// ---------------------------------------------------------------------------
+const getVenueShopItems = async (req, res, next) => {
+  try {
+    const items = await ShopItem.find({ venueId: req.params.id }).sort({ createdAt: -1 });
+    res.json({ success: true, count: items.length, data: items });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/venues/:id/shop-items
+// ---------------------------------------------------------------------------
+const createShopItem = async (req, res, next) => {
+  try {
+    const { name, description, category, price, isAvailable, notePrompt, readyInfo } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Name is required' });
+    }
+    if (name.trim().length > 60) {
+      return res.status(400).json({ success: false, message: 'Name must not exceed 60 characters' });
+    }
+
+    if (!category || !['product', 'service'].includes(category)) {
+      return res.status(400).json({ success: false, message: 'Category must be either product or service' });
+    }
+
+    if (price === undefined || price === null || price === '' || isNaN(Number(price))) {
+      return res.status(400).json({ success: false, message: 'Price is required and must be a number' });
+    }
+    const numPrice = Number(price);
+    if (numPrice < 0 || numPrice > 1000) {
+      return res.status(400).json({ success: false, message: 'Price must be between 0 and 1000' });
+    }
+    const roundedPrice = Math.round(numPrice * 100) / 100;
+
+    const item = await ShopItem.create({
+      venueId: req.params.id,
+      name: name.trim(),
+      description: typeof description === 'string' ? description.trim().slice(0, 200) : '',
+      category,
+      price: roundedPrice,
+      isAvailable: isAvailable !== false,
+      notePrompt: typeof notePrompt === 'string' ? notePrompt.trim().slice(0, 100) : '',
+      readyInfo: typeof readyInfo === 'string' ? readyInfo.trim().slice(0, 60) : '',
+    });
+
+    res.status(201).json({ success: true, data: item });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/venues/:id/shop-items/:itemId
+// ---------------------------------------------------------------------------
+const updateShopItem = async (req, res, next) => {
+  try {
+    const { itemId } = req.params;
+    if (!mongoose.isValidObjectId(itemId)) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+
+    const item = await ShopItem.findOne({ _id: itemId, venueId: req.params.id });
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+
+    delete req.body.venueId;
+    delete req.body._id;
+    delete req.body.createdAt;
+
+    const { name, description, category, price, isAvailable, notePrompt, readyInfo } = req.body;
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        return res.status(400).json({ success: false, message: 'Name cannot be empty' });
+      }
+      if (name.trim().length > 60) {
+        return res.status(400).json({ success: false, message: 'Name must not exceed 60 characters' });
+      }
+      item.name = name.trim();
+    }
+
+    if (category !== undefined) {
+      if (!['product', 'service'].includes(category)) {
+        return res.status(400).json({ success: false, message: 'Category must be either product or service' });
+      }
+      item.category = category;
+    }
+
+    if (price !== undefined) {
+      const numPrice = Number(price);
+      if (isNaN(numPrice) || numPrice < 0 || numPrice > 1000) {
+        return res.status(400).json({ success: false, message: 'Price must be between 0 and 1000' });
+      }
+      item.price = Math.round(numPrice * 100) / 100;
+    }
+
+    if (description !== undefined) {
+      item.description = typeof description === 'string' ? description.trim().slice(0, 200) : '';
+    }
+
+    if (isAvailable !== undefined) {
+      item.isAvailable = Boolean(isAvailable);
+    }
+
+    if (notePrompt !== undefined) {
+      item.notePrompt = typeof notePrompt === 'string' ? notePrompt.trim().slice(0, 100) : '';
+    }
+
+    if (readyInfo !== undefined) {
+      item.readyInfo = typeof readyInfo === 'string' ? readyInfo.trim().slice(0, 60) : '';
+    }
+
+    await item.save();
+
+    res.json({ success: true, data: item });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/venues/:id/shop-items/:itemId
+// ---------------------------------------------------------------------------
+const deleteShopItem = async (req, res, next) => {
+  try {
+    const { itemId } = req.params;
+    if (!mongoose.isValidObjectId(itemId)) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+
+    const item = await ShopItem.findOne({ _id: itemId, venueId: req.params.id });
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Item not found' });
+    }
+
+    await item.deleteOne();
+
+    res.json({ success: true, message: 'Shop item deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAdminVenues,
   createVenue,
@@ -675,5 +826,9 @@ module.exports = {
   deleteCourtLayout,
   uploadPaymentQr,
   deletePaymentQr,
+  getVenueShopItems,
+  createShopItem,
+  updateShopItem,
+  deleteShopItem,
 };
 

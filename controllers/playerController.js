@@ -1,8 +1,10 @@
+const mongoose = require('mongoose');
 const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const Review = require('../models/Review');
+const ShopItem = require('../models/ShopItem');
 const {
   ALLOW_CANCEL_WITHOUT_REFUND,
   CHANGE_CUTOFF_HOURS,
@@ -192,7 +194,7 @@ const getVenueAvailability = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 const createBooking = async (req, res, next) => {
   try {
-    const { venueId, courtId, date, startTime, endTime, paymentMethod, paymentRef } = req.body;
+    const { venueId, courtId, date, startTime, endTime, paymentMethod, paymentRef, items } = req.body;
 
     // Validate slot format
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -286,6 +288,114 @@ const createBooking = async (req, res, next) => {
       finalPaymentRef = generatePaymentRef();
     }
 
+    // ── Items validation & snapshotting ──────────────────────────────────────
+    let processedItems = [];
+    let itemsTotal = 0;
+
+    if (items !== undefined && items !== null) {
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ success: false, message: 'items must be an array' });
+      }
+
+      if (items.length > 0) {
+        if (paymentRef) {
+          return res.status(400).json({
+            success: false,
+            message: 'Shop items can only be added to the initial booking',
+          });
+        }
+
+        if (items.length > 20) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot order more than 20 item lines',
+          });
+        }
+
+        const itemIds = [];
+        for (const item of items) {
+          if (!item || typeof item !== 'object') {
+            return res.status(400).json({ success: false, message: 'Invalid item entry' });
+          }
+
+          const { itemId, quantity, note } = item;
+
+          if (!itemId || !mongoose.isValidObjectId(itemId)) {
+            return res.status(400).json({ success: false, message: 'Invalid item ID' });
+          }
+
+          if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+            return res.status(400).json({
+              success: false,
+              message: 'Item quantity must be an integer between 1 and 10',
+            });
+          }
+
+          if (note !== undefined && note !== null && typeof note !== 'string') {
+            return res.status(400).json({ success: false, message: 'Item note must be a string' });
+          }
+
+          itemIds.push(String(itemId));
+        }
+
+        // Check for duplicates
+        const uniqueIds = new Set(itemIds);
+        if (uniqueIds.size !== itemIds.length) {
+          return res.status(400).json({
+            success: false,
+            message: 'Duplicate items are not allowed in the same booking',
+          });
+        }
+
+        // Fetch items from DB to verify venueId and availability
+        const dbItems = await ShopItem.find({
+          _id: { $in: itemIds },
+          venueId,
+        });
+
+        const dbItemMap = new Map();
+        for (const dbItem of dbItems) {
+          dbItemMap.set(dbItem._id.toString(), dbItem);
+        }
+
+        for (const item of items) {
+          const dbItem = dbItemMap.get(String(item.itemId));
+          if (!dbItem) {
+            const otherVenueItem = await ShopItem.findById(item.itemId);
+            const itemName = otherVenueItem ? otherVenueItem.name : 'Unknown item';
+            return res.status(400).json({
+              success: false,
+              message: `Item "${itemName}" is not available at this venue`,
+            });
+          }
+
+          if (!dbItem.isAvailable) {
+            return res.status(400).json({
+              success: false,
+              message: `Item "${dbItem.name}" is currently unavailable`,
+            });
+          }
+
+          const trimmedNote = typeof item.note === 'string' ? item.note.trim().slice(0, 100) : '';
+
+          processedItems.push({
+            itemId: dbItem._id,
+            name: dbItem.name,
+            category: dbItem.category,
+            unitPrice: dbItem.price,
+            quantity: item.quantity,
+            note: trimmedNote,
+            readyInfo: dbItem.readyInfo || '',
+          });
+
+          itemsTotal += dbItem.price * item.quantity;
+        }
+
+        itemsTotal = Math.round(itemsTotal * 100) / 100;
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const hours = (toMinutes(endTime) - toMinutes(startTime)) / 60;
     const amount = hours * venue.pricePerHour;
     const receiptId = `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -303,6 +413,8 @@ const createBooking = async (req, res, next) => {
       paymentRef: finalPaymentRef,
       status: 'pending',    // awaits admin approval — see approveBooking / rejectBooking
       paymentStatus: 'pending',
+      items: processedItems,
+      itemsTotal,
     });
 
     res.status(201).json({ success: true, data: booking });
@@ -660,6 +772,32 @@ const getVenueReviews = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
+// GET /api/venues/:id/shop-items
+// Returns available shop items for an active venue
+// ---------------------------------------------------------------------------
+const getPublicVenueShopItems = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    const venue = await Venue.findById(id);
+    if (!venue || venue.isActive === false) {
+      return res.status(404).json({ success: false, message: 'Venue not found' });
+    }
+
+    const items = await ShopItem.find({ venueId: id, isAvailable: true })
+      .select('_id name description category price notePrompt readyInfo')
+      .sort({ category: 1, name: 1 });
+
+    res.json({ success: true, count: items.length, data: items });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/bookings/:id/payment-info
 // Returns payment instructions and group totals for the booking's player
 // ---------------------------------------------------------------------------
@@ -695,9 +833,25 @@ const getBookingPaymentInfo = async (req, res, next) => {
       groupFilter.receiptId = booking.receiptId;
     }
 
-    const groupBookings = await Booking.find(groupFilter).select('amount');
-    const totalAmount = groupBookings.reduce((sum, b) => sum + (b.amount || 0), 0);
+    const groupBookings = await Booking.find(groupFilter).select('amount items itemsTotal');
+    const courtTotal = Math.round(groupBookings.reduce((sum, b) => sum + (b.amount || 0), 0) * 100) / 100;
+    const itemsTotal = Math.round(groupBookings.reduce((sum, b) => sum + (b.itemsTotal || 0), 0) * 100) / 100;
+    const totalAmount = Math.round((courtTotal + itemsTotal) * 100) / 100;
     const totalCount = groupBookings.length;
+
+    const groupItems = [];
+    for (const b of groupBookings) {
+      if (Array.isArray(b.items)) {
+        for (const item of b.items) {
+          groupItems.push({
+            name: item.name,
+            quantity: item.quantity,
+            note: item.note || '',
+            unitPrice: item.unitPrice,
+          });
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -713,8 +867,12 @@ const getBookingPaymentInfo = async (req, res, next) => {
         status: booking.status,
         groupTotal: {
           amount: totalAmount,
+          courtTotal,
+          itemsTotal,
           count: totalCount,
+          items: groupItems,
         },
+        items: groupItems,
       },
     });
   } catch (err) {
@@ -726,6 +884,7 @@ module.exports = {
   getVenues,
   getVenueById,
   getVenueAvailability,
+  getPublicVenueShopItems,
   createBooking,
   getMyBookings,
   cancelBooking,
@@ -735,3 +894,4 @@ module.exports = {
   getVenueReviews,
   getBookingPaymentInfo,
 };
+

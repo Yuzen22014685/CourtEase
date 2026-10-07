@@ -14,6 +14,7 @@ const {
   getBookingPaymentInfo,
   createReview,
   getVenueReviews,
+  getPublicVenueShopItems,
 } = require('../controllers/playerController');
 const {
   getMyNotifications,
@@ -26,6 +27,7 @@ router.get('/venues', getVenues);
 router.get('/venues/:id', getVenueById);
 router.get('/venues/:id/availability', getVenueAvailability);
 router.get('/venues/:id/reviews', getVenueReviews);
+router.get('/venues/:id/shop-items', getPublicVenueShopItems);
 
 // Booking routes (protected)
 router.post('/bookings', protect, createBooking);
