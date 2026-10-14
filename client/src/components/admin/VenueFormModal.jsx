@@ -4,7 +4,8 @@ import Modal from '../ui/Modal'
 import ConfirmDialog from '../ui/ConfirmDialog'
 import Spinner from '../ui/Spinner'
 import ErrorMessage from '../ui/ErrorMessage'
-import { getImageUrl } from '../../utils/format'
+import { getImageUrl, formatDate, formatTime, formatPaymentRef } from '../../utils/format'
+import CourtStatusList from './CourtStatusList'
 import {
   createVenue,
   updateVenue,
@@ -125,6 +126,7 @@ export default function VenueFormModal({
   const formTopRef = useRef(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(null)
+  const [blockingBookings, setBlockingBookings] = useState([])
   const [successNotice, setSuccessNotice] = useState(null)
 
   // Merge areas
@@ -134,6 +136,7 @@ export default function VenueFormModal({
   useEffect(() => {
     if (!isOpen) {
       setFormError(null)
+      setBlockingBookings([])
       setPhotoError(null)
       setLayoutError(null)
       setQrError(null)
@@ -273,6 +276,7 @@ export default function VenueFormModal({
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError(null)
+    setBlockingBookings([])
     setSuccessNotice(null)
 
     const triggerError = (msg) => {
@@ -315,10 +319,6 @@ export default function VenueFormModal({
     const courts = parseInt(numberOfCourts, 10)
     if (isNaN(courts) || courts < 1 || courts > 20) {
       triggerError('Number of courts must be between 1 and 20.')
-      return
-    }
-    if (isEdit && venue && courts < venue.numberOfCourts) {
-      triggerError('Courts cannot be removed because they may have bookings.')
       return
     }
 
@@ -397,8 +397,14 @@ export default function VenueFormModal({
         onClose?.()
       }
     } catch (err) {
-      setFormError(err.response?.data?.message || err.message || 'Failed to save venue.')
-      formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (err.response?.status === 409 && err.response?.data?.blockingBookings?.length) {
+        setBlockingBookings(err.response.data.blockingBookings)
+        setFormError(err.response.data.message || 'Selected courts have upcoming bookings.')
+      } else {
+        setBlockingBookings([])
+        setFormError(err.response?.data?.message || err.message || 'Failed to save venue.')
+        formTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
     } finally {
       setSubmitting(false)
     }
@@ -735,7 +741,7 @@ export default function VenueFormModal({
           {activeTab === 'details' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div ref={formTopRef} />
-              <ErrorMessage message={formError} />
+              {!blockingBookings.length && <ErrorMessage message={formError} />}
 
               {/* Name & Area */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -946,20 +952,30 @@ export default function VenueFormModal({
                   <input
                     id="venue-courts"
                     type="number"
-                    min={isEdit && venue ? venue.numberOfCourts : 1}
+                    min="1"
                     max="20"
                     required
                     value={numberOfCourts}
                     onChange={(e) => setNumberOfCourts(e.target.value)}
                     className="input w-full"
                   />
-                  {isEdit && venue && (
+                  {isEdit && (
                     <p className="text-[10px] text-gray-400 mt-0.5">
-                      Min {venue.numberOfCourts} (cannot decrease)
+                      Lowering this deactivates the highest-numbered courts (only if they have no upcoming bookings). Booking history is kept.
                     </p>
                   )}
                 </div>
               </div>
+
+              {/* Courts status management (edit mode only) */}
+              {isEdit && venue?._id && (
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">
+                    Courts
+                  </h4>
+                  <CourtStatusList venueId={venue._id} />
+                </div>
+              )}
 
               {/* Coordinates (Location lat, lng) */}
               <div className="pt-2 border-t border-gray-100">
@@ -1074,6 +1090,48 @@ export default function VenueFormModal({
                   })}
                 </div>
               </div>
+
+              {/* 409 Blocking bookings error alert */}
+              {blockingBookings.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-900 rounded-xl space-y-2 text-xs">
+                  <p className="font-semibold text-red-800">
+                    {formError || 'Selected courts have upcoming bookings. Wait until they are completed or ask the players to reschedule/cancel.'}
+                  </p>
+                  <div className="space-y-1.5">
+                    {blockingBookings.map((b, idx) => {
+                      const dateStr = formatDate(b.date)
+                      const timeRange = `${formatTime(b.startTime)}–${formatTime(b.endTime)}`
+                      const courtStr = `Court ${b.courtNumber ?? '—'}`
+                      const refStr = formatPaymentRef(b)
+                      const playerStr = b.playerName || 'Player'
+                      const statusStr = b.status
+                        ? b.status.charAt(0).toUpperCase() + b.status.slice(1)
+                        : 'Confirmed'
+
+                      return (
+                        <div
+                          key={b._id || idx}
+                          className="bg-white/80 border border-red-200/60 rounded-lg p-2 text-[11px] text-red-950 flex flex-wrap items-center gap-x-2 gap-y-1 leading-tight"
+                        >
+                          <span className="font-medium">{dateStr}</span>
+                          <span className="text-red-300">·</span>
+                          <span>{timeRange}</span>
+                          <span className="text-red-300">·</span>
+                          <span>{courtStr}</span>
+                          <span className="text-red-300">·</span>
+                          <span className="font-mono text-gray-700">{refStr}</span>
+                          <span className="text-red-300">·</span>
+                          <span className="font-medium text-gray-800">{playerStr}</span>
+                          <span className="text-red-300">·</span>
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800">
+                            {statusStr}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Modal footer actions */}
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between">

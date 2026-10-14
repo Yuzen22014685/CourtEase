@@ -19,6 +19,9 @@ export const getPendingCount = () => api.get('/admin/bookings/pending-count')
 export const getAdminVenues = () => api.get('/admin/venues')
 export const createVenue = (data) => api.post('/admin/venues', data)
 export const updateVenue = (id, data) => api.patch(`/admin/venues/${id}`, data)
+export const getVenueCourts = (venueId) => api.get(`/admin/venues/${venueId}/courts`)
+export const updateCourtStatus = (venueId, courtId, status) =>
+  api.patch(`/admin/venues/${venueId}/courts/${courtId}/status`, { status })
 export const uploadVenuePhotos = (id, formData) =>
   api.post(`/admin/venues/${id}/photos`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
