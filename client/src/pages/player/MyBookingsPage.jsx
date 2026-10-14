@@ -826,13 +826,14 @@ function RescheduleModal({ booking, onClose, onSuccess }) {
    * We return a flat list of { courtId, courtNumber, start, end }
    * where `end` is start + durationMins.
    */
-  const eligibleSlots = useMemo(() => {
+  const { eligibleSlots, hasHigherPriceSlots } = useMemo(() => {
     const matrix = availData?.matrix ?? []
     const now = new Date()
     const result = []
+    let priceFiltered = false
 
     for (const court of matrix) {
-      const slots = court.slots // [{ start, end, available }]
+      const slots = court.slots // [{ start, end, available, price }]
       const slotCount = durationMins / 60 // number of consecutive 1-hour slots needed
 
       for (let i = 0; i <= slots.length - slotCount; i++) {
@@ -856,6 +857,13 @@ function RescheduleModal({ booking, onClose, onSuccess }) {
           court.courtId.toString() === (booking.courtId?._id ?? booking.courtId).toString()
         ) continue
 
+        // Price check: window price must not exceed booking.amount + 0.005
+        const windowPrice = window.reduce((sum, s) => sum + (s.price ?? 0), 0)
+        if (windowPrice > (booking.amount ?? 0) + 0.005) {
+          priceFiltered = true
+          continue
+        }
+
         result.push({
           courtId:      court.courtId,
           courtNumber:  court.courtNumber,
@@ -865,7 +873,7 @@ function RescheduleModal({ booking, onClose, onSuccess }) {
       }
     }
 
-    return result
+    return { eligibleSlots: result, hasHigherPriceSlots: priceFiltered }
   }, [availData, selectedDate, durationMins, booking])
 
   // If the auto-computed initial date has no eligible slots, silently advance to the next day.
@@ -956,6 +964,11 @@ function RescheduleModal({ booking, onClose, onSuccess }) {
           Available slots on {formatDate(selectedDate)}
           <span className="ml-1.5 text-xs text-gray-400 font-normal">(same duration · more than 24 h away)</span>
         </p>
+        {hasHigherPriceSlots && (
+          <p className="text-xs text-gray-500 mb-2">
+            Only times at the same or lower price are shown.
+          </p>
+        )}
 
         {availLoading ? (
           <div className="flex items-center gap-2 text-sm text-gray-500 py-4">

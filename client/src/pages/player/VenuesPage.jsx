@@ -13,7 +13,7 @@ import {
   BuildingOffice2Icon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
-import { getImageUrl } from '../../utils/format'
+import { getImageUrl, formatPriceRange } from '../../utils/format'
 
 const AREA_COLOURS = {
   'Bayan Lepas':     'bg-blue-100 text-blue-700',
@@ -202,7 +202,7 @@ function VenueCard({ venue }) {
         <StatItem
           icon={<CurrencyDollarIcon className="h-4 w-4" />}
           label="Per hour"
-          value={`RM ${venue.pricePerHour}`}
+          value={formatPriceRange(venue)}
         />
       </div>
 

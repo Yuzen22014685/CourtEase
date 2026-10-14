@@ -87,3 +87,31 @@ export const formatPaymentMethod = (method) => {
 export const formatPaymentRef = (booking) =>
   booking?.paymentRef || booking?.receiptId || '—'
 
+const DAY_NAMES_MON_FIRST = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+// [1,2,3,4,5] -> "Mon–Fri", [0,6] -> "Sat, Sun", all 7 -> "Every day"
+export const formatDays = (days = []) => {
+  const idx = [...new Set(days.map((d) => (Number(d) + 6) % 7))].sort((a, b) => a - b)
+  if (idx.length === 7) return 'Every day'
+  const parts = []
+  for (let i = 0; i < idx.length; ) {
+    let j = i
+    while (j + 1 < idx.length && idx[j + 1] === idx[j] + 1) j++
+    parts.push(
+      j - i >= 2
+        ? `${DAY_NAMES_MON_FIRST[idx[i]]}–${DAY_NAMES_MON_FIRST[idx[j]]}`
+        : idx.slice(i, j + 1).map((k) => DAY_NAMES_MON_FIRST[k]).join(', ')
+    )
+    i = j + 1
+  }
+  return parts.join(', ')
+}
+
+// "RM 24" or "RM 15–24"
+export const formatPriceRange = (venue) => {
+  const from = venue?.priceFrom ?? venue?.pricePerHour ?? 0
+  const to = venue?.priceTo ?? from
+  return from === to ? `RM ${from}` : `RM ${from}–${to}`
+}
+
+

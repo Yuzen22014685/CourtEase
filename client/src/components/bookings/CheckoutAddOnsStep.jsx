@@ -24,6 +24,10 @@ export default function CheckoutAddOnsStep({
     }, 0)
   }, [shopItems, selectedAddOns])
 
+  const selectedCount = useMemo(() => {
+    return Object.values(selectedAddOns).reduce((sum, val) => sum + (val?.quantity || 0), 0)
+  }, [selectedAddOns])
+
   const total = courtPriceTotal + addOnsTotal
 
   // Check if any selected service requires a note that is currently empty
@@ -179,21 +183,18 @@ export default function CheckoutAddOnsStep({
           <span className="whitespace-nowrap text-sm font-bold text-green-600 ml-0.5">{formatCurrency(total)}</span>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="w-full sm:w-auto">
           <button
             type="button"
-            onClick={onSkip}
-            className="btn-secondary flex-1 sm:flex-initial text-xs px-3.5 py-2"
+            onClick={selectedCount > 0 ? onContinue : onSkip}
+            disabled={selectedCount > 0 && hasMissingRequiredNotes}
+            className={
+              selectedCount > 0
+                ? 'btn-primary w-full sm:w-auto text-xs px-4 py-2'
+                : 'btn-secondary w-full sm:w-auto text-xs px-3.5 py-2'
+            }
           >
-            Skip add-ons
-          </button>
-          <button
-            type="button"
-            onClick={onContinue}
-            disabled={hasMissingRequiredNotes}
-            className="btn-primary flex-1 sm:flex-initial text-xs px-4 py-2"
-          >
-            Continue
+            {selectedCount > 0 ? `Continue · ${formatCurrency(addOnsTotal)}` : 'Skip add-ons'}
           </button>
         </div>
       </div>

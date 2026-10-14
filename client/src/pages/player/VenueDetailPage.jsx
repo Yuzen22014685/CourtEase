@@ -14,7 +14,7 @@ import CheckoutStepIndicator from '../../components/bookings/CheckoutStepIndicat
 import CheckoutAddOnsStep from '../../components/bookings/CheckoutAddOnsStep'
 import CheckoutReviewStep from '../../components/bookings/CheckoutReviewStep'
 import CheckoutDoneSummary from '../../components/bookings/CheckoutDoneSummary'
-import { formatCurrency, formatDate, formatTime, todayString, getImageUrl } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString, getImageUrl, formatDays, formatPriceRange } from '../../utils/format'
 import {
   MapPinIcon,
   ClockIcon,
@@ -35,6 +35,30 @@ import clsx from 'clsx'
 
 /** Unique key for a cart slot */
 const slotKey = (courtId, start) => `${courtId}::${start}`
+
+const toMinutes = (t) => {
+  if (!t) return 0
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+/** Check if any operational slot in a standard week is not covered by pricingRules */
+const hasUncoveredHours = (venue) => {
+  if (!venue?.operatingHours?.open || !venue?.operatingHours?.close) return false
+  const rules = venue.pricingRules || []
+  if (rules.length === 0) return false
+  const open = toMinutes(venue.operatingHours.open)
+  const close = toMinutes(venue.operatingHours.close)
+  for (let day = 0; day <= 6; day++) {
+    for (let t = open; t < close; t += 60) {
+      const covered = rules.some(
+        (r) => r.days.includes(day) && toMinutes(r.start) <= t && t < toMinutes(r.end)
+      )
+      if (!covered) return true
+    }
+  }
+  return false
+}
 
 export default function VenueDetailPage() {
   const { id } = useParams()
@@ -203,7 +227,7 @@ export default function VenueDetailPage() {
       if (exists) {
         return prev.filter((s) => slotKey(s.courtId, s.start) !== key)
       }
-      return [...prev, { courtId, courtNumber, start: slot.start, end: slot.end }]
+      return [...prev, { courtId, courtNumber, start: slot.start, end: slot.end, price: slot.price }]
     })
   }
 
@@ -223,6 +247,7 @@ export default function VenueDetailPage() {
       courtNumber: s.courtNumber,
       start:       s.start,
       end:         s.end,
+      price:       s.price,
     }))
 
     // Build items = [{ itemId, quantity, note }] for quantity > 0
@@ -301,7 +326,7 @@ export default function VenueDetailPage() {
 
   // Derived
   const cartSet    = new Set(cart.map((s) => slotKey(s.courtId, s.start)))
-  const totalPrice = cart.length * (venue?.pricePerHour ?? 0)
+  const totalPrice = cart.reduce((sum, item) => sum + (item.price ?? venue?.pricePerHour ?? 0), 0)
   const matrix     = availData?.matrix ?? []
 
   const isMobileBarVisible = cart.length > 0 && !mobileCartOpen && !checkoutOpen
@@ -429,9 +454,28 @@ export default function VenueDetailPage() {
                       ))}
                     </div>
                   )}
+
+                  {/* Peak / off-peak pricing */}
+                  {venue.pricingRules?.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">
+                        Peak / off-peak pricing
+                      </p>
+                      <div className="space-y-1 text-xs text-gray-600">
+                        {venue.pricingRules.map((rule, idx) => (
+                          <p key={idx}>
+                            {formatDays(rule.days)} · {rule.start}–{rule.end} · {formatCurrency(rule.pricePerHour)}/hr
+                          </p>
+                        ))}
+                        {hasUncoveredHours(venue) && (
+                          <p className="text-gray-500">Other times: {formatCurrency(venue.pricePerHour)}/hr</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="text-left sm:text-right shrink-0 mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-gray-100">
-                  <p className="text-3xl font-bold text-primary-600">RM {venue.pricePerHour}</p>
+                  <p className="text-3xl font-bold text-primary-600">{formatPriceRange(venue)}</p>
                   <p className="text-xs text-gray-400 mt-1">per hour · {venue.numberOfCourts} courts</p>
                 </div>
               </div>
@@ -527,6 +571,7 @@ export default function VenueDetailPage() {
                   matrix={matrix}
                   cartSet={cartSet}
                   selectedDate={selectedDate}
+                  showPriceHeader={venue?.priceFrom !== venue?.priceTo}
                   onSlotClick={handleSlotClick}
                 />
               )}
@@ -786,8 +831,8 @@ export default function VenueDetailPage() {
 }
 
 /* ── Slot Matrix ──────────────────────────────────────────────────────────── */
-function SlotMatrix({ matrix, cartSet, selectedDate, onSlotClick }) {
-  const allSlots = matrix[0]?.slots ?? []
+function SlotMatrix({ matrix, cartSet, selectedDate, showPriceHeader, onSlotClick }) {
+  const allSlots = matrix && matrix.length > 0 ? (matrix[0]?.slots ?? []) : []
 
   // Compute once per render: is the selected date today (Malaysia UTC+8)?
   // We compare ISO date strings to avoid timezone-offset edge cases.
@@ -809,7 +854,12 @@ function SlotMatrix({ matrix, cartSet, selectedDate, onSlotClick }) {
               <th key={slot.start}
                   className="px-2 py-3 font-medium text-gray-400 border-b border-gray-100
                              text-center whitespace-nowrap min-w-[72px]">
-                {slot.start}
+                <div>{slot.start}</div>
+                {showPriceHeader && slot?.price != null && (
+                  <div className="text-[10px] text-gray-400 font-normal mt-0.5">
+                    {formatCurrency(slot.price)}
+                  </div>
+                )}
               </th>
             ))}
           </tr>
@@ -927,7 +977,7 @@ function CartPanel({ cart, venue, date, totalPrice, onRemove, onClear, onCheckou
                 </p>
               </div>
               <span className="text-sm font-semibold text-primary-600 shrink-0">
-                {formatCurrency(venue?.pricePerHour ?? 0)}
+                {formatCurrency(slot.price ?? venue?.pricePerHour ?? 0)}
               </span>
               <button
                 onClick={() => onRemove(key)}

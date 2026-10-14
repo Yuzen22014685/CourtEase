@@ -24,7 +24,7 @@ export default function CheckoutReviewStep({
   const [showTermsWarning, setShowTermsWarning] = useState(false)
 
   const hasPaymentOptions = availablePaymentMethods.length > 0
-  const courtPriceTotal = cart.length * (venue?.pricePerHour ?? 0)
+  const courtPriceTotal = cart.reduce((sum, item) => sum + (item.price ?? venue?.pricePerHour ?? 0), 0)
 
   const chosenAddOns = useMemo(() => {
     return Object.entries(selectedAddOns)
@@ -78,7 +78,7 @@ export default function CheckoutReviewStep({
                 Court {slot.courtNumber} · {formatTime(slot.start)}–{formatTime(slot.end)}
               </span>
               <span className="font-medium text-gray-800 shrink-0 ml-2">
-                {formatCurrency(venue?.pricePerHour ?? 0)}
+                {formatCurrency(slot.price ?? venue?.pricePerHour ?? 0)}
               </span>
             </div>
           ))}
@@ -225,32 +225,37 @@ export default function CheckoutReviewStep({
       )}
 
       {/* ── Actions ── */}
-      <div className="flex gap-3">
-        {canGoBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="btn-secondary px-5"
-            disabled={loading}
-          >
-            Back
-          </button>
-        )}
-        <button
-          id="confirm-booking-btn"
-          type="button"
-          onClick={handleSubmitClick}
-          disabled={loading || cart.length === 0 || !hasPaymentOptions}
-          className="btn-primary flex-1"
-        >
-          {loading ? (
-            <span className="inline-flex items-center gap-2">
-              <Spinner size="sm" /> Processing…
-            </span>
-          ) : (
-            'Book & get payment details'
+      <div className="space-y-2">
+        <p className="text-xs text-gray-500 text-center">
+          Add-ons can't be changed after you confirm.
+        </p>
+        <div className="flex gap-3">
+          {canGoBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="btn-secondary px-5"
+              disabled={loading}
+            >
+              Back
+            </button>
           )}
-        </button>
+          <button
+            id="confirm-booking-btn"
+            type="button"
+            onClick={handleSubmitClick}
+            disabled={loading || cart.length === 0 || !hasPaymentOptions}
+            className="btn-primary flex-1"
+          >
+            {loading ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner size="sm" /> Processing…
+              </span>
+            ) : (
+              'Confirm booking'
+            )}
+          </button>
+        </div>
       </div>
 
       {!hasPaymentOptions && (
