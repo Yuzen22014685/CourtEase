@@ -5,6 +5,13 @@ const operatingHoursSchema = new mongoose.Schema({
   close: { type: String, required: true },  // e.g. "23:00"
 }, { _id: false });
 
+const pricingRuleSchema = new mongoose.Schema({
+  days: { type: [Number], required: true },
+  start: { type: String, required: true },
+  end: { type: String, required: true },
+  pricePerHour: { type: Number, required: true, min: 0.01 },
+}, { _id: false });
+
 const locationSchema = new mongoose.Schema({
   lat: { type: Number, min: -90, max: 90 },
   lng: { type: Number, min: -180, max: 180 },
@@ -31,6 +38,7 @@ const venueSchema = new mongoose.Schema({
   operatingHours: { type: operatingHoursSchema, required: true },
   numberOfCourts: { type: Number, required: true, min: 1, max: 20 },
   pricePerHour: { type: Number, required: true, min: 0.01 },
+  pricingRules: { type: [pricingRuleSchema], default: [] },
   location: { type: locationSchema, default: undefined },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null, index: true },
   photos: [{ type: String }],

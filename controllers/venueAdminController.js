@@ -8,6 +8,7 @@ const User = require('../models/User');
 const ShopItem = require('../models/ShopItem');
 const Booking = require('../models/Booking');
 const { getSessionEnd } = require('../config/bookingPolicy');
+const { validatePricingRules, getPriceRange } = require('../utils/pricing');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -110,6 +111,9 @@ const getAdminVenues = async (req, res, next) => {
       const r = ratingMap.get(v._id.toString());
       plain.rating = r ? r.avg : null;
       plain.reviewCount = r ? r.count : 0;
+      const { priceFrom, priceTo } = getPriceRange(plain);
+      plain.priceFrom = priceFrom;
+      plain.priceTo = priceTo;
       if (req.user.role === 'admin') {
         plain.owner = plain.ownerId ? (ownerMap.get(plain.ownerId.toString()) || null) : null;
       }
@@ -136,6 +140,7 @@ const createVenue = async (req, res, next) => {
       phone,
       operatingHours,
       pricePerHour,
+      pricingRules,
       numberOfCourts,
       facilities,
       photos,
@@ -170,6 +175,15 @@ const createVenue = async (req, res, next) => {
     const price = Number(pricePerHour);
     if (isNaN(price) || price <= 0) {
       return res.status(400).json({ success: false, message: 'Price per hour must be greater than 0' });
+    }
+
+    // Pricing rules validation (optional)
+    const ruleCheck = validatePricingRules(pricingRules, {
+      open: operatingHours.open.trim(),
+      close: operatingHours.close.trim(),
+    });
+    if (ruleCheck.error) {
+      return res.status(400).json({ success: false, message: ruleCheck.error });
     }
 
     // Number of courts validation (1..20)
@@ -213,6 +227,7 @@ const createVenue = async (req, res, next) => {
         close: operatingHours.close.trim(),
       },
       pricePerHour: price,
+      pricingRules: ruleCheck.rules,
       numberOfCourts: courtCount,
       facilities: cleanedFacilities,
       photos: Array.isArray(photos) ? photos : [],
@@ -264,6 +279,7 @@ const updateVenue = async (req, res, next) => {
       phone,
       operatingHours,
       pricePerHour,
+      pricingRules,
       numberOfCourts,
       facilities,
       isActive,
@@ -402,6 +418,20 @@ const updateVenue = async (req, res, next) => {
           }
         }
         venue.paymentInfo.accountNumber = acc;
+      }
+    }
+
+    // Pricing rules validation: runs if pricingRules or operatingHours was provided
+    if (pricingRules !== undefined || operatingHours !== undefined) {
+      const rulesToValidate = pricingRules !== undefined
+        ? pricingRules
+        : (venue.pricingRules || []).map((r) => (r.toObject ? r.toObject() : r));
+      const ruleCheck = validatePricingRules(rulesToValidate, venue.operatingHours);
+      if (ruleCheck.error) {
+        return res.status(400).json({ success: false, message: ruleCheck.error });
+      }
+      if (pricingRules !== undefined) {
+        venue.pricingRules = ruleCheck.rules;
       }
     }
 

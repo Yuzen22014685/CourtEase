@@ -13,6 +13,7 @@ const {
   getBookingPermissions,
   canReviewBooking,
 } = require('../config/bookingPolicy');
+const { getHourlyRate, computeCourtAmount, getPriceRange } = require('../utils/pricing');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -112,6 +113,9 @@ const getVenues = async (req, res, next) => {
       plain.reviewCount    = r ? r.count : 0;
       plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
       delete plain.paymentInfo;
+      const { priceFrom, priceTo } = getPriceRange(plain);
+      plain.priceFrom      = priceFrom;
+      plain.priceTo        = priceTo;
       return plain;
     });
 
@@ -137,6 +141,9 @@ const getVenueById = async (req, res, next) => {
     plain.reviewCount    = r ? r.count : 0;
     plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
     delete plain.paymentInfo;
+    const { priceFrom, priceTo } = getPriceRange(plain);
+    plain.priceFrom      = priceFrom;
+    plain.priceTo        = priceTo;
 
     res.json({ success: true, data: plain });
   } catch (err) {
@@ -175,8 +182,9 @@ const getVenueAvailability = async (req, res, next) => {
       const isMaintenance = court.status === 'maintenance';
       const courtBookings = bookings.filter((b) => b.courtId.toString() === court._id.toString());
       const slotStatus = slots.map((slot) => {
+        const price = getHourlyRate(venue, date, slot.start);
         if (isMaintenance) {
-          return { start: slot.start, end: slot.end, available: false, reason: 'maintenance' };
+          return { start: slot.start, end: slot.end, available: false, reason: 'maintenance', price };
         }
         const isBooked = courtBookings.some(
           (b) => toMinutes(b.startTime) <= toMinutes(slot.start) && toMinutes(b.endTime) > toMinutes(slot.start)
@@ -186,6 +194,7 @@ const getVenueAvailability = async (req, res, next) => {
           end: slot.end,
           available: !isBooked,
           reason: isBooked ? 'booked' : null,
+          price,
         };
       });
       return {
@@ -409,8 +418,7 @@ const createBooking = async (req, res, next) => {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    const hours = (toMinutes(endTime) - toMinutes(startTime)) / 60;
-    const amount = hours * venue.pricePerHour;
+    const amount = computeCourtAmount(venue, date, startTime, endTime);
     const receiptId = `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
     const booking = await Booking.create({
@@ -613,6 +621,15 @@ const rescheduleBooking = async (req, res, next) => {
     });
     if (conflict) {
       return res.status(409).json({ success: false, message: 'That time slot is no longer available.' });
+    }
+
+    // Price check: reschedule slot cannot cost more than paid
+    const newAmount = computeCourtAmount(venue, newDate, newStart, newEnd);
+    if (newAmount > booking.amount + 0.005) {
+      return res.status(400).json({
+        success: false,
+        message: `This time costs more (RM ${newAmount.toFixed(2)} vs RM ${booking.amount.toFixed(2)} paid). Please choose a slot at the same or lower price.`,
+      });
     }
 
     // Save old values for rescheduledFrom
