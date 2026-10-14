@@ -815,55 +815,67 @@ function SlotMatrix({ matrix, cartSet, selectedDate, onSlotClick }) {
           </tr>
         </thead>
         <tbody>
-          {matrix.map((court) => (
-            <tr key={court.courtId} className="hover:bg-gray-50/30">
-              <td className="sticky left-0 z-10 bg-white px-4 py-2.5 font-semibold text-gray-700
-                              border-b border-gray-50 whitespace-nowrap">
-                Court {court.courtNumber}
-              </td>
-              {court.slots.map((slot) => {
-                const key    = `${court.courtId}::${slot.start}`
-                const inCart = cartSet.has(key)
+          {matrix.map((court) => {
+            const isMaintenance = court.status === 'maintenance'
 
-                // Past-slot check — only applies when the selected date is today.
-                // Uses the same Malaysia UTC+8 Date construction as createBooking
-                // and cancelBooking in the backend.
-                const isPast = isToday &&
-                  new Date(`${selectedDate}T${slot.start}:00+08:00`) <= new Date()
+            return (
+              <tr key={court.courtId} className={isMaintenance ? 'bg-gray-50/40' : 'hover:bg-gray-50/30'}>
+                <td
+                  className={clsx(
+                    'sticky left-0 z-10 px-4 py-2.5 border-b border-gray-50 whitespace-nowrap',
+                    isMaintenance
+                      ? 'bg-gray-100 text-gray-500 font-medium'
+                      : 'bg-white font-semibold text-gray-700'
+                  )}
+                >
+                  {isMaintenance
+                    ? `Court ${court.courtNumber} · Maintenance`
+                    : `Court ${court.courtNumber}`}
+                </td>
+                {court.slots.map((slot) => {
+                  const key    = `${court.courtId}::${slot.start}`
+                  const inCart = cartSet.has(key)
 
-                // A slot is unavailable if booked by another player OR already past
-                const unavailable = !slot.available || isPast
+                  const isPast = isToday &&
+                    new Date(`${selectedDate}T${slot.start}:00+08:00`) <= new Date()
 
-                const slotLabel = inCart
-                  ? 'in cart (click to remove)'
-                  : isPast
-                  ? 'past'
-                  : slot.available
-                  ? 'available'
-                  : 'booked'
+                  const unavailable = !slot.available || isPast || isMaintenance
 
-                return (
-                  <td key={slot.start} className="px-1 py-2 border-b border-gray-50 text-center">
-                    <button
-                      onClick={() => onSlotClick(court.courtId, court.courtNumber, slot)}
-                      disabled={unavailable}
-                      className={clsx(
-                        'w-full rounded-lg py-1.5 px-1 font-medium transition-all duration-150 text-xs',
-                        inCart
-                          ? 'bg-amber-100 text-amber-800 border border-amber-400 shadow-sm scale-105 ring-1 ring-amber-300'
-                          : unavailable
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
-                          : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-400 cursor-pointer'
-                      )}
-                      aria-label={`Court ${court.courtNumber}, ${slot.start}–${slot.end}, ${slotLabel}`}
-                    >
-                      {inCart ? '✓' : unavailable ? '–' : slot.start}
-                    </button>
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
+                  const slotLabel = isMaintenance
+                    ? 'under maintenance'
+                    : inCart
+                    ? 'in cart (click to remove)'
+                    : isPast
+                    ? 'past'
+                    : slot.available
+                    ? 'available'
+                    : 'booked'
+
+                  return (
+                    <td key={slot.start} className="px-1 py-2 border-b border-gray-50 text-center">
+                      <button
+                        onClick={() => onSlotClick(court.courtId, court.courtNumber, slot)}
+                        disabled={unavailable}
+                        className={clsx(
+                          'w-full rounded-lg py-1.5 px-1 font-medium transition-all duration-150 text-xs',
+                          inCart
+                            ? 'bg-amber-100 text-amber-800 border border-amber-400 shadow-sm scale-105 ring-1 ring-amber-300'
+                            : isMaintenance
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : unavailable
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
+                            : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-400 cursor-pointer'
+                        )}
+                        aria-label={`Court ${court.courtNumber}, ${slot.start}–${slot.end}, ${slotLabel}`}
+                      >
+                        {inCart ? '✓' : unavailable ? '–' : slot.start}
+                      </button>
+                    </td>
+                  )
+                })}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>
