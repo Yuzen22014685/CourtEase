@@ -159,7 +159,10 @@ const getVenueAvailability = async (req, res, next) => {
     const venue = await Venue.findById(req.params.id);
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
 
-    const courts = await Court.find({ venueId: venue._id, status: 'active' }).sort('courtNumber');
+    const courts = await Court.find({
+      venueId: venue._id,
+      status: { $in: ['active', 'maintenance'] },
+    }).sort('courtNumber');
     const bookings = await Booking.find({
       venueId: venue._id,
       date,
@@ -169,16 +172,26 @@ const getVenueAvailability = async (req, res, next) => {
     const slots = generateSlots(venue.operatingHours.open, venue.operatingHours.close);
 
     const matrix = courts.map((court) => {
+      const isMaintenance = court.status === 'maintenance';
       const courtBookings = bookings.filter((b) => b.courtId.toString() === court._id.toString());
       const slotStatus = slots.map((slot) => {
+        if (isMaintenance) {
+          return { start: slot.start, end: slot.end, available: false, reason: 'maintenance' };
+        }
         const isBooked = courtBookings.some(
           (b) => toMinutes(b.startTime) <= toMinutes(slot.start) && toMinutes(b.endTime) > toMinutes(slot.start)
         );
-        return { start: slot.start, end: slot.end, available: !isBooked };
+        return {
+          start: slot.start,
+          end: slot.end,
+          available: !isBooked,
+          reason: isBooked ? 'booked' : null,
+        };
       });
       return {
         courtId: court._id,
         courtNumber: court.courtNumber,
+        status: court.status,
         slots: slotStatus,
       };
     });

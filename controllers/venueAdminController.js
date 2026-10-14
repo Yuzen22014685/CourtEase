@@ -416,12 +416,24 @@ const updateVenue = async (req, res, next) => {
         const courtIds = courtsToRemove.map((c) => c._id);
         const blockingBookings = await getUpcomingCourtBookings(courtIds);
         if (blockingBookings.length > 0) {
-          const minCourt = targetCourtCount + 1;
-          const maxCourt = venue.numberOfCourts;
-          const courtRangeStr = minCourt === maxCourt ? `Court ${minCourt}` : `Courts ${minCourt}–${maxCourt}`;
+          const distinctCourts = [
+            ...new Set(blockingBookings.map((b) => b.courtNumber).filter((n) => n != null)),
+          ].sort((a, b) => a - b);
+
+          let subjectVerb;
+          if (distinctCourts.length === 1) {
+            subjectVerb = `Court ${distinctCourts[0]} has`;
+          } else if (distinctCourts.length === 2) {
+            subjectVerb = `Courts ${distinctCourts[0]} and ${distinctCourts[1]} have`;
+          } else if (distinctCourts.length > 2) {
+            subjectVerb = `Courts ${distinctCourts.slice(0, -1).join(', ')} and ${distinctCourts[distinctCourts.length - 1]} have`;
+          } else {
+            subjectVerb = 'Selected courts have';
+          }
+
           return res.status(409).json({
             success: false,
-            message: `${courtRangeStr} have upcoming bookings. Wait until they are completed or ask the players to reschedule/cancel.`,
+            message: `${subjectVerb} upcoming bookings. Wait until they are completed or ask the players to reschedule/cancel.`,
             blockingBookings,
           });
         }
