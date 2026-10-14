@@ -6,6 +6,7 @@ import Spinner from '../ui/Spinner'
 import ErrorMessage from '../ui/ErrorMessage'
 import { getImageUrl, formatDate, formatTime, formatPaymentRef } from '../../utils/format'
 import CourtStatusList from './CourtStatusList'
+import PricingRulesEditor from './PricingRulesEditor'
 import {
   createVenue,
   updateVenue,
@@ -98,6 +99,7 @@ export default function VenueFormModal({
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [isActive, setIsActive] = useState(true)
+  const [pricingRules, setPricingRules] = useState([])
 
   // Photos state (for edit mode)
   const [currentVenueId, setCurrentVenueId] = useState(null)
@@ -182,6 +184,16 @@ export default function VenueFormModal({
       setBankName(venue.paymentInfo?.bankName || '')
       setAccountName(venue.paymentInfo?.accountName || '')
       setAccountNumber(venue.paymentInfo?.accountNumber || '')
+
+      // Pricing rules (deep copy)
+      setPricingRules(
+        (venue.pricingRules || []).map((r) => ({
+          days: [...(r.days || [])],
+          start: r.start || '08:00',
+          end: r.end || '22:00',
+          pricePerHour: r.pricePerHour ?? '',
+        }))
+      )
     } else {
       setCurrentVenueId(null)
       setName('')
@@ -202,6 +214,7 @@ export default function VenueFormModal({
       setPhotos([])
       setLayoutImage(null)
       setSelectedOwnerId('')
+      setPricingRules([])
 
       // Payment details reset
       setDuitNowQr('')
@@ -340,6 +353,13 @@ export default function VenueFormModal({
       locationPayload = null // will clear location
     }
 
+    const cleanedPricingRules = pricingRules.map((r) => ({
+      days: (r.days || []).map(Number),
+      start: r.start,
+      end: r.end,
+      pricePerHour: Number(r.pricePerHour),
+    }))
+
     const payload = {
       name: name.trim(),
       area: resolvedArea,
@@ -348,6 +368,7 @@ export default function VenueFormModal({
       phone: phone.trim(),
       operatingHours: { open: openTime, close: closeTime },
       pricePerHour: price,
+      pricingRules: cleanedPricingRules,
       numberOfCourts: courts,
       facilities,
       isActive,
@@ -931,7 +952,7 @@ export default function VenueFormModal({
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Price / Hr (RM) <span className="text-red-500">*</span>
+                    Default price / hr (RM) <span className="text-red-500">*</span>
                   </label>
                   <input
                     id="venue-price"
@@ -965,6 +986,19 @@ export default function VenueFormModal({
                     </p>
                   )}
                 </div>
+              </div>
+
+              {/* Peak / off-peak pricing */}
+              <div className="pt-2 border-t border-gray-100">
+                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">
+                  Peak / off-peak pricing
+                </h4>
+                <PricingRulesEditor
+                  rules={pricingRules}
+                  onChange={setPricingRules}
+                  operatingHours={{ open: openTime, close: closeTime }}
+                  defaultPrice={pricePerHour}
+                />
               </div>
 
               {/* Courts status management (edit mode only) */}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { getAllBookings, getRevenueAnalytics } from '../../api/admin'
-import { formatCurrency, formatDate, formatTime, getImageUrl, formatPaymentRef, formatPaymentMethod } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, getImageUrl, formatPaymentRef, formatPaymentMethod, formatPriceRange } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
@@ -252,7 +252,7 @@ export default function TodayPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <CurrencyDollarIcon className="h-4 w-4 text-gray-400" />
-                <span>{formatCurrency(selectedVenue.pricePerHour)} / hr</span>
+                <span>{formatPriceRange(selectedVenue)} / hr</span>
               </div>
             </div>
           </div>

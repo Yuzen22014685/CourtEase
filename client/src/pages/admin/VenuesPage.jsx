@@ -9,7 +9,7 @@ import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Badge from '../../components/ui/Badge'
 import VenueFormModal from '../../components/admin/VenueFormModal'
-import { formatCurrency, getImageUrl } from '../../utils/format'
+import { formatCurrency, getImageUrl, formatPriceRange } from '../../utils/format'
 import {
   PlusIcon,
   PencilSquareIcon,
@@ -271,7 +271,7 @@ export default function AdminVenuesPage({ noLayout = false }) {
                         <td className="font-medium text-gray-900">{v.numberOfCourts}</td>
 
                         <td className="font-semibold text-primary-700">
-                          {formatCurrency(v.pricePerHour)}
+                          {formatPriceRange(v)}
                         </td>
 
                         <td className="text-gray-600 text-xs whitespace-nowrap">
