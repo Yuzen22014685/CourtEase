@@ -6,6 +6,8 @@ const Court = require('../models/Court');
 const Review = require('../models/Review');
 const User = require('../models/User');
 const ShopItem = require('../models/ShopItem');
+const Booking = require('../models/Booking');
+const { getSessionEnd } = require('../config/bookingPolicy');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +42,39 @@ const computeVenueRatings = async (venueIds) => {
     });
   }
   return map;
+};
+
+/**
+ * Fetch upcoming bookings for a set of court IDs (max 20, sorted by date/time).
+ * Status in ['pending', 'confirmed'] and session end time is in the future.
+ */
+const getUpcomingCourtBookings = async (courtIds) => {
+  if (!courtIds || courtIds.length === 0) return [];
+  const now = new Date();
+  const todayStr = new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const bookings = await Booking.find({
+    courtId: { $in: courtIds },
+    status: { $in: ['pending', 'confirmed'] },
+    date: { $gte: todayStr },
+  })
+    .populate('playerId', 'fullName')
+    .populate('courtId', 'courtNumber')
+    .sort({ date: 1, startTime: 1 });
+
+  return bookings
+    .filter((b) => getSessionEnd(b) > now)
+    .slice(0, 20)
+    .map((b) => ({
+      _id: b._id,
+      paymentRef: b.paymentRef || null,
+      courtNumber: b.courtId?.courtNumber ?? null,
+      date: b.date,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      status: b.status,
+      playerName: b.playerId?.fullName || null,
+    }));
 };
 
 // ---------------------------------------------------------------------------
@@ -235,31 +270,14 @@ const updateVenue = async (req, res, next) => {
       location,
     } = req.body;
 
-    // Validate and process court count change
+    // Validate court count if provided
+    let targetCourtCount = undefined;
     if (numberOfCourts !== undefined && numberOfCourts !== null) {
       const courtCount = parseInt(numberOfCourts, 10);
       if (isNaN(courtCount) || courtCount < 1 || courtCount > 20) {
         return res.status(400).json({ success: false, message: 'Number of courts must be between 1 and 20' });
       }
-      if (courtCount < venue.numberOfCourts) {
-        return res.status(400).json({
-          success: false,
-          message: 'Courts cannot be removed because they may have bookings.',
-        });
-      }
-      if (courtCount > venue.numberOfCourts) {
-        // Create extra court documents
-        const extraCourts = [];
-        for (let n = venue.numberOfCourts + 1; n <= courtCount; n++) {
-          extraCourts.push({
-            venueId: venue._id,
-            courtNumber: n,
-            status: 'active',
-          });
-        }
-        await Court.insertMany(extraCourts);
-        venue.numberOfCourts = courtCount;
-      }
+      targetCourtCount = courtCount;
     }
 
     // Operating hours
@@ -384,6 +402,62 @@ const updateVenue = async (req, res, next) => {
           }
         }
         venue.paymentInfo.accountNumber = acc;
+      }
+    }
+
+    // Process court count changes right before saving venue
+    if (targetCourtCount !== undefined && targetCourtCount !== venue.numberOfCourts) {
+      if (targetCourtCount < venue.numberOfCourts) {
+        // Decrease: find courts to deactivate
+        const courtsToRemove = await Court.find({
+          venueId: venue._id,
+          courtNumber: { $gt: targetCourtCount },
+        });
+        const courtIds = courtsToRemove.map((c) => c._id);
+        const blockingBookings = await getUpcomingCourtBookings(courtIds);
+        if (blockingBookings.length > 0) {
+          const minCourt = targetCourtCount + 1;
+          const maxCourt = venue.numberOfCourts;
+          const courtRangeStr = minCourt === maxCourt ? `Court ${minCourt}` : `Courts ${minCourt}–${maxCourt}`;
+          return res.status(409).json({
+            success: false,
+            message: `${courtRangeStr} have upcoming bookings. Wait until they are completed or ask the players to reschedule/cancel.`,
+            blockingBookings,
+          });
+        }
+
+        await Court.updateMany(
+          { venueId: venue._id, courtNumber: { $gt: targetCourtCount } },
+          { status: 'inactive' }
+        );
+        venue.numberOfCourts = targetCourtCount;
+      } else if (targetCourtCount > venue.numberOfCourts) {
+        // Increase: reactivate previously deactivated courts
+        await Court.updateMany(
+          { venueId: venue._id, courtNumber: { $gt: venue.numberOfCourts, $lte: targetCourtCount } },
+          { status: 'active' }
+        );
+
+        // Find which numbers in (old + 1 .. targetCourtCount) still have no Court document and insert them
+        const existingCourts = await Court.find({
+          venueId: venue._id,
+          courtNumber: { $gt: venue.numberOfCourts, $lte: targetCourtCount },
+        }).select('courtNumber');
+        const existingNumbers = new Set(existingCourts.map((c) => c.courtNumber));
+        const newCourts = [];
+        for (let n = venue.numberOfCourts + 1; n <= targetCourtCount; n++) {
+          if (!existingNumbers.has(n)) {
+            newCourts.push({
+              venueId: venue._id,
+              courtNumber: n,
+              status: 'active',
+            });
+          }
+        }
+        if (newCourts.length > 0) {
+          await Court.insertMany(newCourts);
+        }
+        venue.numberOfCourts = targetCourtCount;
       }
     }
 
@@ -815,10 +889,84 @@ const deleteShopItem = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// GET /api/admin/venues/:id/courts
+// ---------------------------------------------------------------------------
+const getVenueCourts = async (req, res, next) => {
+  try {
+    const courts = await Court.find({ venueId: req.params.id })
+      .sort({ courtNumber: 1 })
+      .select('_id courtNumber status');
+
+    res.json({ success: true, courts });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PATCH /api/admin/venues/:id/courts/:courtId/status
+// ---------------------------------------------------------------------------
+const updateCourtStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!['active', 'maintenance'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be either 'active' or 'maintenance'",
+      });
+    }
+
+    if (!mongoose.isValidObjectId(req.params.courtId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid courtId',
+      });
+    }
+
+    const court = await Court.findOne({
+      _id: req.params.courtId,
+      venueId: req.params.id,
+    });
+
+    if (!court) {
+      return res.status(404).json({
+        success: false,
+        message: 'Court not found at this venue',
+      });
+    }
+
+    if (court.status === 'inactive') {
+      return res.status(400).json({
+        success: false,
+        message: 'This court is deactivated. Increase the number of courts to bring it back.',
+      });
+    }
+
+    court.status = status;
+    await court.save();
+
+    let upcomingBookings = [];
+    if (status === 'maintenance') {
+      upcomingBookings = await getUpcomingCourtBookings([court._id]);
+    }
+
+    res.json({
+      success: true,
+      court,
+      upcomingBookings,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getAdminVenues,
   createVenue,
   updateVenue,
+  getVenueCourts,
+  updateCourtStatus,
   uploadVenuePhotos,
   deleteVenuePhoto,
   reorderVenuePhotos,

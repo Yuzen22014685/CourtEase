@@ -15,6 +15,8 @@ const {
   getAdminVenues,
   createVenue,
   updateVenue,
+  getVenueCourts,
+  updateCourtStatus,
   uploadVenuePhotos,
   deleteVenuePhoto,
   reorderVenuePhotos,
@@ -73,6 +75,12 @@ router.post('/venues', adminOnly, createVenue);
 
 // PATCH /api/admin/venues/:id (Venue access required)
 router.patch('/venues/:id', requireVenueAccess('id'), updateVenue);
+
+// GET /api/admin/venues/:id/courts (Venue access required)
+router.get('/venues/:id/courts', requireVenueAccess('id'), getVenueCourts);
+
+// PATCH /api/admin/venues/:id/courts/:courtId/status (Venue access required)
+router.patch('/venues/:id/courts/:courtId/status', requireVenueAccess('id'), updateCourtStatus);
 
 // POST /api/admin/venues/:id/photos (Venue access required before file upload)
 router.post('/venues/:id/photos', requireVenueAccess('id'), upload.array('photos', 5), uploadVenuePhotos);
