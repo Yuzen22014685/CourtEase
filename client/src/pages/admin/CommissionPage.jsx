@@ -24,6 +24,7 @@ import {
   ArrowPathIcon,
   CheckCircleIcon,
   DocumentTextIcon,
+  ClockIcon,
 } from '@heroicons/react/24/outline'
 
 export default function CommissionPage() {
@@ -46,8 +47,30 @@ export default function CommissionPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  {/* Awaiting review state across all months */}
+  const [awaitingReviewStatements, setAwaitingReviewStatements] = useState([])
+
   {/* Review modal state */}
   const [selectedReviewStatement, setSelectedReviewStatement] = useState(null)
+
+  {/* Fetch statements awaiting review across all months */}
+  useEffect(() => {
+    let active = true
+
+    getCommissionStatements({ status: 'submitted' })
+      .then((res) => {
+        if (!active) return
+        setAwaitingReviewStatements(res.data?.data || [])
+      })
+      .catch(() => {
+        if (!active) return
+        setAwaitingReviewStatements([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [refreshKey])
 
   {/* Fetch statements with stale-response guard */}
   useEffect(() => {
@@ -120,6 +143,117 @@ export default function CommissionPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Commission</h1>
           <p className="text-sm text-gray-500 mt-1">Monthly platform fee per venue, paid by venue owners.</p>
         </div>
+
+        {/* Awaiting your review panel (shown only when at least one submitted statement exists) */}
+        {awaitingReviewStatements.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-blue-200">
+              <div className="flex items-center gap-2">
+                <ClockIcon className="h-5 w-5 text-blue-600" />
+                <h2 className="text-base font-bold text-blue-900">
+                  Awaiting your review ({awaitingReviewStatements.length})
+                </h2>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                Action required
+              </span>
+            </div>
+
+            {/* Desktop Table (md+) */}
+            <div className="hidden md:block overflow-x-auto rounded-xl border border-blue-200 bg-white">
+              <table className="min-w-full divide-y divide-blue-100 text-left text-xs">
+                <thead className="bg-blue-50/60 font-semibold text-blue-900">
+                  <tr>
+                    <th className="py-3 px-4">Venue</th>
+                    <th className="py-3 px-4">Month</th>
+                    <th className="py-3 px-4">Amount Due</th>
+                    <th className="py-3 px-4">Reference</th>
+                    <th className="py-3 px-4">Submitted At</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-blue-50 bg-white">
+                  {awaitingReviewStatements.map((s) => (
+                    <tr key={s._id} className="hover:bg-blue-50/30 transition-colors">
+                      <td className="py-3.5 px-4 font-semibold text-gray-900">
+                        <div>{s.venueId?.name || '—'}</div>
+                        <div className="text-[11px] text-gray-400 font-normal">{s.venueId?.area || '—'}</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-800 font-medium whitespace-nowrap">
+                        {formatMonth(s.month)}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-primary-700 whitespace-nowrap">
+                        {formatCurrency(s.amountDue)}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-gray-600 whitespace-nowrap">
+                        {s.paymentRef}
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-600 whitespace-nowrap">
+                        {s.submittedAt ? formatDateTime(s.submittedAt) : '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedReviewStatement(s)}
+                          className="btn-primary text-xs px-3.5 py-1.5"
+                        >
+                          Review
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Stacked Rows (<md) */}
+            <div className="md:hidden space-y-2.5">
+              {awaitingReviewStatements.map((s) => (
+                <div
+                  key={s._id}
+                  className="p-3.5 bg-white rounded-xl border border-blue-200 shadow-sm space-y-2 text-xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">{s.venueId?.name || '—'}</h4>
+                      <p className="text-[11px] text-gray-400">{s.venueId?.area || '—'}</p>
+                    </div>
+                    <span className="font-bold text-primary-700 text-sm">
+                      {formatCurrency(s.amountDue)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100 text-[11px] text-gray-600">
+                    <div>
+                      <span className="text-gray-400 block text-[10px]">Month</span>
+                      <span className="font-medium text-gray-800">{formatMonth(s.month)}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px]">Reference</span>
+                      <span className="font-mono text-gray-800">{s.paymentRef}</span>
+                    </div>
+                    {s.submittedAt && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400 block text-[10px]">Submitted At</span>
+                        <span>{formatDateTime(s.submittedAt)}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedReviewStatement(s)}
+                      className="btn-primary text-xs py-2 w-full flex items-center justify-center gap-1.5"
+                    >
+                      Review
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 1. Commission Settings Card */}
         <CommissionSettingsCard />
