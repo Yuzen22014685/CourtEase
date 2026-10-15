@@ -92,6 +92,9 @@ export const verifyCommissionStatement = (id) =>
   api.patch(`/admin/commission/statements/${id}/verify`)
 export const rejectCommissionStatement = (id, reason) =>
   api.patch(`/admin/commission/statements/${id}/reject`, { reason })
-
-
-
+export const getCommissionPaymentInfo = () =>
+  api.get('/admin/commission/payment-info')
+export const uploadCommissionReceipt = (id, formData) =>
+  api.post(`/admin/commission/statements/${id}/receipt`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })

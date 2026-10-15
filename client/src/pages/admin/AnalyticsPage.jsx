@@ -9,6 +9,7 @@ import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import MonthPicker from '../../components/insights/MonthPicker'
 import MonthlyInsightsView from '../../components/insights/MonthlyInsightsView'
+import PlatformFeeSection from '../../components/owner/PlatformFeeSection'
 import { BuildingOffice2Icon } from '@heroicons/react/24/outline'
 
 export default function AnalyticsPage({ noLayout = false }) {
@@ -151,19 +152,27 @@ export default function AnalyticsPage({ noLayout = false }) {
             description="You don't have any venues assigned to your account. Contact an administrator to get access."
           />
         </div>
-      ) : loading ? (
-        <div className="card h-64 flex items-center justify-center">
-          <Spinner size="lg" />
-        </div>
-      ) : error ? (
-        <div className="card p-6">
-          <ErrorMessage message={error} />
-        </div>
       ) : (
-        <MonthlyInsightsView
-          data={insightsData}
-          showPerVenue={!isOwner && !adminVenueId}
-        />
+        <div className="space-y-8">
+          {loading ? (
+            <div className="card h-64 flex items-center justify-center">
+              <Spinner size="lg" />
+            </div>
+          ) : error ? (
+            <div className="card p-6">
+              <ErrorMessage message={error} />
+            </div>
+          ) : (
+            <MonthlyInsightsView
+              data={insightsData}
+              showPerVenue={!isOwner && !adminVenueId}
+            />
+          )}
+
+          {isOwner && selectedVenueId && (
+            <PlatformFeeSection venueId={selectedVenueId} />
+          )}
+        </div>
       )}
     </div>
   )

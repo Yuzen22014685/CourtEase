@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
-import { getAllBookings, getMonthlyInsights } from '../../api/admin'
+import { getAllBookings, getMonthlyInsights, getCommissionStatements } from '../../api/admin'
 import {
   formatCurrency,
   formatDate,
@@ -26,6 +26,8 @@ import {
   DocumentCheckIcon,
   SparklesIcon,
   InformationCircleIcon,
+  BanknotesIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 
 const getLocalToday = () => {
@@ -60,6 +62,46 @@ export default function TodayPage() {
   const [todayBookings, setTodayBookings] = useState([])
   const [pendingBookings, setPendingBookings] = useState([])
   const [monthlyInsights, setMonthlyInsights] = useState(null)
+  const [commissionStatements, setCommissionStatements] = useState([])
+
+  const selectedVenueId = selectedVenue?._id
+
+  useEffect(() => {
+    if (!selectedVenueId) return
+    let active = true
+
+    getCommissionStatements({ venueId: selectedVenueId })
+      .then((res) => {
+        if (active) {
+          const list = Array.isArray(res.data?.data) ? res.data.data : []
+          setCommissionStatements(list)
+        }
+      })
+      .catch(() => {
+        if (active) setCommissionStatements([])
+      })
+
+    return () => {
+      active = false
+    }
+  }, [selectedVenueId])
+
+  const unpaidStatements = useMemo(() => {
+    return commissionStatements.filter((s) => s.status === 'unpaid')
+  }, [commissionStatements])
+
+  const rejectedStatement = useMemo(() => {
+    return unpaidStatements.find((s) => Boolean(s.rejectionReason))
+  }, [unpaidStatements])
+
+  const oldestUnpaidStatement = useMemo(() => {
+    if (!unpaidStatements.length) return null
+    return [...unpaidStatements].sort((a, b) => (a.month || '').localeCompare(b.month || ''))[0]
+  }, [unpaidStatements])
+
+  const totalUnpaidDue = useMemo(() => {
+    return unpaidStatements.reduce((sum, s) => sum + (s.amountDue || 0), 0)
+  }, [unpaidStatements])
 
   const localToday = getLocalToday()
 
@@ -187,6 +229,33 @@ export default function TodayPage() {
   return (
     <div className="page-container space-y-8 animate-fadeIn">
       {error && <ErrorMessage message={error} />}
+
+      {/* Platform fee banner if any unpaid */}
+      {unpaidStatements.length > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2.5 text-amber-800 text-sm font-medium">
+            {rejectedStatement ? (
+              <>
+                <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 shrink-0" />
+                <span>A platform fee receipt was rejected — please upload a new one.</span>
+              </>
+            ) : (
+              <>
+                <BanknotesIcon className="h-5 w-5 text-amber-600 shrink-0" />
+                <span>
+                  Platform fee due: {formatCurrency(totalUnpaidDue)} ({unpaidStatements.length} statement{unpaidStatements.length !== 1 ? 's' : ''})
+                </span>
+              </>
+            )}
+          </div>
+          <Link
+            to={`/owner/insights?pay=${(rejectedStatement || oldestUnpaidStatement)?._id}#platform-fee`}
+            className="btn-primary bg-amber-600 hover:bg-amber-700 text-white text-xs px-3.5 py-1.5 shrink-0 self-start sm:self-auto inline-flex items-center justify-center gap-1"
+          >
+            {rejectedStatement ? 'Upload new receipt' : 'Pay now'}
+          </Link>
+        </div>
+      )}
 
       {/* Amber banner when missing payment details */}
       {!hasPaymentDetails && (
