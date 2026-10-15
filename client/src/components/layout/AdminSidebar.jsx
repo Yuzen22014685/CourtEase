@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useEffect, useState } from 'react'
-import { getPendingCount } from '../../api/admin'
+import { getPendingCount, getSubmittedCommissionCount } from '../../api/admin'
 import {
   HomeIcon,
   BuildingOffice2Icon,
@@ -10,6 +10,7 @@ import {
   ChartBarIcon,
   XMarkIcon,
   UserGroupIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -18,6 +19,7 @@ import {
   CalendarDaysIcon as CalendarDaysIconSolid,
   ChartBarIcon as ChartBarIconSolid,
   UserGroupIcon as UserGroupIconSolid,
+  BanknotesIcon as BanknotesIconSolid,
 } from '@heroicons/react/24/solid'
 
 const navItems = [
@@ -58,11 +60,48 @@ const navItems = [
     icon: ChartBarIcon,
     activeIcon: ChartBarIconSolid,
   },
+  {
+    to: '/admin/commission',
+    label: 'Commission',
+    icon: BanknotesIcon,
+    activeIcon: BanknotesIconSolid,
+    showCommissionBadge: true,
+  },
 ]
 
-export default function AdminSidebar({ isOpen = false, onClose, pendingCount: propPendingCount }) {
+export default function AdminSidebar({
+  isOpen = false,
+  onClose,
+  pendingCount: propPendingCount,
+  commissionCount: propCommissionCount,
+}) {
   const { user } = useAuth()
   const [localPendingCount, setLocalPendingCount] = useState(0)
+  const [localCommissionCount, setLocalCommissionCount] = useState(0)
+
+  useEffect(() => {
+    if (propCommissionCount !== undefined) return
+
+    const fetchCommission = async () => {
+      try {
+        const res = await getSubmittedCommissionCount()
+        setLocalCommissionCount(res.data?.count ?? 0)
+      } catch {
+        {/* silently ignore */}
+      }
+    }
+
+    fetchCommission()
+    const interval = setInterval(fetchCommission, 60_000)
+
+    const handleCommissionChanged = () => fetchCommission()
+    window.addEventListener('commission-count-changed', handleCommissionChanged)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('commission-count-changed', handleCommissionChanged)
+    }
+  }, [propCommissionCount])
 
   useEffect(() => {
     if (propPendingCount !== undefined) return
@@ -125,9 +164,12 @@ export default function AdminSidebar({ isOpen = false, onClose, pendingCount: pr
   const pendingCount = propPendingCount !== undefined ? propPendingCount : localPendingCount
   const badgeLabel = pendingCount > 99 ? '99+' : String(pendingCount)
 
+  const commissionCount = propCommissionCount !== undefined ? propCommissionCount : localCommissionCount
+  const commissionBadgeLabel = commissionCount > 99 ? '99+' : String(commissionCount)
+
   const renderNav = (onItemClick) => (
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-      {navItems.map(({ to, label, icon: Icon, activeIcon: ActiveIcon, showPendingBadge }) => (
+      {navItems.map(({ to, label, icon: Icon, activeIcon: ActiveIcon, showPendingBadge, showCommissionBadge }) => (
         <NavLink
           key={to}
           to={to}
@@ -147,6 +189,11 @@ export default function AdminSidebar({ isOpen = false, onClose, pendingCount: pr
               {showPendingBadge && pendingCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
                   {badgeLabel}
+                </span>
+              )}
+              {showCommissionBadge && commissionCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-none">
+                  {commissionBadgeLabel}
                 </span>
               )}
             </>

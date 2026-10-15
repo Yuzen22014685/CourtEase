@@ -30,6 +30,7 @@ import OwnersPage        from '../pages/admin/OwnersPage'
 import AdminReviewsPage  from '../pages/admin/ReviewsPage'
 import AdminBookingsPage from '../pages/admin/BookingsPage'
 import AnalyticsPage     from '../pages/admin/AnalyticsPage'
+import CommissionPage    from '../pages/admin/CommissionPage'
 
 // Owner pages
 import TodayPage from '../pages/owner/TodayPage'
@@ -90,6 +91,9 @@ export default function AppRouter() {
       } />
       <Route path="/admin/analytics" element={
         <AdminRoute><AnalyticsPage /></AdminRoute>
+      } />
+      <Route path="/admin/commission" element={
+        <AdminRoute><CommissionPage /></AdminRoute>
       } />
 
       {/* Owner Portal */}

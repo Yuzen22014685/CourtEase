@@ -74,4 +74,24 @@ export const uploadShopItemPhoto = (venueId, itemId, formData) =>
 export const deleteShopItemPhoto = (venueId, itemId) =>
   api.delete(`/admin/venues/${venueId}/shop-items/${itemId}/photo`)
 
+// Platform Commission
+export const getCommissionSettings = () => api.get('/admin/commission/settings')
+export const updateCommissionSettings = (data) => api.patch('/admin/commission/settings', data)
+export const uploadCommissionQr = (formData) =>
+  api.post('/admin/commission/settings/qr', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const deleteCommissionQr = () => api.delete('/admin/commission/settings/qr')
+export const generateCommissionStatements = (month) =>
+  api.post('/admin/commission/statements/generate', { month })
+export const getCommissionStatements = (params) =>
+  api.get('/admin/commission/statements', { params })
+export const getSubmittedCommissionCount = () =>
+  api.get('/admin/commission/statements/submitted-count')
+export const verifyCommissionStatement = (id) =>
+  api.patch(`/admin/commission/statements/${id}/verify`)
+export const rejectCommissionStatement = (id, reason) =>
+  api.patch(`/admin/commission/statements/${id}/reject`, { reason })
+
+
 

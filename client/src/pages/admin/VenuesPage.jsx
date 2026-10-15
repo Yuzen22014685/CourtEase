@@ -181,22 +181,21 @@ export default function AdminVenuesPage({ noLayout = false }) {
               <thead>
                 <tr>
                   <th>Venue Name</th>
-                  <th>Area</th>
-                  {isAdmin && <th>Owner</th>}
-                  <th>Courts</th>
-                  <th>Price / hr</th>
-                  <th>Operating Hours</th>
-                  <th>Photos</th>
-                  <th>Status</th>
-                  <th className="text-right">Actions</th>
+                  <th className="whitespace-nowrap">Area</th>
+                  {isAdmin && <th className="whitespace-nowrap">Owner</th>}
+                  <th className="whitespace-nowrap">Courts</th>
+                  <th className="whitespace-nowrap">Price / hr</th>
+                  <th className="whitespace-nowrap">Operating Hours</th>
+                  <th className="whitespace-nowrap">Status</th>
+                  <th className="text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  [1, 2, 3, 4, 5].map((n) => <SkeletonRow key={n} cols={isAdmin ? 9 : 8} />)
+                  [1, 2, 3, 4, 5].map((n) => <SkeletonRow key={n} cols={isAdmin ? 8 : 7} />)
                 ) : filteredVenues.length === 0 ? (
                   <tr>
-                    <td colSpan={isAdmin ? 9 : 8} className="py-12">
+                    <td colSpan={isAdmin ? 8 : 7} className="py-12">
                       <EmptyState
                         icon="🏟️"
                         title={searchQuery || statusFilter !== 'all' ? 'No matching venues' : 'No venues found'}
@@ -223,7 +222,7 @@ export default function AdminVenuesPage({ noLayout = false }) {
                       <tr key={v._id} className="hover:bg-gray-50/70 transition-colors">
                         <td>
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200 flex items-center justify-center">
+                            <div className="relative w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 border border-gray-200 flex items-center justify-center">
                               {coverPhoto ? (
                                 <img
                                   src={getImageUrl(coverPhoto)}
@@ -242,35 +241,43 @@ export default function AdminVenuesPage({ noLayout = false }) {
                               >
                                 <PhotoIcon className="h-5 w-5" />
                               </div>
+                              {v.photos?.length > 0 && (
+                                <span className="absolute bottom-0.5 right-0.5 text-[10px] bg-black/60 text-white rounded px-1 leading-tight font-medium">
+                                  {v.photos.length}
+                                </span>
+                              )}
                             </div>
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className="font-semibold text-gray-900 text-sm truncate">{v.name}</p>
+                            <div className="min-w-0 flex-1 max-w-[16rem] lg:max-w-xs">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <p className="font-semibold text-gray-900 text-sm truncate" title={v.name}>{v.name}</p>
                                 {!hasPaymentDetails && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                  <span
+                                    className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 shrink-0 whitespace-nowrap"
+                                    title="No payment details configured"
+                                  >
                                     No payment details
                                   </span>
                                 )}
                               </div>
-                              <p className="text-gray-400 text-xs truncate max-w-xs">{v.address}</p>
+                              <p className="text-gray-400 text-xs truncate" title={v.address}>{v.address}</p>
                             </div>
                           </div>
                         </td>
 
-                        <td>
-                          <span className="badge bg-primary-50 text-primary-700">{v.area}</span>
+                        <td className="whitespace-nowrap">
+                          <span className="badge bg-primary-50 text-primary-700 whitespace-nowrap">{v.area}</span>
                         </td>
 
                         {isAdmin && (
-                          <td className="text-xs text-gray-700 font-medium">
+                          <td className="text-xs text-gray-700 font-medium whitespace-nowrap">
                             {v.owner?.fullName || '—'}
                           </td>
                         )}
 
-                        <td className="font-medium text-gray-900">{v.numberOfCourts}</td>
+                        <td className="font-medium text-gray-900 whitespace-nowrap">{v.numberOfCourts}</td>
 
-                        <td className="font-semibold text-primary-700">
+                        <td className="font-semibold text-primary-700 whitespace-nowrap">
                           {formatPriceRange(v)}
                         </td>
 
@@ -278,22 +285,16 @@ export default function AdminVenuesPage({ noLayout = false }) {
                           {v.operatingHours?.open} – {v.operatingHours?.close}
                         </td>
 
-                        <td>
-                          <span className="text-xs text-gray-500 inline-flex items-center gap-1">
-                            <PhotoIcon className="h-3.5 w-3.5 text-gray-400" />
-                            {v.photos?.length || 0}
-                          </span>
-                        </td>
-
-                        <td>
+                        <td className="whitespace-nowrap">
                           <Badge
                             status={isVenueActive ? 'active' : 'inactive'}
                             label={isVenueActive ? 'Active' : 'Inactive'}
                           />
                         </td>
 
-                        <td className="text-right">
+                        <td className="text-right whitespace-nowrap">
                           <button
+                            type="button"
                             id={`edit-venue-${v._id}`}
                             onClick={() => handleOpenEdit(v)}
                             className="btn-secondary text-xs py-1.5 px-3 inline-flex items-center gap-1.5"

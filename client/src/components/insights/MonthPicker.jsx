@@ -1,8 +1,7 @@
 import { formatMonth, shiftMonth, currentMonthMY } from '../../utils/format'
 
-export default function MonthPicker({ value, onChange }) {
-  const currentMY = currentMonthMY()
-  const isLatest = value >= currentMY
+export default function MonthPicker({ value, onChange, max = currentMonthMY() }) {
+  const isLatest = value >= max
 
   const handlePrev = () => {
     onChange(shiftMonth(value, -1))
