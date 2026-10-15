@@ -920,12 +920,119 @@ const deleteShopItem = async (req, res, next) => {
 
     const item = await ShopItem.findOne({ _id: itemId, venueId: req.params.id });
     if (!item) {
-      return res.status(404).json({ success: false, message: 'Item not found' });
+      return res.status(404).json({ success: false, message: 'Shop item not found' });
+    }
+
+    if (item.photo && (item.photo.startsWith('/uploads/') || item.photo.startsWith('uploads/'))) {
+      const filename = path.basename(item.photo);
+      const filePath = path.join(__dirname, '..', 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (e) {
+          console.error('Failed to unlink shop item photo on delete:', e.message);
+        }
+      }
     }
 
     await item.deleteOne();
 
     res.json({ success: true, message: 'Shop item deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Middleware: verify shop item exists and belongs to venue before multer writes file
+// ---------------------------------------------------------------------------
+const verifyShopItemExists = async (req, res, next) => {
+  try {
+    const { id, itemId } = req.params;
+    if (!mongoose.isValidObjectId(itemId)) {
+      return res.status(404).json({ success: false, message: 'Shop item not found' });
+    }
+    const item = await ShopItem.findOne({ _id: itemId, venueId: id });
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Shop item not found' });
+    }
+    req.shopItem = item;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/venues/:id/shop-items/:itemId/photo
+// Upload or replace shop item photo
+// ---------------------------------------------------------------------------
+const uploadShopItemPhoto = async (req, res, next) => {
+  try {
+    const item = req.shopItem || (await ShopItem.findOne({ _id: req.params.itemId, venueId: req.params.id }));
+    if (!item) {
+      if (req.file) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(404).json({ success: false, message: 'Shop item not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No photo uploaded' });
+    }
+
+    // Delete previous photo file if stored locally
+    if (item.photo && (item.photo.startsWith('/uploads/') || item.photo.startsWith('uploads/'))) {
+      const oldFilename = path.basename(item.photo);
+      const oldPath = path.join(__dirname, '..', 'uploads', oldFilename);
+      if (fs.existsSync(oldPath)) {
+        try {
+          fs.unlinkSync(oldPath);
+        } catch (e) {
+          console.error('Failed to unlink old shop item photo:', e.message);
+        }
+      }
+    }
+
+    item.photo = '/uploads/' + req.file.filename;
+    await item.save();
+
+    res.json({ success: true, photo: item.photo, data: item });
+  } catch (err) {
+    if (req.file) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// DELETE /api/admin/venues/:id/shop-items/:itemId/photo
+// Remove shop item photo
+// ---------------------------------------------------------------------------
+const deleteShopItemPhoto = async (req, res, next) => {
+  try {
+    const item = req.shopItem || (await ShopItem.findOne({ _id: req.params.itemId, venueId: req.params.id }));
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Shop item not found' });
+    }
+
+    if (item.photo && (item.photo.startsWith('/uploads/') || item.photo.startsWith('uploads/'))) {
+      const filename = path.basename(item.photo);
+      const filePath = path.join(__dirname, '..', 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (e) {
+          console.error('Failed to unlink shop item photo:', e.message);
+        }
+      }
+    }
+
+    item.photo = null;
+    await item.save();
+
+    res.json({ success: true, message: 'Shop item photo removed', data: item });
   } catch (err) {
     next(err);
   }
@@ -1020,5 +1127,8 @@ module.exports = {
   createShopItem,
   updateShopItem,
   deleteShopItem,
+  verifyShopItemExists,
+  uploadShopItemPhoto,
+  deleteShopItemPhoto,
 };
 

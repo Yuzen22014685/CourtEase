@@ -34,6 +34,10 @@ const shopItemSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  photo: {
+    type: String,
+    default: null,
+  },
   notePrompt: {
     type: String,
     trim: true,

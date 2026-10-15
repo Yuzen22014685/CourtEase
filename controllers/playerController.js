@@ -818,7 +818,7 @@ const getPublicVenueShopItems = async (req, res, next) => {
     }
 
     const items = await ShopItem.find({ venueId: id, isAvailable: true })
-      .select('_id name description category price notePrompt readyInfo')
+      .select('_id name description category price photo notePrompt readyInfo')
       .sort({ category: 1, name: 1 });
 
     res.json({ success: true, count: items.length, data: items });

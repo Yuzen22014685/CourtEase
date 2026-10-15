@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import {
   getShopItems,
   createShopItem,
   updateShopItem,
   deleteShopItem,
+  uploadShopItemPhoto,
+  deleteShopItemPhoto,
 } from '../../api/admin'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, getImageUrl } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -20,6 +22,8 @@ import {
   ShoppingBagIcon,
   ClockIcon,
   ChatBubbleBottomCenterTextIcon,
+  PhotoIcon,
+  WrenchScrewdriverIcon,
 } from '@heroicons/react/24/outline'
 
 const initialFormState = {
@@ -44,6 +48,13 @@ export default function ShopPage() {
   const [formData, setFormData] = useState(initialFormState)
   const [formSubmitting, setFormSubmitting] = useState(false)
   const [modalError, setModalError] = useState(null)
+
+  // Photo management state
+  const fileInputRef = useRef(null)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
+  const [removeExistingPhoto, setRemoveExistingPhoto] = useState(false)
+  const [photoError, setPhotoError] = useState(null)
 
   const [deletingItem, setDeletingItem] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -71,15 +82,35 @@ export default function ShopPage() {
     fetchItems()
   }, [fetchItems])
 
+  const cleanupBlobPreview = (url) => {
+    if (url && typeof url === 'string' && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  // Cleanup blob URL on unmount if component unmounts while modal is open
+  useEffect(() => {
+    return () => {
+      cleanupBlobPreview(photoPreview)
+    }
+  }, [photoPreview])
+
   const handleOpenAdd = () => {
+    cleanupBlobPreview(photoPreview)
     setModalMode('create')
     setEditingItem(null)
     setFormData(initialFormState)
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setRemoveExistingPhoto(false)
+    setPhotoError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
     setModalError(null)
     setIsModalOpen(true)
   }
 
   const handleOpenEdit = (item) => {
+    cleanupBlobPreview(photoPreview)
     setModalMode('edit')
     setEditingItem(item)
     setFormData({
@@ -90,15 +121,61 @@ export default function ShopPage() {
       notePrompt: item.notePrompt || '',
       readyInfo: item.readyInfo || '',
     })
+    setPhotoFile(null)
+    setPhotoPreview(item.photo ? getImageUrl(item.photo) : null)
+    setRemoveExistingPhoto(false)
+    setPhotoError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
     setModalError(null)
     setIsModalOpen(true)
   }
 
   const handleCloseModal = () => {
     if (formSubmitting) return
+    cleanupBlobPreview(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setRemoveExistingPhoto(false)
+    setPhotoError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
     setIsModalOpen(false)
     setEditingItem(null)
     setModalError(null)
+  }
+
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoError(null)
+
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setPhotoError('Only JPG and PNG images are allowed.')
+      e.target.value = ''
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('Image exceeds the 5MB size limit.')
+      e.target.value = ''
+      return
+    }
+
+    cleanupBlobPreview(photoPreview)
+    const newBlobUrl = URL.createObjectURL(file)
+    setPhotoFile(file)
+    setPhotoPreview(newBlobUrl)
+    setRemoveExistingPhoto(false)
+  }
+
+  const handleRemovePhoto = () => {
+    cleanupBlobPreview(photoPreview)
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    setPhotoError(null)
+    if (modalMode === 'edit' && editingItem?.photo) {
+      setRemoveExistingPhoto(true)
+    }
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleToggleAvailable = async (item) => {
@@ -129,6 +206,7 @@ export default function ShopPage() {
     if (!selectedVenue?._id) return
 
     setModalError(null)
+    setPhotoError(null)
     setFormSubmitting(true)
 
     const payload = {
@@ -141,13 +219,71 @@ export default function ShopPage() {
     }
 
     try {
-      if (modalMode === 'edit' && editingItem) {
-        await updateShopItem(selectedVenue._id, editingItem._id, payload)
-      } else {
-        await createShopItem(selectedVenue._id, payload)
+      if (modalMode === 'create') {
+        // Step 1: Create the shop item
+        const res = await createShopItem(selectedVenue._id, payload)
+        const newItem = res.data?.data
+
+        // Step 2: Upload photo if selected
+        if (photoFile && newItem?._id) {
+          try {
+            const fd = new FormData()
+            fd.append('photo', photoFile)
+            const photoRes = await uploadShopItemPhoto(selectedVenue._id, newItem._id, fd)
+            newItem.photo = photoRes.data?.photo || photoRes.data?.data?.photo || newItem.photo
+          } catch (photoErr) {
+            // Photo upload failed: keep modal open in edit mode for newly created item
+            await fetchItems()
+            setModalMode('edit')
+            setEditingItem(newItem)
+            setModalError(
+              `Item saved, but the photo couldn't be uploaded: ${photoErr.response?.data?.message || photoErr.message || 'Upload failed'}. Try again or save without a photo.`
+            )
+            setFormSubmitting(false)
+            return
+          }
+        }
+
+        // Both succeeded
+        handleCloseModal()
+        await fetchItems()
+      } else if (modalMode === 'edit' && editingItem) {
+        // Step 1: Update details
+        const res = await updateShopItem(selectedVenue._id, editingItem._id, payload)
+        const updatedItem = res.data?.data || { ...editingItem, ...payload }
+
+        // Step 2: Handle photo update / delete
+        if (photoFile) {
+          // If a new photo file is chosen, only call upload (it replaces the old file on server)
+          try {
+            const fd = new FormData()
+            fd.append('photo', photoFile)
+            const photoRes = await uploadShopItemPhoto(selectedVenue._id, editingItem._id, fd)
+            updatedItem.photo = photoRes.data?.photo || photoRes.data?.data?.photo || updatedItem.photo
+          } catch (photoErr) {
+            // Photo upload failed in edit mode: keep modal open with error
+            setEditingItem(updatedItem)
+            setModalError(photoErr.response?.data?.message || 'Failed to upload photo. Item details were saved.')
+            await fetchItems()
+            setFormSubmitting(false)
+            return
+          }
+        } else if (removeExistingPhoto) {
+          // Call delete only when "Remove" was chosen and no new file is selected
+          try {
+            await deleteShopItemPhoto(selectedVenue._id, editingItem._id)
+            updatedItem.photo = null
+          } catch (photoErr) {
+            setModalError(photoErr.response?.data?.message || 'Failed to remove photo.')
+            await fetchItems()
+            setFormSubmitting(false)
+            return
+          }
+        }
+
+        handleCloseModal()
+        await fetchItems()
       }
-      setIsModalOpen(false)
-      await fetchItems()
     } catch (err) {
       setModalError(err.response?.data?.message || 'Failed to save shop item')
     } finally {
@@ -230,26 +366,51 @@ export default function ShopPage() {
             >
               {/* Card Top: Details */}
               <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold text-gray-900 text-base leading-snug line-clamp-2">
-                    {item.name}
-                  </h3>
-                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                    <Badge
-                      status={item.category === 'service' ? 'maintenance' : 'paid'}
-                      label={item.category === 'service' ? 'Service' : 'Product'}
+                <div className="flex items-start gap-3">
+                  {/* Photo or placeholder */}
+                  {item.photo ? (
+                    <img
+                      src={getImageUrl(item.photo)}
+                      alt={item.name}
+                      className="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100 shadow-sm"
                     />
-                    {!item.isAvailable && (
-                      <Badge
-                        status="rejected"
-                        label="Sold out"
-                      />
-                    )}
-                  </div>
-                </div>
+                  ) : (
+                    <div
+                      className={`w-16 h-16 rounded-xl flex items-center justify-center shrink-0 border border-gray-100 ${
+                        item.category === 'service' ? 'bg-orange-50 text-orange-500' : 'bg-blue-50 text-blue-500'
+                      }`}
+                    >
+                      {item.category === 'service' ? (
+                        <WrenchScrewdriverIcon className="h-7 w-7" />
+                      ) : (
+                        <ShoppingBagIcon className="h-7 w-7" />
+                      )}
+                    </div>
+                  )}
 
-                <div className="text-xl font-bold text-gray-900">
-                  {formatCurrency(item.price)}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-gray-900 text-base leading-snug line-clamp-2">
+                        {item.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Badge
+                          status={item.category === 'service' ? 'maintenance' : 'paid'}
+                          label={item.category === 'service' ? 'Service' : 'Product'}
+                        />
+                        {!item.isAvailable && (
+                          <Badge
+                            status="rejected"
+                            label="Sold out"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="text-xl font-bold text-gray-900 mt-1">
+                      {formatCurrency(item.price)}
+                    </div>
+                  </div>
                 </div>
 
                 {item.description ? (
@@ -353,6 +514,64 @@ export default function ShopPage() {
               className="animate-fadeIn"
             />
           )}
+
+          {/* Photo */}
+          <div>
+            <label className="label">
+              Item Photo <span className="text-xs text-gray-400 font-normal">(optional, JPG/PNG up to 5MB)</span>
+            </label>
+            <div className="flex items-center gap-4 p-3 bg-gray-50 border border-gray-200 rounded-xl">
+              {photoPreview ? (
+                <div className="shrink-0">
+                  <img
+                    src={photoPreview}
+                    alt="Preview"
+                    className="w-16 h-16 rounded-lg object-cover border border-gray-200 shadow-sm"
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-lg bg-gray-200/70 border border-dashed border-gray-300 flex items-center justify-center shrink-0 text-gray-400">
+                  <PhotoIcon className="h-7 w-7" />
+                </div>
+              )}
+
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <input
+                  ref={fileInputRef}
+                  id="shop-item-photo"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={handlePhotoSelect}
+                  className="hidden"
+                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={formSubmitting}
+                    className="btn-secondary text-xs py-1.5 px-3"
+                  >
+                    {photoPreview ? 'Replace' : 'Upload photo'}
+                  </button>
+                  {photoPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      disabled={formSubmitting}
+                      className="text-xs text-red-600 hover:text-red-700 py-1.5 px-2 font-medium"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {photoError && (
+                  <p className="text-xs text-red-500 font-medium">
+                    {photoError}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Name */}
           <div>

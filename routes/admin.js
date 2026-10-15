@@ -28,6 +28,9 @@ const {
   createShopItem,
   updateShopItem,
   deleteShopItem,
+  verifyShopItemExists,
+  uploadShopItemPhoto,
+  deleteShopItemPhoto,
 } = require('../controllers/venueAdminController');
 const {
   getAdminReviews,
@@ -115,6 +118,23 @@ router.patch('/venues/:id/shop-items/:itemId', requireVenueAccess('id'), updateS
 
 // DELETE /api/admin/venues/:id/shop-items/:itemId (Venue access required)
 router.delete('/venues/:id/shop-items/:itemId', requireVenueAccess('id'), deleteShopItem);
+
+// POST /api/admin/venues/:id/shop-items/:itemId/photo (Venue access and item existence verified before file upload)
+router.post(
+  '/venues/:id/shop-items/:itemId/photo',
+  requireVenueAccess('id'),
+  verifyShopItemExists,
+  upload.single('photo'),
+  uploadShopItemPhoto
+);
+
+// DELETE /api/admin/venues/:id/shop-items/:itemId/photo (Venue access required)
+router.delete(
+  '/venues/:id/shop-items/:itemId/photo',
+  requireVenueAccess('id'),
+  verifyShopItemExists,
+  deleteShopItemPhoto
+);
 
 // PATCH /api/admin/venues/:id/owner (Admin only)
 router.patch('/venues/:id/owner', adminOnly, updateVenueOwner);

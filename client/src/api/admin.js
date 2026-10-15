@@ -59,5 +59,11 @@ export const getShopItems = (venueId) => api.get(`/admin/venues/${venueId}/shop-
 export const createShopItem = (venueId, data) => api.post(`/admin/venues/${venueId}/shop-items`, data)
 export const updateShopItem = (venueId, itemId, data) => api.patch(`/admin/venues/${venueId}/shop-items/${itemId}`, data)
 export const deleteShopItem = (venueId, itemId) => api.delete(`/admin/venues/${venueId}/shop-items/${itemId}`)
+export const uploadShopItemPhoto = (venueId, itemId, formData) =>
+  api.post(`/admin/venues/${venueId}/shop-items/${itemId}/photo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+export const deleteShopItemPhoto = (venueId, itemId) =>
+  api.delete(`/admin/venues/${venueId}/shop-items/${itemId}/photo`)
 
 

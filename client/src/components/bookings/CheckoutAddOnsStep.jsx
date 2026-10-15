@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency, getImageUrl } from '../../utils/format'
 import {
   ShoppingBagIcon,
   WrenchScrewdriverIcon,
@@ -72,19 +72,27 @@ export default function CheckoutAddOnsStep({
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                {/* Left: Icon & Details */}
+                {/* Left: Thumbnail & Details */}
                 <div className="flex items-start gap-3 min-w-0 flex-1">
-                  <div
-                    className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
-                      isService ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
-                    }`}
-                  >
-                    {isService ? (
-                      <WrenchScrewdriverIcon className="h-5 w-5" />
-                    ) : (
-                      <ShoppingBagIcon className="h-5 w-5" />
-                    )}
-                  </div>
+                  {item.photo ? (
+                    <img
+                      src={getImageUrl(item.photo)}
+                      alt={item.name}
+                      className="w-11 h-11 rounded-lg object-cover shrink-0 mt-0.5 border border-gray-100 shadow-sm"
+                    />
+                  ) : (
+                    <div
+                      className={`w-11 h-11 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        isService ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'
+                      }`}
+                    >
+                      {isService ? (
+                        <WrenchScrewdriverIcon className="h-5 w-5" />
+                      ) : (
+                        <ShoppingBagIcon className="h-5 w-5" />
+                      )}
+                    </div>
+                  )}
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
