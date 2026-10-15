@@ -19,10 +19,10 @@ export default function ConfirmDialog({
           {message}
         </p>
         <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="btn-secondary px-4">
+          <button type="button" onClick={onCancel} className="btn-secondary px-4">
             {cancelText}
           </button>
-          <button onClick={onConfirm} className={`${confirmButtonClass} px-4`}>
+          <button type="button" onClick={onConfirm} className={`${confirmButtonClass} px-4`}>
             {confirmText}
           </button>
         </div>
