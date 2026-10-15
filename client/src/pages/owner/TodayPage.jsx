@@ -1,8 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
-import { getAllBookings, getRevenueAnalytics } from '../../api/admin'
-import { formatCurrency, formatDate, formatTime, getImageUrl, formatPaymentRef, formatPaymentMethod, formatPriceRange } from '../../utils/format'
+import { getAllBookings, getMonthlyInsights } from '../../api/admin'
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  getImageUrl,
+  formatPaymentRef,
+  formatPaymentMethod,
+  formatPriceRange,
+  currentMonthMY,
+} from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
@@ -50,7 +59,7 @@ export default function TodayPage() {
   const [error, setError] = useState(null)
   const [todayBookings, setTodayBookings] = useState([])
   const [pendingBookings, setPendingBookings] = useState([])
-  const [revenueData, setRevenueData] = useState(null)
+  const [monthlyInsights, setMonthlyInsights] = useState(null)
 
   const localToday = getLocalToday()
 
@@ -59,15 +68,15 @@ export default function TodayPage() {
     setLoading(true)
     setError(null)
     try {
-      const [todayRes, pendingRes, revRes] = await Promise.all([
+      const [todayRes, pendingRes, insightsRes] = await Promise.all([
         getAllBookings({ venueId: selectedVenue._id, date: localToday }),
         getAllBookings({ venueId: selectedVenue._id, status: 'pending', sortBy: 'priority' }),
-        getRevenueAnalytics(30),
+        getMonthlyInsights(currentMonthMY(), selectedVenue._id),
       ])
 
       setTodayBookings(todayRes.data?.data ?? [])
       setPendingBookings(pendingRes.data?.data ?? [])
-      setRevenueData(revRes.data ?? null)
+      setMonthlyInsights(insightsRes.data ?? null)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load today dashboard data.')
     } finally {
@@ -78,12 +87,6 @@ export default function TodayPage() {
   useEffect(() => {
     loadData()
   }, [loadData])
-
-  // Extract venue revenue matching selectedVenue._id
-  const venueRevenueRow = useMemo(() => {
-    if (!revenueData?.data || !selectedVenue?._id) return null
-    return revenueData.data.find((r) => String(r.venueId) === String(selectedVenue._id))
-  }, [revenueData, selectedVenue?._id])
 
   // Today's schedule: active bookings (exclude cancelled, rejected, expired)
   const activeTodayBookings = useMemo(() => {
@@ -304,13 +307,17 @@ export default function TodayPage() {
           </div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              {revenueData?.period || 'Last 30 days'} Revenue
+              Revenue this month
             </p>
             <p className="text-2xl font-bold text-gray-900 mt-0.5">
-              {formatCurrency(venueRevenueRow?.totalRevenue || 0)}
+              {loading ? (
+                <Spinner size="sm" />
+              ) : (
+                formatCurrency(monthlyInsights?.current?.revenue?.total || 0)
+              )}
             </p>
             <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-              {venueRevenueRow?.bookingCount || 0} bookings
+              confirmed payments
             </p>
           </div>
         </div>

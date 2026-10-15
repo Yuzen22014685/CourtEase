@@ -47,6 +47,18 @@ export const todayString = () => {
   return `${y}-${m}-${day}`
 }
 
+// '2026-10' -> 'October 2026'
+export const formatMonth = (month) => {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-MY', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+export const shiftMonth = (month, delta) => {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1 + delta, 1)).toISOString().slice(0, 7)
+}
+// Current month in Malaysia time, e.g. '2026-10'
+export const currentMonthMY = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 7)
+
 /** Check if a booking date+startTime is in the future */
 export const isUpcoming = (date, startTime) => {
   if (!date || !startTime) return false
