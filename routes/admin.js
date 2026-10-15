@@ -44,6 +44,20 @@ const {
   resendOwnerInvite,
   updateVenueOwner,
 } = require('../controllers/ownerAdminController');
+const {
+  getPaymentInfo,
+  getSettings,
+  updateSettings,
+  uploadPlatformQr,
+  deletePlatformQr,
+  generateStatements,
+  listStatements,
+  submittedCount,
+  loadOwnStatementForUpload,
+  uploadStatementReceipt,
+  verifyStatement,
+  rejectStatement,
+} = require('../controllers/commissionController');
 const upload = require('../middleware/upload');
 
 // Base guard: all routes require JWT and role of admin or venue_owner
@@ -163,4 +177,44 @@ router.patch('/reviews/:id/hide', adminOnly, hideReview);
 // PATCH /api/admin/reviews/:id/restore (Admin only)
 router.patch('/reviews/:id/restore', adminOnly, restoreReview);
 
+// ─── Platform Commission ──────────────────────────────────────────────────────
+// GET /api/admin/commission/payment-info
+router.get('/commission/payment-info', getPaymentInfo);
+
+// GET /api/admin/commission/settings (Admin only)
+router.get('/commission/settings', adminOnly, getSettings);
+
+// PATCH /api/admin/commission/settings (Admin only)
+router.patch('/commission/settings', adminOnly, updateSettings);
+
+// POST /api/admin/commission/settings/qr (Admin only)
+router.post('/commission/settings/qr', adminOnly, upload.single('qr'), uploadPlatformQr);
+
+// DELETE /api/admin/commission/settings/qr (Admin only)
+router.delete('/commission/settings/qr', adminOnly, deletePlatformQr);
+
+// POST /api/admin/commission/statements/generate (Admin only)
+router.post('/commission/statements/generate', adminOnly, generateStatements);
+
+// GET /api/admin/commission/statements
+router.get('/commission/statements', listStatements);
+
+// GET /api/admin/commission/statements/submitted-count (Admin only)
+router.get('/commission/statements/submitted-count', adminOnly, submittedCount);
+
+// POST /api/admin/commission/statements/:id/receipt (Owner only)
+router.post(
+  '/commission/statements/:id/receipt',
+  loadOwnStatementForUpload,
+  upload.single('receipt'),
+  uploadStatementReceipt
+);
+
+// PATCH /api/admin/commission/statements/:id/verify (Admin only)
+router.patch('/commission/statements/:id/verify', adminOnly, verifyStatement);
+
+// PATCH /api/admin/commission/statements/:id/reject (Admin only)
+router.patch('/commission/statements/:id/reject', adminOnly, rejectStatement);
+
 module.exports = router;
+
