@@ -10,6 +10,7 @@ const {
   getUtilization,
   approveBooking,
   rejectBooking,
+  getMonthlyInsights,
 } = require('../controllers/adminController');
 const {
   getAdminVenues,
@@ -68,6 +69,9 @@ router.get('/analytics/peak-hours', getPeakHours);
 
 // GET /api/admin/analytics/utilization
 router.get('/analytics/utilization', getUtilization);
+
+// GET /api/admin/insights/monthly
+router.get('/insights/monthly', getMonthlyInsights);
 
 // ─── Venue Management ────────────────────────────────────────────────────────
 // GET /api/admin/venues

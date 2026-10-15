@@ -13,6 +13,7 @@ const bookingSchema = new mongoose.Schema({
     default: 'pending',
   },
   autoConfirmed: { type: Boolean, default: false },
+  confirmedAt: { type: Date, default: null },
   paymentStatus: {
     type: String,
     // 'refunded' is a legacy value kept only so old records stay valid; no code may write it.

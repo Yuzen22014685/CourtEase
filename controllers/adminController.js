@@ -3,6 +3,14 @@ const Booking = require('../models/Booking');
 const Venue = require('../models/Venue');
 const Notification = require('../models/Notification');
 const { getOwnedVenueIds, canAccessVenue } = require('../utils/venueAccess');
+const {
+  MONTH_RE,
+  currentMonthMY,
+  shiftMonth,
+  monthRange,
+  computeMonthlyStats,
+  percentChange,
+} = require('../utils/insights');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "HH:MM" → minutes since midnight
@@ -319,6 +327,7 @@ const approveBooking = async (req, res, next) => {
     }
 
     booking.status = 'confirmed';
+    booking.confirmedAt = new Date();
     await booking.save();
 
     await Notification.create({
@@ -380,6 +389,122 @@ const rejectBooking = async (req, res, next) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// GET /api/admin/insights/monthly?month=YYYY-MM&venueId=
+// ---------------------------------------------------------------------------
+const getMonthlyInsights = async (req, res, next) => {
+  try {
+    const month = req.query.month || currentMonthMY();
+    if (!MONTH_RE.test(month)) {
+      return res.status(400).json({ success: false, message: 'Month must be YYYY-MM' });
+    }
+
+    const prev = shiftMonth(month, -1);
+    let scopeIds = null;
+
+    if (req.user.role === 'venue_owner') {
+      const ownedIds = await getOwnedVenueIds(req.user);
+      if (ownedIds.length === 0) {
+        const current = computeMonthlyStats([], [], month);
+        const previous = computeMonthlyStats([], [], prev);
+        return res.json({
+          success: true,
+          month,
+          previousMonth: prev,
+          current,
+          previous: {
+            revenue: previous.revenue,
+            bookings: previous.bookings,
+            utilisation: previous.utilisation,
+          },
+          change: {
+            revenue: null,
+            bookings: null,
+            utilisationPoints: 0,
+          },
+          perVenue: [],
+        });
+      }
+
+      if (req.query.venueId) {
+        if (!mongoose.isValidObjectId(req.query.venueId) || !ownedIds.some((id) => id.toString() === String(req.query.venueId))) {
+          return res.status(403).json({ success: false, message: 'You do not have access to this venue' });
+        }
+        scopeIds = [req.query.venueId];
+      } else {
+        scopeIds = ownedIds;
+      }
+    } else if (req.query.venueId) {
+      if (!mongoose.isValidObjectId(req.query.venueId)) {
+        return res.status(400).json({ success: false, message: 'Invalid venue ID' });
+      }
+      const targetVenue = await Venue.findById(req.query.venueId).select('_id');
+      if (!targetVenue) {
+        return res.status(404).json({ success: false, message: 'Venue not found' });
+      }
+      scopeIds = [req.query.venueId];
+    }
+
+    const venueQuery = scopeIds ? { _id: { $in: scopeIds } } : {};
+    const venues = await Venue.find(venueQuery)
+      .select('name area operatingHours numberOfCourts')
+      .lean();
+
+    const venueIds = venues.map((v) => v._id);
+    const bookings = await Booking.find({
+      venueId: { $in: venueIds },
+      date: { $gte: monthRange(prev).start, $lt: monthRange(month).endExclusive },
+    })
+      .select('venueId date startTime endTime amount items itemsTotal status paymentStatus confirmedAt')
+      .lean();
+
+    const curr = bookings.filter((b) => b.date.startsWith(month));
+    const prevB = bookings.filter((b) => b.date.startsWith(prev));
+
+    const current = computeMonthlyStats(curr, venues, month);
+    const previous = computeMonthlyStats(prevB, venues, prev);
+
+    const change = {
+      revenue: percentChange(current.revenue.total, previous.revenue.total),
+      bookings: percentChange(current.bookings.confirmed, previous.bookings.confirmed),
+      utilisationPoints: Math.round((current.utilisation.pct - previous.utilisation.pct) * 10) / 10,
+    };
+
+    let perVenue = [];
+    if (venues.length > 1) {
+      perVenue = venues.map((v) => {
+        const vBookings = curr.filter((b) => String(b.venueId) === String(v._id));
+        const s = computeMonthlyStats(vBookings, [v], month);
+        return {
+          venueId: v._id,
+          name: v.name,
+          area: v.area,
+          revenue: s.revenue,
+          confirmed: s.bookings.confirmed,
+          utilisationPct: s.utilisation.pct,
+          awaiting: s.awaitingVerification,
+        };
+      }).sort((a, b) => b.revenue.total - a.revenue.total);
+    }
+
+    res.json({
+      success: true,
+      month,
+      previousMonth: prev,
+      current,
+      previous: {
+        revenue: previous.revenue,
+        bookings: previous.bookings,
+        utilisation: previous.utilisation,
+      },
+      change,
+      perVenue,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getPendingCount,
   getAllBookings,
@@ -388,4 +513,5 @@ module.exports = {
   getUtilization,
   approveBooking,
   rejectBooking,
+  getMonthlyInsights,
 };

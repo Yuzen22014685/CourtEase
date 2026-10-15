@@ -166,6 +166,7 @@ const runPendingSafetyNet = async () => {
         // Receipt uploaded → auto-confirm
         booking.status = 'confirmed';
         booking.autoConfirmed = true;
+        booking.confirmedAt = new Date();
         await booking.save();
         try {
           await Notification.create({
