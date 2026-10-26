@@ -7,6 +7,7 @@ import { getCommissionPaymentInfo, uploadCommissionReceipt } from '../../api/adm
 import {
   ClipboardDocumentIcon,
   CheckIcon,
+  CheckCircleIcon,
   InformationCircleIcon,
   QrCodeIcon,
   BanknotesIcon,
@@ -27,6 +28,8 @@ export default function PayPlatformFeeModal({ statement, onClose, onDone }) {
 
   const [copiedRef, setCopiedRef] = useState(false)
   const [copiedAcc, setCopiedAcc] = useState(false)
+
+  const [successDetails, setSuccessDetails] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -130,7 +133,11 @@ export default function PayPlatformFeeModal({ statement, onClose, onDone }) {
 
     try {
       await uploadCommissionReceipt(statement._id, formData)
-      onDone()
+      setSuccessDetails({
+        month: statement.month,
+        amountDue: statement.amountDue,
+        paymentRef: statement.paymentRef,
+      })
     } catch (err) {
       setUploadError(err.response?.data?.message || 'Failed to upload receipt. Please try again.')
     } finally {
@@ -138,14 +145,68 @@ export default function PayPlatformFeeModal({ statement, onClose, onDone }) {
     }
   }
 
+  // Closing while on the success view must refresh the parent list
+  const handleModalClose = () => {
+    if (successDetails) {
+      onDone()
+    } else {
+      onClose()
+    }
+  }
+
   return (
     <Modal
       isOpen={Boolean(statement)}
-      onClose={onClose}
-      title={`Pay platform fee — ${formatMonth(statement.month)}`}
-      size="lg"
+      onClose={handleModalClose}
+      title={successDetails ? 'Payment submitted' : `Pay platform fee — ${formatMonth(statement.month)}`}
+      size={successDetails ? 'md' : 'lg'}
     >
-      <div className="space-y-5 text-gray-800">
+      {successDetails ? (
+        <div className="space-y-5 text-gray-800 py-1">
+          {/* Success Icon */}
+          <div className="w-14 h-14 rounded-full bg-primary-100 flex items-center justify-center mx-auto">
+            <CheckCircleIcon className="h-8 w-8 text-primary-600" />
+          </div>
+
+          {/* Heading */}
+          <h3 className="text-base sm:text-lg font-bold text-gray-900 text-center">
+            Receipt uploaded successfully
+          </h3>
+
+          {/* Statement Details */}
+          <div className="p-3.5 sm:p-4 bg-gray-50 rounded-xl border border-gray-200 divide-y divide-gray-100 text-xs sm:text-sm">
+            <div className="flex justify-between items-center py-2">
+              <span className="text-gray-500">Month</span>
+              <span className="font-semibold text-gray-900">{formatMonth(successDetails.month)}</span>
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-gray-500">Amount</span>
+              <span className="font-bold text-primary-700">{formatCurrency(successDetails.amountDue)}</span>
+            </div>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-gray-500">Reference</span>
+              <span className="font-mono font-bold text-gray-900 select-all tracking-wider">{successDetails.paymentRef}</span>
+            </div>
+          </div>
+
+          {/* Verification Notice */}
+          <p className="text-xs text-gray-500 text-center leading-relaxed">
+            CourtEase will verify your payment shortly. You&apos;ll see the status update on this page.
+          </p>
+
+          {/* Done Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onDone}
+              className="btn-primary w-full text-xs sm:text-sm py-2.5"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-5 text-gray-800">
         {/* Rejection Warning Box */}
         {statement.rejectionReason && (
           <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-800">
@@ -406,6 +467,7 @@ export default function PayPlatformFeeModal({ statement, onClose, onDone }) {
           </div>
         </form>
       </div>
+      )}
     </Modal>
   )
 }
