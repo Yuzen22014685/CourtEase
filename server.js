@@ -9,6 +9,7 @@ const { verifySMTP } = require('./utils/emailService');
 
 // Route imports
 const authRoutes = require('./routes/auth');
+const chatbotRoutes = require('./routes/chatbot');
 const playerRoutes = require('./routes/player');
 const adminRoutes = require('./routes/admin');
 
@@ -22,6 +23,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/chat', chatbotRoutes);
 app.use('/api', playerRoutes);
 app.use('/api/admin', adminRoutes);
 
