@@ -259,7 +259,7 @@ const buildSystemPrompt = (venues) => {
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Attempt plan: primary model, primary again after a short pause, then GEMINI_FALLBACK_MODEL (if set).
+// Attempt plan: primary model, then GEMINI_FALLBACK_MODEL (a different model, so not overloaded at the same time), then primary again.
 // Retries only on timeouts and temporary errors (rate limit / overloaded), never on 400/403.
 const callGemini = async (body) => {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -267,7 +267,7 @@ const callGemini = async (body) => {
 
     const primary = process.env.GEMINI_MODEL || DEFAULT_MODEL;
     const fallback = process.env.GEMINI_FALLBACK_MODEL;
-    const plan = [primary, primary, ...(fallback && fallback !== primary ? [fallback] : [])];
+    const plan = fallback && fallback !== primary ? [primary, fallback, primary] : [primary, primary];
     const started = Date.now();
     let temporaryFailure = true;
 
