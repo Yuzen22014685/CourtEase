@@ -14,6 +14,7 @@ const {
   canReviewBooking,
 } = require('../config/bookingPolicy');
 const { getHourlyRate, computeCourtAmount, getPriceRange } = require('../utils/pricing');
+const { buildAvailabilityMatrix } = require('../utils/availability');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,25 +26,6 @@ const { getHourlyRate, computeCourtAmount, getPriceRange } = require('../utils/p
 const toMinutes = (timeStr) => {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
-};
-
-/**
- * Generate hourly time slots between open and close (e.g. 07:00 → 23:00)
- */
-const generateSlots = (open, close) => {
-  const slots = [];
-  let current = toMinutes(open);
-  const end = toMinutes(close);
-  while (current < end) {
-    const h = String(Math.floor(current / 60)).padStart(2, '0');
-    const m = String(current % 60).padStart(2, '0');
-    const next = current + 60;
-    const hNext = String(Math.floor(next / 60)).padStart(2, '0');
-    const mNext = String(next % 60).padStart(2, '0');
-    slots.push({ start: `${h}:${m}`, end: `${hNext}:${mNext}` });
-    current = next;
-  }
-  return slots;
 };
 
 /**
@@ -166,44 +148,7 @@ const getVenueAvailability = async (req, res, next) => {
     const venue = await Venue.findById(req.params.id);
     if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
 
-    const courts = await Court.find({
-      venueId: venue._id,
-      status: { $in: ['active', 'maintenance'] },
-    }).sort('courtNumber');
-    const bookings = await Booking.find({
-      venueId: venue._id,
-      date,
-      status: { $in: SLOT_BLOCKING_STATUSES },
-    });
-
-    const slots = generateSlots(venue.operatingHours.open, venue.operatingHours.close);
-
-    const matrix = courts.map((court) => {
-      const isMaintenance = court.status === 'maintenance';
-      const courtBookings = bookings.filter((b) => b.courtId.toString() === court._id.toString());
-      const slotStatus = slots.map((slot) => {
-        const price = getHourlyRate(venue, date, slot.start);
-        if (isMaintenance) {
-          return { start: slot.start, end: slot.end, available: false, reason: 'maintenance', price };
-        }
-        const isBooked = courtBookings.some(
-          (b) => toMinutes(b.startTime) <= toMinutes(slot.start) && toMinutes(b.endTime) > toMinutes(slot.start)
-        );
-        return {
-          start: slot.start,
-          end: slot.end,
-          available: !isBooked,
-          reason: isBooked ? 'booked' : null,
-          price,
-        };
-      });
-      return {
-        courtId: court._id,
-        courtNumber: court.courtNumber,
-        status: court.status,
-        slots: slotStatus,
-      };
-    });
+    const matrix = await buildAvailabilityMatrix(venue, date);
 
     res.json({ success: true, date, venueId: venue._id, matrix });
   } catch (err) {
