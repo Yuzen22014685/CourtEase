@@ -15,6 +15,7 @@ const {
 } = require('../config/bookingPolicy');
 const { getHourlyRate, computeCourtAmount, getPriceRange } = require('../utils/pricing');
 const { buildAvailabilityMatrix } = require('../utils/availability');
+const { signUploadPath } = require('../utils/signedUrl');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -424,7 +425,7 @@ const getMyBookings = async (req, res, next) => {
             hiddenReason: existingReview.hiddenReason ?? null,
           }
         : null;
-      return { ...plain, canCancel, canReschedule, rescheduleBlockedReason, canReview, myReview };
+      return { ...plain, receiptImage: signUploadPath(plain.receiptImage), canCancel, canReschedule, rescheduleBlockedReason, canReview, myReview };
     });
 
     res.json({ success: true, count: data.length, data });

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { signUploadPath } = require('../utils/signedUrl');
 
 const bookingSchema = new mongoose.Schema({
   playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -56,5 +57,13 @@ const bookingSchema = new mongoose.Schema({
 // Index for fast lookup by player and venue
 bookingSchema.index({ playerId: 1, createdAt: -1 });
 bookingSchema.index({ venueId: 1, date: 1, courtId: 1 });
+
+// Receipt images are private: API responses carry a short-lived signed URL, never the raw path.
+bookingSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    if (ret.receiptImage) ret.receiptImage = signUploadPath(ret.receiptImage);
+    return ret;
+  },
+});
 
 module.exports = mongoose.model('Booking', bookingSchema);

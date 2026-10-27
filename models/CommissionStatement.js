@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { signUploadPath } = require('../utils/signedUrl');
 
 const commissionStatementSchema = new mongoose.Schema({
   venueId: {
@@ -77,5 +78,13 @@ const commissionStatementSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 commissionStatementSchema.index({ venueId: 1, month: 1 }, { unique: true });
+
+// Receipt images are private: API responses carry a short-lived signed URL, never the raw path.
+commissionStatementSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    if (ret.receiptImage) ret.receiptImage = signUploadPath(ret.receiptImage);
+    return ret;
+  },
+});
 
 module.exports = mongoose.model('CommissionStatement', commissionStatementSchema);

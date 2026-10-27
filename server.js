@@ -4,6 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const privateUploads = require('./middleware/privateUploads');
 const { startScheduler } = require('./cron/scheduler');
 const { verifySMTP } = require('./utils/emailService');
 
@@ -19,7 +20,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', privateUploads, express.static(path.join(__dirname, 'uploads')));
 
 // ─── Routes ─────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
