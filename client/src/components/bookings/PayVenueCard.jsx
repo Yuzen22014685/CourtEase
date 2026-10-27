@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { getBookingPaymentInfo } from '../../api/bookings'
-import { formatCurrency, getImageUrl } from '../../utils/format'
+import { formatCurrency, getImageUrl, pluralize } from '../../utils/format'
 import Spinner from '../ui/Spinner'
 import ErrorMessage from '../ui/ErrorMessage'
 import {
@@ -221,7 +221,7 @@ export default function PayVenueCard({ bookingId, chosenMethod }) {
           ) : (
             groupTotal?.count > 1 && (
               <span className="text-xs font-medium text-gray-500">
-                ({groupTotal.count} slots)
+                ({pluralize(groupTotal.count, 'slot')})
               </span>
             )
           )}

@@ -661,6 +661,8 @@ function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSucc
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
 
+  const hasAddOns = (booking?.items?.length || 0) > 0
+
   useEffect(() => {
     if (isOpen) {
       setStep(1)
@@ -696,6 +698,12 @@ function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSucc
           <p className="text-sm text-gray-600">
             CourtEase bookings are non-refundable. You can reschedule instead.
           </p>
+
+          {hasAddOns && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-2.5">
+              This session includes add-ons ({formatCurrency(booking.itemsTotal)}). Cancelling it forfeits them too — add-ons aren't refunded.
+            </div>
+          )}
 
           <div className="space-y-3 pt-2">
             <div className="space-y-1.5">
@@ -747,6 +755,12 @@ function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSucc
           <p className="text-sm text-gray-600">
             You will not receive a refund. Cancel this booking?
           </p>
+
+          {hasAddOns && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-2.5">
+              This session includes add-ons ({formatCurrency(booking.itemsTotal)}). Cancelling it forfeits them too — add-ons aren't refunded.
+            </div>
+          )}
 
           {error && <ErrorMessage message={error} />}
 

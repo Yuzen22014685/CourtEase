@@ -13,6 +13,7 @@ import {
   shiftMonth,
   currentMonthMY,
   formatDateTime,
+  pluralize,
 } from '../../utils/format'
 import {
   getCommissionStatements,
@@ -438,7 +439,7 @@ export default function CommissionPage() {
                         </td>
                         <td className="py-3.5 px-4 text-gray-700">
                           <div>{formatCurrency(s.courtRevenue)}</div>
-                          <div className="text-[10px] text-gray-400">{s.confirmedSessions || 0} sessions</div>
+                          <div className="text-[10px] text-gray-400">{pluralize(s.confirmedSessions || 0, 'session')}</div>
                         </td>
                         <td className="py-3.5 px-4 text-gray-700 font-medium">
                           {s.rate}%

@@ -11,7 +11,7 @@ import { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
-import { formatDate, formatTime, formatDateTime } from '../../utils/format'
+import { formatDate, formatTime, formatDateTime, pluralize } from '../../utils/format'
 import {
   FunnelIcon,
   CheckCircleIcon,
@@ -412,7 +412,7 @@ export default function ReviewsPage({ noLayout = false }) {
           {pages > 1 && (
             <div className="px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-xs text-gray-500">
-                Page {page} of {pages} · {total} reviews
+                Page {page} of {pages} · {pluralize(total, 'review')}
               </p>
               <div className="flex gap-2">
                 <button

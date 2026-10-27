@@ -14,7 +14,7 @@ import CheckoutStepIndicator from '../../components/bookings/CheckoutStepIndicat
 import CheckoutAddOnsStep from '../../components/bookings/CheckoutAddOnsStep'
 import CheckoutReviewStep from '../../components/bookings/CheckoutReviewStep'
 import CheckoutDoneSummary from '../../components/bookings/CheckoutDoneSummary'
-import { formatCurrency, formatDate, formatTime, todayString, getImageUrl, formatDays, formatPriceRange } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString, getImageUrl, formatDays, formatPriceRange, pluralize } from '../../utils/format'
 import {
   MapPinIcon,
   ClockIcon,
@@ -476,7 +476,7 @@ export default function VenueDetailPage() {
                 </div>
                 <div className="text-left sm:text-right shrink-0 mt-2 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-0 border-gray-100">
                   <p className="text-3xl font-bold text-primary-600">{formatPriceRange(venue)}</p>
-                  <p className="text-xs text-gray-400 mt-1">per hour · {venue.numberOfCourts} courts</p>
+                  <p className="text-xs text-gray-400 mt-1">per hour · {pluralize(venue.numberOfCourts, 'court')}</p>
                 </div>
               </div>
             </div>

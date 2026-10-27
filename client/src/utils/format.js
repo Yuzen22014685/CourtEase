@@ -126,4 +126,9 @@ export const formatPriceRange = (venue) => {
   return from === to ? `RM ${from}` : `RM ${from}–${to}`
 }
 
+// "1 session", "2 sessions"
+export const pluralize = (count, singular, plural = `${singular}s`) =>
+  `${count} ${Number(count) === 1 ? singular : plural}`
+
+
 

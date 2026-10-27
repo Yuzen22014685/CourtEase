@@ -184,6 +184,12 @@ export default function CheckoutReviewStep({
             <span className="mt-0.5 text-gray-400 shrink-0">•</span>
             <span>You can cancel a booking any time before the session starts, but the booking fee will not be refunded.</span>
           </li>
+          {chosenAddOns.length > 0 && (
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-gray-400 shrink-0">•</span>
+              <span>Add-ons are attached to your first session in this order. Cancelling that session forfeits them — add-ons aren't refunded.</span>
+            </li>
+          )}
         </ul>
 
         {/* Checkbox */}

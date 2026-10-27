@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { verifyCommissionStatement, rejectCommissionStatement } from '../../api/admin'
-import { formatCurrency, formatMonth, formatDateTime, getImageUrl } from '../../utils/format'
+import { formatCurrency, formatMonth, formatDateTime, getImageUrl, pluralize } from '../../utils/format'
 import Modal from '../ui/Modal'
 import Spinner from '../ui/Spinner'
 import ErrorMessage from '../ui/ErrorMessage'
@@ -100,7 +100,7 @@ export default function CommissionReviewModal({ statement, onClose, onDone }) {
             <div>
               <span className="text-gray-400 block mb-0.5">Court Revenue</span>
               <span className="font-medium text-gray-800">
-                {formatCurrency(statement.courtRevenue)} ({statement.confirmedSessions || 0} sessions)
+                {formatCurrency(statement.courtRevenue)} ({pluralize(statement.confirmedSessions || 0, 'session')})
               </span>
             </div>
             <div>

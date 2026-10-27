@@ -11,7 +11,7 @@ import { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
-import { formatCurrency, formatDate, formatTime, todayString, formatPaymentMethod, formatPaymentRef } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString, formatPaymentMethod, formatPaymentRef, pluralize } from '../../utils/format'
 import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
@@ -208,7 +208,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
       }
     }
 
-    setActionMessage(`Approved all ${successCount} bookings in this payment!`)
+    setActionMessage(`Approved ${pluralize(successCount, 'booking')} in this payment.`)
     refetch()
     closeReview()
     window.dispatchEvent(new Event('pending-count-changed'))
@@ -274,7 +274,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
       }
     }
 
-    setActionMessage(`Rejected all ${successCount} bookings.`)
+    setActionMessage(`Rejected ${pluralize(successCount, 'booking')}.`)
     refetch()
     closeReview()
     window.dispatchEvent(new Event('pending-count-changed'))
@@ -299,7 +299,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
           <div>
             <h1 className="page-title">Bookings</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {loading ? 'Loading…' : `${filteredBookings.length} bookings total`}
+              {loading ? 'Loading…' : `${pluralize(filteredBookings.length, 'booking')} total`}
             </p>
           </div>
           <button
@@ -1067,7 +1067,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
                   <div className="bg-red-50/70 border border-red-200 rounded-xl p-3.5 space-y-3 animate-fadeIn">
                     <div>
                       <label htmlFor="rejection-all-reason" className="block text-xs font-semibold text-red-900 mb-1">
-                        Reason for rejecting all {pendingInGroup.length} bookings <span className="text-red-500">*</span>
+                        Reason for rejecting {pluralize(pendingInGroup.length, 'booking')} <span className="text-red-500">*</span>
                       </label>
                       <textarea
                         id="rejection-all-reason"
