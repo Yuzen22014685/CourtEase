@@ -111,7 +111,7 @@ const hideReview = async (req, res, next) => {
         isRead: false,
         sentAt: new Date(),
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     const updated = await Review.findById(review._id)

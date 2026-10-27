@@ -28,7 +28,7 @@ export default function AnalyticsPage({ noLayout = false }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  {/* Fetch venues list for Admin */}
+  // Fetch venues list for Admin
   useEffect(() => {
     if (isOwner) return
     let active = true
@@ -57,12 +57,12 @@ export default function AnalyticsPage({ noLayout = false }) {
     }
   }, [isOwner])
 
-  {/* Fetch Monthly Insights with stale-response protection */}
+  // Fetch Monthly Insights with stale-response protection
   useEffect(() => {
-    {/* Guard 1: For owner, wait until owner venues context finishes initial loading */}
+    // Guard 1: For owner, wait until owner venues context finishes initial loading
     if (isOwner && ownerVenueLoading) return
 
-    {/* Guard 1: Zero-venue owner */}
+    // Guard 1: Zero-venue owner
     if (isOwner && ownerVenueCount === 0) {
       setLoading(false)
       setInsightsData(null)
@@ -72,7 +72,7 @@ export default function AnalyticsPage({ noLayout = false }) {
 
     const effectiveVenueId = isOwner ? selectedVenueId : adminVenueId
 
-    {/* Guard 1: If owner has venues but selectedVenue hasn't resolved yet, wait */}
+    // Guard 1: If owner has venues but selectedVenue hasn't resolved yet, wait
     if (isOwner && !effectiveVenueId) return
 
     let active = true

@@ -87,7 +87,7 @@ export default function AdminSidebar({
         const res = await getSubmittedCommissionCount()
         setLocalCommissionCount(res.data?.count ?? 0)
       } catch {
-        {/* silently ignore */}
+        // silently ignore
       }
     }
 

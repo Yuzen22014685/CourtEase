@@ -471,7 +471,7 @@ const uploadStatementReceipt = async (req, res, next) => {
           rejectionReason: null,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('venueId', 'name area');
 
     if (!updated) {
@@ -523,7 +523,7 @@ const verifyStatement = async (req, res, next) => {
           verifiedBy: req.user._id,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     )
       .populate('venueId', 'name area')
       .populate('verifiedBy', 'fullName email');
@@ -576,7 +576,7 @@ const rejectStatement = async (req, res, next) => {
           rejectionReason: trimmedReason.slice(0, 300),
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('venueId', 'name area');
 
     if (!updated) {

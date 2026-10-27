@@ -21,7 +21,7 @@ platformSettingsSchema.statics.getSettings = async function () {
   return await this.findOneAndUpdate(
     { key: 'platform' },
     { $setOnInsert: { key: 'platform' } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 };
 

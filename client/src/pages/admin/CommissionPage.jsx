@@ -30,30 +30,30 @@ import {
 export default function CommissionPage() {
   const previousMonth = shiftMonth(currentMonthMY(), -1)
 
-  {/* Generation state */}
+  // Generation state
   const [genMonth, setGenMonth] = useState(previousMonth)
   const [generating, setGenerating] = useState(false)
   const [genResult, setGenResult] = useState(null)
   const [genError, setGenError] = useState(null)
 
-  {/* Statements query state */}
+  // Statements query state
   const [selectedMonth, setSelectedMonth] = useState(previousMonth)
   const [statusFilter, setStatusFilter] = useState('all') // 'all' | 'submitted' | 'unpaid' | 'paid'
   const [refreshKey, setRefreshKey] = useState(0)
 
-  {/* Data state */}
+  // Data state
   const [statements, setStatements] = useState([])
   const [counts, setCounts] = useState({ unpaid: 0, submitted: 0, paid: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  {/* Awaiting review state across all months */}
+  // Awaiting review state across all months
   const [awaitingReviewStatements, setAwaitingReviewStatements] = useState([])
 
-  {/* Review modal state */}
+  // Review modal state
   const [selectedReviewStatement, setSelectedReviewStatement] = useState(null)
 
-  {/* Fetch statements awaiting review across all months */}
+  // Fetch statements awaiting review across all months
   useEffect(() => {
     let active = true
 
@@ -72,7 +72,7 @@ export default function CommissionPage() {
     }
   }, [refreshKey])
 
-  {/* Fetch statements with stale-response guard */}
+  // Fetch statements with stale-response guard
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -97,7 +97,7 @@ export default function CommissionPage() {
     }
   }, [selectedMonth, refreshKey])
 
-  {/* Generate handler */}
+  // Generate handler
   const handleGenerate = async () => {
     setGenerating(true)
     setGenError(null)
@@ -107,7 +107,7 @@ export default function CommissionPage() {
       const res = await generateCommissionStatements(genMonth)
       const { created = 0, skippedExisting = 0, noRevenue = 0 } = res.data || {}
       setGenResult(`Created ${created} · Already existed ${skippedExisting} · No revenue ${noRevenue}`)
-      {/* If generated for currently viewed month, refresh list */}
+      // If generated for currently viewed month, refresh list
       setRefreshKey((k) => k + 1)
     } catch (err) {
       setGenError(err.response?.data?.message || 'Failed to generate statements')
@@ -116,7 +116,7 @@ export default function CommissionPage() {
     }
   }
 
-  {/* Totals computed from the FULL month list */}
+  // Totals computed from the FULL month list
   const totalDue = useMemo(() => {
     return statements.reduce((sum, s) => sum + (s.amountDue || 0), 0)
   }, [statements])
@@ -127,7 +127,7 @@ export default function CommissionPage() {
       .reduce((sum, s) => sum + (s.amountDue || 0), 0)
   }, [statements])
 
-  {/* Filtered statements for table display */}
+  // Filtered statements for table display
   const displayedStatements = useMemo(() => {
     if (statusFilter === 'all') return statements
     return statements.filter((s) => s.status === statusFilter)

@@ -68,7 +68,7 @@ export default function MonthlyInsightsView({ data, showPerVenue = false }) {
   const previousMonth = data.previousMonth
   const perVenue = data.perVenue || []
 
-  {/* Trim peak hours to range between first and last hour with bookings */}
+  // Trim peak hours to range between first and last hour with bookings
   const peakList = current.peakHours || []
   const hoursWithBookings = peakList.filter((h) => h.bookings > 0)
   const hasAnyPeakBookings = hoursWithBookings.length > 0

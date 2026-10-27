@@ -37,7 +37,7 @@ export default function OwnerLayout() {
         const res = await getPendingCount()
         setPendingCount(res.data?.count ?? 0)
       } catch {
-        {/* silently ignore */}
+        // silently ignore
       }
     }
 

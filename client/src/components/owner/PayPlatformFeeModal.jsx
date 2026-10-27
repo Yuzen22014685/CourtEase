@@ -85,7 +85,7 @@ export default function PayPlatformFeeModal({ statement, onClose, onDone }) {
         return
       }
     } catch {
-      {/* fallback if clipboard permission blocked */}
+      // fallback if clipboard permission blocked
     }
   }
 

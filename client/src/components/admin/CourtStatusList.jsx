@@ -65,7 +65,7 @@ export default function CourtStatusList({ venueId }) {
           bookings: res.data.upcomingBookings,
         })
       } else if (nextStatus === 'active') {
-        {/* If this court was currently highlighted in notice, clear it */}
+        // If this court was currently highlighted in notice, clear it
         if (maintenanceNotice?.courtNumber === (updatedCourt?.courtNumber ?? court.courtNumber)) {
           setMaintenanceNotice(null)
         }

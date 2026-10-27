@@ -21,20 +21,20 @@ export default function CommissionSettingsCard({ onSaved }) {
   const [loading, setLoading] = useState(true)
   const [initialError, setInitialError] = useState(null)
 
-  {/* Form fields */}
+  // Form fields
   const [commissionRate, setCommissionRate] = useState('5')
   const [includeAddOns, setIncludeAddOns] = useState(false)
   const [bankName, setBankName] = useState('')
   const [accountName, setAccountName] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
 
-  {/* QR state */}
+  // QR state
   const [duitNowQr, setDuitNowQr] = useState('')
   const [uploadingQr, setUploadingQr] = useState(false)
   const [qrError, setQrError] = useState(null)
   const qrFileInputRef = useRef(null)
 
-  {/* Save state */}
+  // Save state
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
   const [successNotice, setSuccessNotice] = useState(null)
