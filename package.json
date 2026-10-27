@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "lint": "oxlint server.js seed.js config controllers cron middleware models routes services utils scripts"
   },
   "keywords": [
     "badminton",
@@ -29,6 +30,7 @@
     "nodemailer": "^10.0.10"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "oxlint": "^1.90.0"
   }
 }
