@@ -2,6 +2,9 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 
+// Stack of open modals, so Escape closes only the top one (e.g. a confirm dialog over the checkout).
+const openModalStack = []
+
 export default function Modal({ isOpen, onClose, title, children, size = 'md', disableBackdropClick = false }) {
   // Stable ref for onClose so the keydown effect never re-registers due to
   // a new function reference identity (which would cause stale closure capture
@@ -9,11 +12,22 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md', d
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose })
 
-  // Close on Escape key — depends only on isOpen, not on the onClose identity
+  // Close on Escape — only the most recently opened modal reacts.
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onCloseRef.current() }
-    if (isOpen) document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+    if (!isOpen) return undefined
+    const id = Symbol('modal')
+    openModalStack.push(id)
+    const handler = (e) => {
+      if (e.key !== 'Escape') return
+      if (openModalStack[openModalStack.length - 1] !== id) return
+      onCloseRef.current()
+    }
+    document.addEventListener('keydown', handler)
+    return () => {
+      document.removeEventListener('keydown', handler)
+      const i = openModalStack.indexOf(id)
+      if (i !== -1) openModalStack.splice(i, 1)
+    }
   }, [isOpen])
 
   // Prevent body scroll when open

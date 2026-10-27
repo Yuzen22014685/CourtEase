@@ -43,8 +43,8 @@ export default function CheckoutStepIndicator({ steps, currentStep, failedAll = 
                       isCurrent
                         ? 'text-gray-900'
                         : isCompleted
-                        ? 'text-gray-700'
-                        : 'text-gray-400'
+                        ? 'text-gray-700 hidden sm:inline'
+                        : 'text-gray-400 hidden sm:inline'
                     }`}
                   >
                     {step.label}
@@ -54,7 +54,7 @@ export default function CheckoutStepIndicator({ steps, currentStep, failedAll = 
                 {idx < steps.length - 1 && (
                   <li
                     aria-hidden="true"
-                    className={`flex-1 min-w-[1.25rem] sm:min-w-[2.5rem] h-0.5 mx-2 sm:mx-3 rounded ${
+                    className={`flex-1 min-w-[0.75rem] sm:min-w-[2.5rem] h-0.5 mx-1.5 sm:mx-3 rounded ${
                       isConnectorActive ? 'bg-primary-600' : 'bg-gray-200'
                     }`}
                   />
