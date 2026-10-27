@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { forgotPassword } from '../../api/auth'
 import Spinner from '../../components/ui/Spinner'
+import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const [turnstileError, setTurnstileError] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -19,18 +23,27 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email.trim() || loading || countdown > 0) return
+    if (!email.trim() || loading || countdown > 0 || !turnstileToken) return
 
     setLoading(true)
+    setTurnstileError('')
     try {
-      await forgotPassword(email.trim())
-    } catch (err) {
-      // Security requirement: Always show same generic response even if API fails or rate-limits
-      console.warn('Password reset request error:', err)
-    } finally {
-      setLoading(false)
+      await forgotPassword(email.trim(), turnstileToken)
       setSubmitted(true)
       setCountdown(60)
+    } catch (err) {
+      if (err.response?.status === 400 || err.response?.status === 503) {
+        setTurnstileError(err.response?.data?.message || 'Security check failed. Please try again.')
+        return
+      }
+      // Security requirement: Always show same generic response even if API fails or rate-limits
+      console.warn('Password reset request error:', err)
+      setSubmitted(true)
+      setCountdown(60)
+    } finally {
+      setLoading(false)
+      setTurnstileToken(null)
+      setWidgetKey((k) => k + 1)
     }
   }
 
@@ -96,10 +109,19 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
+            <TurnstileWidget
+              key={widgetKey}
+              onToken={setTurnstileToken}
+              onError={setTurnstileError}
+            />
+            {turnstileError && (
+              <p className="text-xs text-red-500 text-center">{turnstileError}</p>
+            )}
+
             <button
               id="forgot-password-submit"
               type="submit"
-              disabled={loading || !email.trim() || countdown > 0}
+              disabled={loading || !email.trim() || countdown > 0 || !turnstileToken}
               className="btn-primary w-full btn-lg mt-2"
             >
               {loading ? <Spinner size="sm" /> : null}

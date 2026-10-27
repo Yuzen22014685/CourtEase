@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { resendVerification } from '../../api/auth'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
+import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function CheckEmailPage() {
   const [searchParams] = useSearchParams()
@@ -12,6 +13,9 @@ export default function CheckEmailPage() {
   const [resending, setResending] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [error, setError] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const [turnstileError, setTurnstileError] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -22,18 +26,20 @@ export default function CheckEmailPage() {
   }, [countdown])
 
   const handleResend = async () => {
-    if (countdown > 0 || resending || !email) return
+    if (countdown > 0 || resending || !email || !turnstileToken) return
     setResending(true)
     setError('')
     setStatusMessage('')
     try {
-      const res = await resendVerification(email)
+      const res = await resendVerification(email, turnstileToken)
       setStatusMessage(res.data?.message || 'A new verification link has been sent if an unverified account exists.')
       setCountdown(60)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to resend verification email. Please try again.')
     } finally {
       setResending(false)
+      setTurnstileToken(null)
+      setWidgetKey((k) => k + 1)
     }
   }
 
@@ -91,13 +97,22 @@ export default function CheckEmailPage() {
           )}
 
           <div className="space-y-3">
+            <TurnstileWidget
+              key={widgetKey}
+              onToken={setTurnstileToken}
+              onError={setTurnstileError}
+            />
+            {turnstileError && (
+              <p className="text-xs text-red-500 text-center">{turnstileError}</p>
+            )}
+
             <button
               id="resend-verification-btn"
               type="button"
               onClick={handleResend}
-              disabled={countdown > 0 || resending || !email}
+              disabled={countdown > 0 || resending || !email || !turnstileToken}
               className={`w-full btn-lg font-medium rounded-xl transition-all duration-150 flex items-center justify-center gap-2 ${
-                countdown > 0 || !email
+                countdown > 0 || !email || !turnstileToken
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                   : 'btn-primary'
               }`}

@@ -6,6 +6,7 @@ import { login, resendVerification } from '../../api/auth'
 import PasswordInput from '../../components/ui/PasswordInput'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
+import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -27,6 +28,9 @@ export default function LoginPage() {
   const [resending, setResending] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
   const [resendStatus, setResendStatus] = useState('')
+  const [showResendCheck, setShowResendCheck] = useState(false)
+  const [turnstileError, setTurnstileError] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
 
   useEffect(() => {
     if (resendCountdown <= 0) return
@@ -42,22 +46,30 @@ export default function LoginPage() {
     if (notVerified) {
       setNotVerified(false)
       setResendStatus('')
+      setShowResendCheck(false)
+      setTurnstileError('')
     }
   }
 
-  const handleResend = async () => {
-    if (resendCountdown > 0 || resending || !form.email) return
+  const handleResendToken = async (token) => {
+    if (!token) return
     setResending(true)
-    setResendStatus('')
     try {
-      const res = await resendVerification(form.email)
+      const res = await resendVerification(form.email, token)
       setResendStatus(res.data?.message || 'Verification link sent! Please check your inbox.')
       setResendCountdown(60)
     } catch (err) {
       setResendStatus(err.response?.data?.message || 'Failed to resend verification email.')
     } finally {
       setResending(false)
+      setShowResendCheck(false)
+      setWidgetKey((k) => k + 1)
     }
+  }
+
+  const handleResendCheckError = (message) => {
+    setTurnstileError(message)
+    setShowResendCheck(false)
   }
 
   const handleSubmit = async (e) => {
@@ -66,6 +78,8 @@ export default function LoginPage() {
     setError('')
     setNotVerified(false)
     setResendStatus('')
+    setShowResendCheck(false)
+    setTurnstileError('')
 
     try {
       const res = await login(form)
@@ -127,17 +141,37 @@ export default function LoginPage() {
 
                   <button
                     type="button"
-                    onClick={handleResend}
-                    disabled={resendCountdown > 0 || resending}
+                    onClick={() => {
+                      setResendStatus('')
+                      setTurnstileError('')
+                      setShowResendCheck(true)
+                    }}
+                    disabled={resendCountdown > 0 || resending || showResendCheck}
                     className="mt-2 text-xs font-semibold text-amber-900 hover:text-amber-950 underline disabled:opacity-50 disabled:no-underline inline-flex items-center gap-1 cursor-pointer"
                   >
                     {resending && <Spinner size="sm" />}
                     {resendCountdown > 0 ? `Resend email in ${resendCountdown}s` : 'Resend verification email'}
                   </button>
+
+                  {showResendCheck && (
+                    <div className="my-2 space-y-1">
+                      <p className="text-xs text-gray-500">Quick security check…</p>
+                      <TurnstileWidget
+                        key={widgetKey}
+                        onToken={handleResendToken}
+                        onError={handleResendCheckError}
+                      />
+                    </div>
+                  )}
+
+                  {turnstileError && (
+                    <p className="text-xs text-red-500 mt-1">{turnstileError}</p>
+                  )}
                 </div>
               </div>
             </div>
           )}
+
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div>

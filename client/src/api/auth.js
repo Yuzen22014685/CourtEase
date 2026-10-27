@@ -13,10 +13,10 @@ export const updateProfile = (data) => api.patch('/auth/profile', data)
 export const verifyEmail = (token) => api.get(`/auth/verify-email/${token}`)
 
 /** Resend verification email */
-export const resendVerification = (email) => api.post('/auth/resend-verification', { email })
+export const resendVerification = (email, turnstileToken) => api.post('/auth/resend-verification', { email, turnstileToken })
 
 /** Request password reset email */
-export const forgotPassword = (email) => api.post('/auth/forgot-password', { email })
+export const forgotPassword = (email, turnstileToken) => api.post('/auth/forgot-password', { email, turnstileToken })
 
 /** Reset password using token */
 export const resetPassword = (token, password) => api.post(`/auth/reset-password/${token}`, { password })

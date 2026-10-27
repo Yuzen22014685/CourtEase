@@ -12,6 +12,7 @@ const {
   resetPassword,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
+const { requireTurnstile } = require('../utils/turnstile');
 
 // Rate limiters
 const loginLimiter = rateLimit({
@@ -70,7 +71,7 @@ const resetPasswordLimiter = rateLimit({
 });
 
 // POST /api/auth/register
-router.post('/register', registerLimiter, register);
+router.post('/register', registerLimiter, requireTurnstile, register);
 
 // POST /api/auth/login
 router.post('/login', loginLimiter, login);
@@ -79,10 +80,10 @@ router.post('/login', loginLimiter, login);
 router.get('/verify-email/:token', verifyEmail);
 
 // POST /api/auth/resend-verification
-router.post('/resend-verification', resendLimiter, resendVerification);
+router.post('/resend-verification', resendLimiter, requireTurnstile, resendVerification);
 
 // POST /api/auth/forgot-password
-router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/forgot-password', forgotPasswordLimiter, requireTurnstile, forgotPassword);
 
 // POST /api/auth/reset-password/:token
 router.post('/reset-password/:token', resetPasswordLimiter, resetPassword);

@@ -7,6 +7,7 @@ import PasswordInput from '../../components/ui/PasswordInput'
 import PasswordChecklist, { checkPasswordValidity } from '../../components/ui/PasswordChecklist'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
+import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 const INITIAL = {
   fullName: '',
@@ -31,6 +32,9 @@ export default function RegisterPage() {
   const [form, setForm]     = useState(INITIAL)
   const [error, setError]   = useState('')
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const [turnstileError, setTurnstileError] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
 
   // Password rules validation
   const { isValid: isPasswordValid } = checkPasswordValidity(form.password)
@@ -53,19 +57,21 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!isFormValid) return
+    if (!isFormValid || !turnstileToken) return
 
     setLoading(true)
     setError('')
     try {
       // Exclude confirmPassword so it is never sent to the backend
       const { confirmPassword: _, ...payload } = form
-      await register(payload)
+      await register({ ...payload, turnstileToken })
       navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
+      setTurnstileToken(null)
+      setWidgetKey((k) => k + 1)
     }
   }
 
@@ -174,10 +180,19 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            <TurnstileWidget
+              key={widgetKey}
+              onToken={setTurnstileToken}
+              onError={setTurnstileError}
+            />
+            {turnstileError && (
+              <p className="text-xs text-red-500 text-center">{turnstileError}</p>
+            )}
+
             <button
               id="register-submit"
               type="submit"
-              disabled={loading || !isFormValid}
+              disabled={loading || !isFormValid || !turnstileToken}
               className="btn-primary w-full btn-lg mt-2"
             >
               {loading ? <Spinner size="sm" /> : null}

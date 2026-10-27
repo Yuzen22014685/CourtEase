@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { verifyEmail, resendVerification } from '../../api/auth'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
+import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function VerifyEmailPage() {
   const { token } = useParams()
@@ -17,6 +18,9 @@ export default function VerifyEmailPage() {
   const [resendCountdown, setResendCountdown] = useState(0)
   const [resendStatus, setResendStatus] = useState('')
   const [resendError, setResendError] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const [turnstileError, setTurnstileError] = useState('')
+  const [widgetKey, setWidgetKey] = useState(0)
 
   useEffect(() => {
     if (resendCountdown <= 0) return
@@ -53,14 +57,14 @@ export default function VerifyEmailPage() {
 
   const handleResend = async (e) => {
     e.preventDefault()
-    if (resendCountdown > 0 || resending || !resendEmail.trim()) return
+    if (resendCountdown > 0 || resending || !resendEmail.trim() || !turnstileToken) return
 
     setResending(true)
     setResendError('')
     setResendStatus('')
 
     try {
-      const res = await resendVerification(resendEmail.trim())
+      const res = await resendVerification(resendEmail.trim(), turnstileToken)
       setResendStatus(
         res.data?.message || 'If an unverified account exists, a new verification link has been sent.'
       )
@@ -69,6 +73,8 @@ export default function VerifyEmailPage() {
       setResendError(err.response?.data?.message || 'Failed to resend verification email.')
     } finally {
       setResending(false)
+      setTurnstileToken(null)
+      setWidgetKey((k) => k + 1)
     }
   }
 
@@ -161,11 +167,21 @@ export default function VerifyEmailPage() {
                     placeholder="you@example.com"
                     className="input text-sm"
                   />
+
+                  <TurnstileWidget
+                    key={widgetKey}
+                    onToken={setTurnstileToken}
+                    onError={setTurnstileError}
+                  />
+                  {turnstileError && (
+                    <p className="text-xs text-red-500 text-center">{turnstileError}</p>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={resendCountdown > 0 || resending || !resendEmail.trim()}
+                    disabled={resendCountdown > 0 || resending || !resendEmail.trim() || !turnstileToken}
                     className={`w-full py-2 px-3 text-sm font-medium rounded-lg transition-all flex items-center justify-center gap-2 ${
-                      resendCountdown > 0 || !resendEmail.trim()
+                      resendCountdown > 0 || !resendEmail.trim() || !turnstileToken
                         ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                         : 'btn-primary'
                     }`}
