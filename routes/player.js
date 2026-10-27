@@ -10,6 +10,7 @@ const {
   getMyBookings,
   cancelBooking,
   rescheduleBooking,
+  verifyBookingForReceiptUpload,
   uploadReceipt,
   getBookingPaymentInfo,
   createReview,
@@ -35,7 +36,13 @@ router.get('/bookings/me', protect, getMyBookings);
 router.get('/bookings/:id/payment-info', protect, getBookingPaymentInfo);
 router.patch('/bookings/:id/cancel', protect, cancelBooking);
 router.patch('/bookings/:id/reschedule', protect, rescheduleBooking);
-router.post('/bookings/:id/upload-receipt', protect, upload.single('receipt'), uploadReceipt);
+router.post(
+  '/bookings/:id/upload-receipt',
+  protect,
+  verifyBookingForReceiptUpload,
+  upload.single('receipt'),
+  uploadReceipt
+);
 router.post('/bookings/:id/review', protect, createReview);
 
 // Notification routes (protected)

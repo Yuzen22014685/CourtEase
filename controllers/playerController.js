@@ -616,19 +616,49 @@ const rescheduleBooking = async (req, res, next) => {
 };
 
 // ---------------------------------------------------------------------------
+// Middleware: verify booking exists, belongs to player, and is pending before multer writes file
+// ---------------------------------------------------------------------------
+const verifyBookingForReceiptUpload = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.playerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorised to upload receipt for this booking' });
+    }
+
+    if (booking.status !== 'pending') {
+      return res.status(409).json({ success: false, message: 'Receipts can only be uploaded for pending bookings.' });
+    }
+
+    req.booking = booking;
+    next();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ---------------------------------------------------------------------------
 // POST /api/bookings/:id/upload-receipt
 // ---------------------------------------------------------------------------
 const uploadReceipt = async (req, res, next) => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = req.booking || (await Booking.findById(req.params.id));
     if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
 
     if (booking.playerId.toString() !== req.user._id.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorised to upload receipt for this booking' });
     }
 
-    if (['rejected', 'cancelled'].includes(booking.status)) {
-      return res.status(400).json({ success: false, message: 'Cannot upload a receipt for a rejected or cancelled booking' });
+    if (booking.status !== 'pending') {
+      return res.status(409).json({ success: false, message: 'Receipts can only be uploaded for pending bookings.' });
     }
 
     if (!req.file) {
@@ -864,6 +894,7 @@ module.exports = {
   getMyBookings,
   cancelBooking,
   rescheduleBooking,
+  verifyBookingForReceiptUpload,
   uploadReceipt,
   createReview,
   getVenueReviews,
