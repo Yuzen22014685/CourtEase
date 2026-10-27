@@ -16,6 +16,7 @@ const {
 const { getHourlyRate, computeCourtAmount, getPriceRange } = require('../utils/pricing');
 const { buildAvailabilityMatrix } = require('../utils/availability');
 const { signUploadPath } = require('../utils/signedUrl');
+const { saveAndHandOverAddOns } = require('../utils/addOns');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -464,7 +465,7 @@ const cancelBooking = async (req, res, next) => {
     }
 
     booking.status = 'cancelled';
-    await booking.save();
+    await saveAndHandOverAddOns(booking);
 
     res.json({ success: true, message: 'Booking cancelled', data: booking });
   } catch (err) {

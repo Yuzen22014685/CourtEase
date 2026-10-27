@@ -11,6 +11,7 @@ const {
   computeMonthlyStats,
   percentChange,
 } = require('../utils/insights');
+const { saveAndHandOverAddOns } = require('../utils/addOns');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "HH:MM" → minutes since midnight
@@ -374,7 +375,7 @@ const rejectBooking = async (req, res, next) => {
     booking.status = 'rejected';
     booking.paymentStatus = 'not_verified';
     booking.rejectionReason = trimmedReason.slice(0, 300);
-    await booking.save();
+    await saveAndHandOverAddOns(booking);
 
     await Notification.create({
       playerId: booking.playerId,

@@ -221,6 +221,15 @@ export default function MyBookingsPage() {
   const cancelTargetBooking = cancelModalBookingId
     ? bookings.find((b) => b._id === cancelModalBookingId)
     : null
+  const cancelHasOtherActiveSessions = useMemo(() => {
+    if (!cancelTargetBooking?.paymentRef) return false
+    return bookings.some(
+      (b) =>
+        b.paymentRef === cancelTargetBooking.paymentRef &&
+        b._id !== cancelTargetBooking._id &&
+        ['pending', 'confirmed'].includes(b.status)
+    )
+  }, [cancelTargetBooking, bookings])
 
   return (
     <Layout>
@@ -431,6 +440,7 @@ export default function MyBookingsPage() {
               setTimeout(() => setInfoToast(''), 3500)
               refetch()
             }}
+            hasOtherActiveSessions={cancelHasOtherActiveSessions}
           />
         )}
 
@@ -656,7 +666,7 @@ function BookingCard({ booking, isHighlighted, onOpenUpload, onOpenCancel, onOpe
 // ---------------------------------------------------------------------------
 // Cancel Options Modal
 // ---------------------------------------------------------------------------
-function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSuccess }) {
+function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSuccess, hasOtherActiveSessions }) {
   const [step, setStep] = useState(1)
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
@@ -701,7 +711,9 @@ function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSucc
 
           {hasAddOns && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-2.5">
-              This session includes add-ons ({formatCurrency(booking.itemsTotal)}). Cancelling it forfeits them too — add-ons aren't refunded.
+              {hasOtherActiveSessions
+                ? `This session holds your order's add-ons (${formatCurrency(booking.itemsTotal)}). If you cancel it, they move to your next session in this order.`
+                : `This session includes add-ons (${formatCurrency(booking.itemsTotal)}). Cancelling it forfeits them too — add-ons aren't refunded.`}
             </div>
           )}
 
@@ -758,7 +770,9 @@ function CancelOptionsModal({ booking, isOpen, onClose, onOpenReschedule, onSucc
 
           {hasAddOns && (
             <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-lg p-2.5">
-              This session includes add-ons ({formatCurrency(booking.itemsTotal)}). Cancelling it forfeits them too — add-ons aren't refunded.
+              {hasOtherActiveSessions
+                ? `This session holds your order's add-ons (${formatCurrency(booking.itemsTotal)}). If you cancel it, they move to your next session in this order.`
+                : `This session includes add-ons (${formatCurrency(booking.itemsTotal)}). Cancelling it forfeits them too — add-ons aren't refunded.`}
             </div>
           )}
 

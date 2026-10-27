@@ -187,7 +187,7 @@ export default function CheckoutReviewStep({
           {chosenAddOns.length > 0 && (
             <li className="flex items-start gap-2">
               <span className="mt-0.5 text-gray-400 shrink-0">•</span>
-              <span>Add-ons are attached to your first session in this order. Cancelling that session forfeits them — add-ons aren't refunded.</span>
+              <span>Add-ons belong to this order. If you cancel the session they're listed under, they move to your next session — they're only forfeited if every session in the order is cancelled. Add-ons aren't refunded.</span>
             </li>
           )}
         </ul>

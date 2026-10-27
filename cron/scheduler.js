@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const { getSessionStart, getSessionEnd } = require('../config/bookingPolicy');
+const { saveAndHandOverAddOns } = require('../utils/addOns');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "YYYY-MM-DDTHH:MM:00+08:00" from booking date + time
@@ -183,7 +184,7 @@ const runPendingSafetyNet = async () => {
         // No receipt → expire
         booking.status = 'expired';
         booking.paymentStatus = 'not_verified';
-        await booking.save();
+        await saveAndHandOverAddOns(booking);
         try {
           await Notification.create({
             playerId: booking.playerId,
