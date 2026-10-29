@@ -14,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
 import { getImageUrl, formatPriceRange } from '../../utils/format'
+import { sortVenuesByDistance, formatDistance } from '../../utils/distance'
 
 const AREA_COLOURS = {
   'Bayan Lepas':     'bg-blue-100 text-blue-700',
@@ -27,22 +28,65 @@ const AREA_COLOURS = {
 
 export default function VenuesPage() {
   const [selectedArea, setSelectedArea] = useState('')
+  const [userLocation, setUserLocation] = useState(null)
+  const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
 
   const fetchFn = useCallback(() => getVenues(), [])
   const { data, loading, error } = useApi(fetchFn, [])
 
-  const allVenues = data?.data ?? []
+  const allVenues = useMemo(() => data?.data ?? [], [data])
 
   // Only show areas that have at least one active venue
   const availableAreas = useMemo(() => {
     return Array.from(new Set(allVenues.map((v) => v.area).filter(Boolean))).sort()
   }, [allVenues])
 
-  // Filter venues by selected area
+  // Filter venues by selected area and optionally sort by distance
   const venues = useMemo(() => {
-    if (!selectedArea) return allVenues
-    return allVenues.filter((v) => v.area === selectedArea)
-  }, [allVenues, selectedArea])
+    const base = allVenues || []
+    const filtered = selectedArea
+      ? base.filter((v) => v.area === selectedArea)
+      : base
+    return userLocation ? sortVenuesByDistance(filtered, userLocation) : filtered
+  }, [allVenues, selectedArea, userLocation])
+
+  const handleNearMe = useCallback(() => {
+    if (locating) return
+    if (!('geolocation' in navigator)) {
+      setLocationError('Your browser does not support location.')
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        })
+        setLocationError('')
+        setLocating(false)
+      },
+      (err) => {
+        let message = 'Could not get your location.'
+        if (err.code === 1) {
+          message = 'Location permission denied. Allow location access in your browser settings, or browse by area.'
+        } else if (err.code === 2) {
+          message = 'Your location could not be determined. Please try again.'
+        } else if (err.code === 3) {
+          message = 'Locating took too long. Please try again.'
+        }
+        setLocationError(message)
+        setLocating(false)
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    )
+  }, [locating])
+
+  const handleClearLocation = useCallback(() => {
+    setUserLocation(null)
+    setLocationError('')
+  }, [])
 
   return (
     <Layout>
@@ -60,8 +104,8 @@ export default function VenuesPage() {
           </p>
         </div>
 
-        {/* Area filter */}
-        <div className="flex flex-wrap gap-2 mb-8">
+        {/* Area filter & Near me */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <button
             id="area-filter-all"
             onClick={() => setSelectedArea('')}
@@ -87,10 +131,51 @@ export default function VenuesPage() {
               {area}
             </button>
           ))}
+
+          {/* Near me button / state */}
+          {!userLocation ? (
+            <button
+              id="near-me-btn"
+              type="button"
+              onClick={handleNearMe}
+              disabled={locating}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-all inline-flex items-center gap-1.5 bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MapPinIcon className="h-4 w-4" />
+              {locating ? 'Locating…' : 'Near me'}
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-primary-50 text-primary-700 border border-primary-200">
+              <MapPinIcon className="h-4 w-4 text-primary-600" />
+              <span>Sorted by distance</span>
+              <button
+                type="button"
+                id="clear-near-me-btn"
+                onClick={handleClearLocation}
+                className="text-xs text-primary-600 hover:text-primary-800 underline font-semibold ml-1"
+              >
+                Clear
+              </button>
+            </div>
+          )}
         </div>
+
+        {locationError ? (
+          <p className="text-xs text-amber-600 mb-6 font-medium">
+            {locationError}
+          </p>
+        ) : (
+          <div className="mb-5" />
+        )}
 
         {/* Error */}
         <ErrorMessage message={error} className="mb-6" />
+
+        {!loading && !error && userLocation && (
+          <p className="text-xs text-gray-400 mb-4">
+            Straight-line distance from your current location. Your location is not saved.
+          </p>
+        )}
 
         {/* Grid */}
         {loading ? (
@@ -166,6 +251,14 @@ function VenueCard({ venue }) {
           <MapPinIcon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <span className="line-clamp-1">{venue.address}</span>
         </div>
+        {typeof venue.distanceKm === 'number' && (
+          <div className="mt-1.5">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-primary-700 bg-primary-50 px-2 py-0.5 rounded-full">
+              <MapPinIcon className="h-3 w-3" />
+              {formatDistance(venue.distanceKm)}
+            </span>
+          </div>
+        )}
         {venue.description && (
           <p className="text-xs text-gray-500 line-clamp-2 mt-2 leading-relaxed">
             {venue.description}

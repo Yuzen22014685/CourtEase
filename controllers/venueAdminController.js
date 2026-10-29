@@ -15,6 +15,11 @@ const { validatePricingRules, getPriceRange } = require('../utils/pricing');
 // ---------------------------------------------------------------------------
 
 /**
+ * Treat a coordinate value as empty if it is undefined, null, or whitespace-only
+ */
+const isBlankCoord = (v) => v === undefined || v === null || String(v).trim() === '';
+
+/**
  * Parse "HH:MM" into total minutes since midnight
  */
 const toMinutes = (timeStr) => {
@@ -199,16 +204,28 @@ const createVenue = async (req, res, next) => {
 
     // Location validation (optional)
     let parsedLocation = undefined;
-    if (location && (location.lat !== '' && location.lat !== undefined || location.lng !== '' && location.lng !== undefined)) {
-      const lat = Number(location.lat);
-      const lng = Number(location.lng);
-      if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+    if (location !== undefined && location !== null) {
+      const latBlank = isBlankCoord(location.lat);
+      const lngBlank = isBlankCoord(location.lng);
+
+      if (latBlank !== lngBlank) {
         return res.status(400).json({
           success: false,
-          message: 'Latitude must be between -90 and 90, and longitude between -180 and 180',
+          message: 'Enter both latitude and longitude, or leave both empty',
         });
       }
-      parsedLocation = { lat, lng };
+
+      if (!latBlank && !lngBlank) {
+        const lat = Number(location.lat);
+        const lng = Number(location.lng);
+        if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+          return res.status(400).json({
+            success: false,
+            message: 'Latitude must be between -90 and 90, and longitude between -180 and 180',
+          });
+        }
+        parsedLocation = { lat, lng };
+      }
     }
 
     // Clean facilities
@@ -361,22 +378,32 @@ const updateVenue = async (req, res, next) => {
 
     // Location
     if (location !== undefined) {
-      if (
-        location === null ||
-        (location.lat === '' || location.lat === undefined) &&
-        (location.lng === '' || location.lng === undefined)
-      ) {
+      if (location === null) {
         venue.location = undefined;
       } else {
-        const lat = Number(location.lat);
-        const lng = Number(location.lng);
-        if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+        const latBlank = isBlankCoord(location.lat);
+        const lngBlank = isBlankCoord(location.lng);
+
+        if (latBlank !== lngBlank) {
           return res.status(400).json({
             success: false,
-            message: 'Latitude must be between -90 and 90, and longitude between -180 and 180',
+            message: 'Enter both latitude and longitude, or leave both empty',
           });
         }
-        venue.location = { lat, lng };
+
+        if (latBlank && lngBlank) {
+          venue.location = undefined;
+        } else {
+          const lat = Number(location.lat);
+          const lng = Number(location.lng);
+          if (isNaN(lat) || lat < -90 || lat > 90 || isNaN(lng) || lng < -180 || lng > 180) {
+            return res.status(400).json({
+              success: false,
+              message: 'Latitude must be between -90 and 90, and longitude between -180 and 180',
+            });
+          }
+          venue.location = { lat, lng };
+        }
       }
     }
 
