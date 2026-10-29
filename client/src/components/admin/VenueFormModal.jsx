@@ -341,7 +341,15 @@ export default function VenueFormModal({
     }
 
     let locationPayload = undefined
-    if (lat !== '' || lng !== '') {
+    const latBlank = lat === undefined || lat === null || String(lat).trim() === ''
+    const lngBlank = lng === undefined || lng === null || String(lng).trim() === ''
+
+    if (latBlank !== lngBlank) {
+      triggerError('Enter both latitude and longitude, or leave both empty.')
+      return
+    }
+
+    if (!latBlank && !lngBlank) {
       const latNum = Number(lat)
       const lngNum = Number(lng)
       if (isNaN(latNum) || latNum < -90 || latNum > 90 || isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
