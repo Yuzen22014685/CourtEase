@@ -268,21 +268,8 @@ export default function AdminSidebar({
         </aside>
       </div>
 
-      {/* ── Desktop fixed sidebar (lg and up: kept exactly as it is) ── */}
+      {/* ── Desktop fixed sidebar (lg and up) ── */}
       <aside className="w-64 shrink-0 hidden lg:flex flex-col bg-white border-r border-gray-100 min-h-screen">
-        {/* Brand */}
-        <div className="px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
-              <span className="text-white text-lg">🏸</span>
-            </div>
-            <div>
-              <span className="font-bold text-gray-900">Court<span className="text-primary-600">Ease</span></span>
-              <p className="text-xs text-gray-400">Admin Console</p>
-            </div>
-          </div>
-        </div>
-
         {/* Nav */}
         {renderNav()}
 
