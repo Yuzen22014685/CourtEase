@@ -11,10 +11,8 @@ import { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
-import { formatCurrency, formatDate, formatTime, todayString, formatPaymentMethod, formatPaymentRef, pluralize } from '../../utils/format'
+import { formatCurrency, formatDate, formatTime, todayString, formatPaymentMethod, formatPaymentRef, pluralize, getImageUrl } from '../../utils/format'
 import { FunnelIcon, ArrowPathIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
-
-const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
 
 export default function AdminBookingsPage({ noLayout = false }) {
   const { isOwner } = useAuth()
@@ -839,14 +837,14 @@ export default function AdminBookingsPage({ noLayout = false }) {
               {reviewBooking.receiptImage ? (
                 <div className="bg-gray-100/70 border border-gray-200 rounded-xl p-2 flex flex-col items-center justify-center">
                   <a
-                    href={`${BASE_URL}${reviewBooking.receiptImage}`}
+                    href={getImageUrl(reviewBooking.receiptImage)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block cursor-zoom-in group text-center"
                     title="Click to view full size in new tab"
                   >
                     <img
-                      src={`${BASE_URL}${reviewBooking.receiptImage}`}
+                      src={getImageUrl(reviewBooking.receiptImage)}
                       alt="Proof of Payment Receipt"
                       className="max-h-[45vh] max-w-full object-contain rounded-lg shadow-sm mx-auto"
                     />

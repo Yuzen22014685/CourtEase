@@ -1,6 +1,5 @@
-const path = require('path');
-const fs = require('fs');
 const mongoose = require('mongoose');
+const { saveFile, deleteFile } = require('../utils/storage');
 const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Review = require('../models/Review');
@@ -545,12 +544,6 @@ const uploadVenuePhotos = async (req, res, next) => {
   try {
     const venue = await Venue.findById(req.params.id);
     if (!venue) {
-      // Clean up uploaded files if venue not found
-      if (req.files && req.files.length > 0) {
-        req.files.forEach((f) => {
-          try { fs.unlinkSync(f.path); } catch (e) {}
-        });
-      }
       return res.status(404).json({ success: false, message: 'Venue not found' });
     }
 
@@ -560,27 +553,30 @@ const uploadVenuePhotos = async (req, res, next) => {
 
     const currentCount = venue.photos?.length || 0;
     if (currentCount + req.files.length > 10) {
-      // Clean up newly uploaded files
-      req.files.forEach((f) => {
-        try { fs.unlinkSync(f.path); } catch (e) {}
-      });
       return res.status(400).json({
         success: false,
         message: `Maximum 10 photos allowed per venue. This venue currently has ${currentCount} photo(s).`,
       });
     }
 
-    const newPaths = req.files.map((f) => '/uploads/' + f.filename);
-    venue.photos = [...(venue.photos || []), ...newPaths];
-    await venue.save();
+    const savedPaths = [];
+    try {
+      for (const file of req.files) {
+        const stored = await saveFile(file.buffer, 'venue-photo', req.params.id);
+        savedPaths.push(stored);
+      }
+      venue.photos = [...(venue.photos || []), ...savedPaths];
+      await venue.save();
+    } catch (saveErr) {
+      await Promise.all(savedPaths.map((p) => deleteFile(p)));
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
+      }
+      throw saveErr;
+    }
 
     res.json({ success: true, data: venue.photos });
   } catch (err) {
-    if (req.files && req.files.length > 0) {
-      req.files.forEach((f) => {
-        try { fs.unlinkSync(f.path); } catch (e) {}
-      });
-    }
     next(err);
   }
 };
@@ -605,21 +601,9 @@ const deleteVenuePhoto = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Photo not found on venue' });
     }
 
-    // Delete local file if it's stored in uploads
-    if (photo.startsWith('/uploads/') || photo.startsWith('uploads/')) {
-      const filename = path.basename(photo);
-      const filePath = path.join(__dirname, '..', 'uploads', filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error('Failed to unlink venue photo from disk:', e.message);
-        }
-      }
-    }
-
     venue.photos = venue.photos.filter((p) => p !== photo);
     await venue.save();
+    await deleteFile(photo);
 
     res.json({ success: true, data: venue.photos });
   } catch (err) {
@@ -679,9 +663,6 @@ const uploadCourtLayout = async (req, res, next) => {
   try {
     const venue = await Venue.findById(req.params.id);
     if (!venue) {
-      if (req.file) {
-        try { fs.unlinkSync(req.file.path); } catch (e) {}
-      }
       return res.status(404).json({ success: false, message: 'Venue not found' });
     }
 
@@ -689,23 +670,32 @@ const uploadCourtLayout = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No layout image uploaded' });
     }
 
-    // Delete previous layout image file if stored locally
-    if (venue.layoutImage && (venue.layoutImage.startsWith('/uploads/') || venue.layoutImage.startsWith('uploads/'))) {
-      const oldFilename = path.basename(venue.layoutImage);
-      const oldPath = path.join(__dirname, '..', 'uploads', oldFilename);
-      if (fs.existsSync(oldPath)) {
-        try { fs.unlinkSync(oldPath); } catch (e) { console.error('Failed to unlink old layout image:', e.message); }
+    let newLayout;
+    try {
+      newLayout = await saveFile(req.file.buffer, 'venue-layout', req.params.id);
+    } catch (saveErr) {
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
       }
+      throw saveErr;
     }
 
-    venue.layoutImage = '/uploads/' + req.file.filename;
-    await venue.save();
+    const oldLayout = venue.layoutImage;
+    venue.layoutImage = newLayout;
+
+    try {
+      await venue.save();
+    } catch (dbErr) {
+      await deleteFile(newLayout);
+      throw dbErr;
+    }
+
+    if (oldLayout) {
+      await deleteFile(oldLayout);
+    }
 
     res.json({ success: true, layoutImage: venue.layoutImage, data: venue.layoutImage });
   } catch (err) {
-    if (req.file) {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
-    }
     next(err);
   }
 };
@@ -721,16 +711,13 @@ const deleteCourtLayout = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Venue not found' });
     }
 
-    if (venue.layoutImage && (venue.layoutImage.startsWith('/uploads/') || venue.layoutImage.startsWith('uploads/'))) {
-      const filename = path.basename(venue.layoutImage);
-      const filePath = path.join(__dirname, '..', 'uploads', filename);
-      if (fs.existsSync(filePath)) {
-        try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to unlink layout image:', e.message); }
-      }
-    }
-
+    const oldLayout = venue.layoutImage;
     venue.layoutImage = null;
     await venue.save();
+
+    if (oldLayout) {
+      await deleteFile(oldLayout);
+    }
 
     res.json({ success: true, message: 'Layout image removed' });
   } catch (err) {
@@ -746,9 +733,6 @@ const uploadPaymentQr = async (req, res, next) => {
   try {
     const venue = await Venue.findById(req.params.id);
     if (!venue) {
-      if (req.file) {
-        try { fs.unlinkSync(req.file.path); } catch (e) {}
-      }
       return res.status(404).json({ success: false, message: 'Venue not found' });
     }
 
@@ -756,25 +740,33 @@ const uploadPaymentQr = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No QR image uploaded' });
     }
 
-    // Delete previous QR image file if stored locally
-    venue.paymentInfo = venue.paymentInfo || {};
-    const oldQr = venue.paymentInfo.duitNowQr;
-    if (oldQr && (oldQr.startsWith('/uploads/') || oldQr.startsWith('uploads/'))) {
-      const oldFilename = path.basename(oldQr);
-      const oldPath = path.join(__dirname, '..', 'uploads', oldFilename);
-      if (fs.existsSync(oldPath)) {
-        try { fs.unlinkSync(oldPath); } catch (e) { console.error('Failed to unlink old QR image:', e.message); }
+    let newQr;
+    try {
+      newQr = await saveFile(req.file.buffer, 'venue-qr', req.params.id);
+    } catch (saveErr) {
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
       }
+      throw saveErr;
     }
 
-    venue.paymentInfo.duitNowQr = '/uploads/' + req.file.filename;
-    await venue.save();
+    venue.paymentInfo = venue.paymentInfo || {};
+    const oldQr = venue.paymentInfo.duitNowQr;
+    venue.paymentInfo.duitNowQr = newQr;
+
+    try {
+      await venue.save();
+    } catch (dbErr) {
+      await deleteFile(newQr);
+      throw dbErr;
+    }
+
+    if (oldQr) {
+      await deleteFile(oldQr);
+    }
 
     res.json({ success: true, duitNowQr: venue.paymentInfo.duitNowQr, data: venue.paymentInfo });
   } catch (err) {
-    if (req.file) {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
-    }
     next(err);
   }
 };
@@ -792,16 +784,12 @@ const deletePaymentQr = async (req, res, next) => {
 
     venue.paymentInfo = venue.paymentInfo || {};
     const oldQr = venue.paymentInfo.duitNowQr;
-    if (oldQr && (oldQr.startsWith('/uploads/') || oldQr.startsWith('uploads/'))) {
-      const filename = path.basename(oldQr);
-      const filePath = path.join(__dirname, '..', 'uploads', filename);
-      if (fs.existsSync(filePath)) {
-        try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to unlink QR image:', e.message); }
-      }
-    }
-
     venue.paymentInfo.duitNowQr = '';
     await venue.save();
+
+    if (oldQr) {
+      await deleteFile(oldQr);
+    }
 
     res.json({ success: true, message: 'Payment QR removed successfully', data: venue.paymentInfo });
   } catch (err) {
@@ -950,19 +938,12 @@ const deleteShopItem = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Shop item not found' });
     }
 
-    if (item.photo && (item.photo.startsWith('/uploads/') || item.photo.startsWith('uploads/'))) {
-      const filename = path.basename(item.photo);
-      const filePath = path.join(__dirname, '..', 'uploads', filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error('Failed to unlink shop item photo on delete:', e.message);
-        }
-      }
-    }
-
+    const oldPhoto = item.photo;
     await item.deleteOne();
+
+    if (oldPhoto) {
+      await deleteFile(oldPhoto);
+    }
 
     res.json({ success: true, message: 'Shop item deleted successfully' });
   } catch (err) {
@@ -998,9 +979,6 @@ const uploadShopItemPhoto = async (req, res, next) => {
   try {
     const item = req.shopItem || (await ShopItem.findOne({ _id: req.params.itemId, venueId: req.params.id }));
     if (!item) {
-      if (req.file) {
-        try { fs.unlinkSync(req.file.path); } catch (e) {}
-      }
       return res.status(404).json({ success: false, message: 'Shop item not found' });
     }
 
@@ -1008,27 +986,32 @@ const uploadShopItemPhoto = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No photo uploaded' });
     }
 
-    // Delete previous photo file if stored locally
-    if (item.photo && (item.photo.startsWith('/uploads/') || item.photo.startsWith('uploads/'))) {
-      const oldFilename = path.basename(item.photo);
-      const oldPath = path.join(__dirname, '..', 'uploads', oldFilename);
-      if (fs.existsSync(oldPath)) {
-        try {
-          fs.unlinkSync(oldPath);
-        } catch (e) {
-          console.error('Failed to unlink old shop item photo:', e.message);
-        }
+    let newPhoto;
+    try {
+      newPhoto = await saveFile(req.file.buffer, 'shop-item', req.params.id);
+    } catch (saveErr) {
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
       }
+      throw saveErr;
     }
 
-    item.photo = '/uploads/' + req.file.filename;
-    await item.save();
+    const oldPhoto = item.photo;
+    item.photo = newPhoto;
+
+    try {
+      await item.save();
+    } catch (dbErr) {
+      await deleteFile(newPhoto);
+      throw dbErr;
+    }
+
+    if (oldPhoto) {
+      await deleteFile(oldPhoto);
+    }
 
     res.json({ success: true, photo: item.photo, data: item });
   } catch (err) {
-    if (req.file) {
-      try { fs.unlinkSync(req.file.path); } catch (e) {}
-    }
     next(err);
   }
 };
@@ -1044,20 +1027,13 @@ const deleteShopItemPhoto = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Shop item not found' });
     }
 
-    if (item.photo && (item.photo.startsWith('/uploads/') || item.photo.startsWith('uploads/'))) {
-      const filename = path.basename(item.photo);
-      const filePath = path.join(__dirname, '..', 'uploads', filename);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.error('Failed to unlink shop item photo:', e.message);
-        }
-      }
-    }
-
+    const oldPhoto = item.photo;
     item.photo = null;
     await item.save();
+
+    if (oldPhoto) {
+      await deleteFile(oldPhoto);
+    }
 
     res.json({ success: true, message: 'Shop item photo removed', data: item });
   } catch (err) {
