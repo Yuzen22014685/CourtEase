@@ -7,6 +7,7 @@ const errorHandler = require('./middleware/errorHandler');
 const privateUploads = require('./middleware/privateUploads');
 const { startScheduler } = require('./cron/scheduler');
 const { verifySMTP } = require('./utils/emailService');
+const { checkStorageConfig } = require('./utils/storage');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -45,6 +46,8 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 connectDB().then(() => {
+  const driver = checkStorageConfig();
+  console.log(`Storage: ${driver}`);
   app.listen(PORT, () => {
     console.log(`🚀 CourtEase API running on port ${PORT}`);
     startScheduler();

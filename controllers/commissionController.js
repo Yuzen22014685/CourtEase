@@ -1,6 +1,5 @@
-const fs = require('fs');
-const path = require('path');
 const mongoose = require('mongoose');
+const { saveFile, deleteFile } = require('../utils/storage');
 const PlatformSettings = require('../models/PlatformSettings');
 const CommissionStatement = require('../models/CommissionStatement');
 const Venue = require('../models/Venue');
@@ -20,24 +19,6 @@ const generateStatementRef = () => {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return `CS-${code}`;
-};
-
-/**
- * Helper to safely unlink an image from the uploads directory
- */
-const unlinkUploadFile = (fileUrl) => {
-  if (!fileUrl) return;
-  if (fileUrl.startsWith('/uploads/') || fileUrl.startsWith('uploads/')) {
-    const filename = path.basename(fileUrl);
-    const filePath = path.join(__dirname, '..', 'uploads', filename);
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch (err) {
-        console.error('Failed to unlink uploaded file:', err.message);
-      }
-    }
-  }
 };
 
 // ---------------------------------------------------------------------------
@@ -170,12 +151,30 @@ const uploadPlatformQr = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No QR image uploaded' });
     }
 
+    let newQr;
+    try {
+      newQr = await saveFile(req.file.buffer, 'platform-qr', 'platform');
+    } catch (saveErr) {
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
+      }
+      throw saveErr;
+    }
+
     settings.paymentInfo = settings.paymentInfo || {};
     const oldQr = settings.paymentInfo.duitNowQr;
-    unlinkUploadFile(oldQr);
+    settings.paymentInfo.duitNowQr = newQr;
 
-    settings.paymentInfo.duitNowQr = '/uploads/' + req.file.filename;
-    await settings.save();
+    try {
+      await settings.save();
+    } catch (dbErr) {
+      await deleteFile(newQr);
+      throw dbErr;
+    }
+
+    if (oldQr) {
+      await deleteFile(oldQr);
+    }
 
     res.json({
       success: true,
@@ -183,11 +182,6 @@ const uploadPlatformQr = async (req, res, next) => {
       data: settings.paymentInfo,
     });
   } catch (err) {
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {}
-    }
     next(err);
   }
 };
@@ -200,10 +194,12 @@ const deletePlatformQr = async (req, res, next) => {
     const settings = await PlatformSettings.getSettings();
     settings.paymentInfo = settings.paymentInfo || {};
     const oldQr = settings.paymentInfo.duitNowQr;
-    unlinkUploadFile(oldQr);
-
     settings.paymentInfo.duitNowQr = '';
     await settings.save();
+
+    if (oldQr) {
+      await deleteFile(oldQr);
+    }
 
     res.json({
       success: true,
@@ -460,34 +456,48 @@ const uploadStatementReceipt = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No receipt image uploaded' });
     }
 
+    let newReceipt;
+    try {
+      newReceipt = await saveFile(req.file.buffer, 'commission-receipt', req.params.id);
+    } catch (saveErr) {
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
+      }
+      throw saveErr;
+    }
+
     // Atomic status transition from 'unpaid'
-    const updated = await CommissionStatement.findOneAndUpdate(
-      { _id: req.statement._id, status: 'unpaid' },
-      {
-        $set: {
-          receiptImage: '/uploads/' + req.file.filename,
-          status: 'submitted',
-          submittedAt: new Date(),
-          rejectionReason: null,
+    let updated;
+    try {
+      updated = await CommissionStatement.findOneAndUpdate(
+        { _id: req.statement._id, status: 'unpaid' },
+        {
+          $set: {
+            receiptImage: newReceipt,
+            status: 'submitted',
+            submittedAt: new Date(),
+            rejectionReason: null,
+          },
         },
-      },
-      { returnDocument: 'after' }
-    ).populate('venueId', 'name area');
+        { returnDocument: 'after' }
+      ).populate('venueId', 'name area');
+    } catch (dbErr) {
+      await deleteFile(newReceipt);
+      throw dbErr;
+    }
 
     if (!updated) {
       // Race: clean up uploaded file if already submitted/paid
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {}
+      await deleteFile(newReceipt);
       return res.status(409).json({
         success: false,
         message: 'This statement is already submitted or paid',
       });
     }
 
-    // If there was an old receipt on file, unlink it
+    // If there was an old receipt on file, delete it
     if (req.statement.receiptImage) {
-      unlinkUploadFile(req.statement.receiptImage);
+      await deleteFile(req.statement.receiptImage);
     }
 
     res.json({
@@ -496,11 +506,6 @@ const uploadStatementReceipt = async (req, res, next) => {
       data: updated,
     });
   } catch (err) {
-    if (req.file) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (e) {}
-    }
     next(err);
   }
 };

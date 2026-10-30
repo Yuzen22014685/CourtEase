@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { saveFile, deleteFile } = require('../utils/storage');
 const Venue = require('../models/Venue');
 const Court = require('../models/Court');
 const Booking = require('../models/Booking');
@@ -667,9 +668,25 @@ const uploadReceipt = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No image file uploaded' });
     }
 
-    booking.receiptImage = '/uploads/' + req.file.filename;
+    let newReceipt;
+    try {
+      newReceipt = await saveFile(req.file.buffer, 'booking-receipt', req.params.id);
+    } catch (saveErr) {
+      if (saveErr.statusCode === 400) {
+        return res.status(400).json({ success: false, message: saveErr.message });
+      }
+      throw saveErr;
+    }
+
+    booking.receiptImage = newReceipt;
     booking.paymentStatus = 'paid';
-    await booking.save();
+
+    try {
+      await booking.save();
+    } catch (dbErr) {
+      await deleteFile(newReceipt);
+      throw dbErr;
+    }
 
     res.json({ success: true, message: 'Receipt uploaded successfully', data: booking });
   } catch (err) {
