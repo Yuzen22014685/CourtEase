@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { forgotPassword } from '../../api/auth'
 import Spinner from '../../components/ui/Spinner'
 import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function ForgotPasswordPage() {
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const [email, setEmail] = useState(() => searchParams.get('email') || '')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -138,6 +139,11 @@ export default function ForgotPasswordPage() {
             <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
               ← Back to sign in
             </Link>
+          </p>
+          <p className="mt-3 text-center text-xs text-gray-400">
+            <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
+            {' · '}
+            <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
           </p>
         </div>
       </div>

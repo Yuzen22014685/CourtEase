@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { homePathForRole } from '../../utils/routes'
 import { login, resendVerification } from '../../api/auth'
@@ -10,6 +10,7 @@ import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, loginUser } = useAuth()
 
   const [form, setForm] = useState({ email: '', password: '' })
@@ -227,6 +228,11 @@ export default function LoginPage() {
             <Link to="/register" className="font-medium text-primary-600 hover:text-primary-700">
               Register here
             </Link>
+          </p>
+          <p className="mt-3 text-center text-xs text-gray-400">
+            <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
+            {' · '}
+            <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
           </p>
         </div>
 

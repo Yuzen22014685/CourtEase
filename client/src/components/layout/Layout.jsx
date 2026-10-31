@@ -1,9 +1,11 @@
+import { Link, useLocation } from 'react-router-dom'
 import Navbar from './Navbar'
 import { useAuth } from '../../context/AuthContext'
 import ChatWidget from '../chat/ChatWidget'
 
 export default function Layout({ children }) {
   const { isPlayer } = useAuth()
+  const location = useLocation()
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -12,6 +14,13 @@ export default function Layout({ children }) {
         {children}
       </main>
       {isPlayer && <ChatWidget />}
+      <footer className="mt-auto py-4 pb-20 sm:pb-4 px-4 text-center text-xs text-gray-400 border-t border-gray-200 bg-gray-50">
+        © 2026 CourtEase
+        {' · '}
+        <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
+        {' · '}
+        <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
+      </footer>
     </div>
   )
 }

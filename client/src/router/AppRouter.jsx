@@ -4,6 +4,7 @@ import { homePathForRole } from '../utils/routes'
 import PlayerRoute from './PlayerRoute'
 import AdminRoute from './AdminRoute'
 import OwnerRoute from './OwnerRoute'
+import ScrollToTop from '../components/ScrollToTop'
 
 // Owner layout & context
 import OwnerLayout from '../components/layout/OwnerLayout'
@@ -39,6 +40,9 @@ import ShopPage  from '../pages/owner/ShopPage'
 // Shared Account page
 import AccountPage from '../pages/account/AccountPage'
 
+// Legal pages
+import LegalPage from '../pages/legal/LegalPage'
+
 import NotFoundPage from '../pages/NotFoundPage'
 
 function RootRedirect() {
@@ -50,7 +54,9 @@ function RootRedirect() {
 
 export default function AppRouter() {
   return (
-    <Routes>
+    <>
+      <ScrollToTop />
+      <Routes>
       {/* Root → smart redirect */}
       <Route path="/" element={<RootRedirect />} />
 
@@ -123,8 +129,13 @@ export default function AppRouter() {
         <Route path="account" element={<AccountPage noLayout />} />
       </Route>
 
+      {/* Legal */}
+      <Route path="/privacy" element={<LegalPage doc="privacy" />} />
+      <Route path="/terms"   element={<LegalPage doc="terms" />} />
+
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+    </>
   )
 }
