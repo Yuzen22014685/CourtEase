@@ -4,6 +4,7 @@ import { getProfile, updateProfile } from '../../api/auth'
 import Layout from '../../components/layout/Layout'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
+import ChangePasswordCard from '../../components/account/ChangePasswordCard'
 import {
   UserCircleIcon,
   CheckCircleIcon,
@@ -199,6 +200,9 @@ export default function ProfilePage() {
             </div>
           </form>
         )}
+
+        {/* Change Password — separate card, outside the profile form */}
+        {!loading && <ChangePasswordCard />}
       </div>
     </Layout>
   )

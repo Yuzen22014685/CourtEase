@@ -36,6 +36,9 @@ import CommissionPage    from '../pages/admin/CommissionPage'
 import TodayPage from '../pages/owner/TodayPage'
 import ShopPage  from '../pages/owner/ShopPage'
 
+// Shared Account page
+import AccountPage from '../pages/account/AccountPage'
+
 import NotFoundPage from '../pages/NotFoundPage'
 
 function RootRedirect() {
@@ -95,6 +98,9 @@ export default function AppRouter() {
       <Route path="/admin/commission" element={
         <AdminRoute><CommissionPage /></AdminRoute>
       } />
+      <Route path="/admin/account" element={
+        <AdminRoute><AccountPage /></AdminRoute>
+      } />
 
       {/* Owner Portal */}
       <Route
@@ -114,6 +120,7 @@ export default function AppRouter() {
         <Route path="shop" element={<ShopPage />} />
         <Route path="reviews" element={<AdminReviewsPage noLayout />} />
         <Route path="insights" element={<AnalyticsPage noLayout />} />
+        <Route path="account" element={<AccountPage noLayout />} />
       </Route>
 
       {/* 404 */}

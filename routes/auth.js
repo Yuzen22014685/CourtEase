@@ -10,6 +10,7 @@ const {
   resendVerification,
   forgotPassword,
   resetPassword,
+  changePassword,
 } = require('../controllers/authController');
 const { protect } = require('../middleware/auth');
 const { requireTurnstile } = require('../utils/turnstile');
@@ -70,6 +71,15 @@ const resetPasswordLimiter = rateLimit({
   },
 });
 
+const changePasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.user._id),
+  message: { success: false, message: 'Too many password change attempts. Please try again in 15 minutes.' },
+});
+
 // POST /api/auth/register
 router.post('/register', registerLimiter, requireTurnstile, register);
 
@@ -93,5 +103,8 @@ router.get('/profile', protect, getProfile);
 
 // PATCH /api/auth/profile — update profile details (protected)
 router.patch('/profile', protect, updateProfile);
+
+// POST /api/auth/change-password — change password for logged-in user (protected)
+router.post('/change-password', protect, changePasswordLimiter, changePassword);
 
 module.exports = router;

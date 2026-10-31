@@ -114,14 +114,19 @@ export default function OwnerLayout() {
             </div>
 
             {/* Right: Owner Name & Logout */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-2 text-sm text-gray-700">
-                <UserCircleIcon className="h-5 w-5 text-gray-400" />
-                <span className="font-medium hidden sm:inline">{user?.fullName}</span>
-                <span className="text-[10px] uppercase font-semibold px-2 py-0.5 bg-primary-50 text-primary-700 border border-primary-200 rounded-full">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <Link
+                to="/owner/account"
+                className="flex items-center gap-1.5 sm:gap-2 text-sm text-gray-700 hover:text-primary-700 hover:bg-gray-50 px-2 py-1.5 rounded-lg transition-colors group"
+                title="Account"
+                aria-label="Account"
+              >
+                <UserCircleIcon className="h-5 w-5 text-gray-400 group-hover:text-primary-600 transition-colors shrink-0" />
+                <span className="font-medium hidden sm:inline truncate max-w-[140px]">{user?.fullName || 'Account'}</span>
+                <span className="text-[10px] uppercase font-semibold px-2 py-0.5 bg-primary-50 text-primary-700 border border-primary-200 rounded-full shrink-0">
                   Owner
                 </span>
-              </div>
+              </Link>
 
               <button
                 type="button"

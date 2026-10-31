@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useEffect, useState } from 'react'
 import { getPendingCount, getSubmittedCommissionCount } from '../../api/admin'
@@ -11,6 +11,7 @@ import {
   XMarkIcon,
   UserGroupIcon,
   BanknotesIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -20,6 +21,7 @@ import {
   ChartBarIcon as ChartBarIconSolid,
   UserGroupIcon as UserGroupIconSolid,
   BanknotesIcon as BanknotesIconSolid,
+  UserCircleIcon as UserCircleIconSolid,
 } from '@heroicons/react/24/solid'
 
 const navItems = [
@@ -66,6 +68,12 @@ const navItems = [
     icon: BanknotesIcon,
     activeIcon: BanknotesIconSolid,
     showCommissionBadge: true,
+  },
+  {
+    to: '/admin/account',
+    label: 'My Account',
+    icon: UserCircleIcon,
+    activeIcon: UserCircleIconSolid,
   },
 ]
 
@@ -203,19 +211,27 @@ export default function AdminSidebar({
     </nav>
   )
 
-  const renderUserInfo = () => (
-    <div className="px-4 py-4 border-t border-gray-100">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
+  const renderUserInfo = (onItemClick) => (
+    <div className="px-3 py-3 border-t border-gray-100">
+      <Link
+        to="/admin/account"
+        onClick={onItemClick}
+        title="My Account"
+        aria-label="My Account"
+        className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors group"
+      >
+        <div className="w-8 h-8 rounded-full bg-primary-100 group-hover:bg-primary-200 transition-colors flex items-center justify-center shrink-0">
           <span className="text-primary-700 text-xs font-bold">
             {user?.fullName?.charAt(0) ?? 'A'}
           </span>
         </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{user?.fullName}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-gray-900 group-hover:text-primary-600 transition-colors truncate">
+            {user?.fullName}
+          </p>
           <p className="text-xs text-gray-400 truncate">{user?.email}</p>
         </div>
-      </div>
+      </Link>
     </div>
   )
 
@@ -264,7 +280,7 @@ export default function AdminSidebar({
           {renderNav(onClose)}
 
           {/* User info at bottom */}
-          {renderUserInfo()}
+          {renderUserInfo(onClose)}
         </aside>
       </div>
 
