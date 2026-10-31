@@ -17,8 +17,30 @@ const adminRoutes = require('./routes/admin');
 
 const app = express();
 
+// Behind Render's proxy, so req.ip is the real client IP (rate limits, Turnstile).
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
+
 // ─── Middleware ─────────────────────────────────────────────────────────────
-app.use(cors());
+const allowedOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((url) => url.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+if (process.env.NODE_ENV !== 'production' && !allowedOrigins.includes('http://localhost:5173')) {
+  allowedOrigins.push('http://localhost:5173');
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    credentials: false,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use('/uploads', privateUploads, express.static(path.join(__dirname, 'uploads')));
