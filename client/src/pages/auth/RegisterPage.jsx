@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { homePathForRole } from '../../utils/routes'
 import { register } from '../../api/auth'
@@ -21,6 +21,7 @@ const INITIAL = {
 
 export default function RegisterPage() {
   const navigate  = useNavigate()
+  const location  = useLocation()
   const { user }  = useAuth()
 
   useEffect(() => {
@@ -35,6 +36,8 @@ export default function RegisterPage() {
   const [turnstileToken, setTurnstileToken] = useState(null)
   const [turnstileError, setTurnstileError] = useState('')
   const [widgetKey, setWidgetKey] = useState(0)
+  const [acceptTerms, setAcceptTerms] = useState(false)
+  const [termsError, setTermsError] = useState('')
 
   // Password rules validation
   const { isValid: isPasswordValid } = checkPasswordValidity(form.password)
@@ -48,7 +51,8 @@ export default function RegisterPage() {
     Boolean(form.email.trim()) &&
     Boolean(form.gender) &&
     isPasswordValid &&
-    passwordsMatch
+    passwordsMatch &&
+    acceptTerms
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
@@ -64,7 +68,7 @@ export default function RegisterPage() {
     try {
       // Exclude confirmPassword so it is never sent to the backend
       const { confirmPassword: _, ...payload } = form
-      await register({ ...payload, turnstileToken })
+      await register({ ...payload, acceptTerms: true, turnstileToken })
       navigate(`/check-email?email=${encodeURIComponent(form.email)}`)
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed. Please try again.')
@@ -180,6 +184,33 @@ export default function RegisterPage() {
               </div>
             </div>
 
+            {/* Terms acceptance */}
+            <div className="flex items-start gap-2.5">
+              <input
+                id="accept-terms"
+                type="checkbox"
+                checked={acceptTerms}
+                onChange={(e) => {
+                  setAcceptTerms(e.target.checked)
+                  if (termsError) setTermsError('')
+                }}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+              />
+              <label htmlFor="accept-terms" className="text-sm text-gray-600 leading-snug cursor-pointer">
+                I have read and accept the{' '}
+                <Link to="/terms" target="_blank" className="font-medium text-primary-600 hover:text-primary-700 underline underline-offset-2">
+                  Terms of Use
+                </Link>
+                {' '}and{' '}
+                <Link to="/privacy" target="_blank" className="font-medium text-primary-600 hover:text-primary-700 underline underline-offset-2">
+                  Privacy Notice
+                </Link>.
+              </label>
+            </div>
+            {termsError && (
+              <p className="text-xs text-red-500">{termsError}</p>
+            )}
+
             <TurnstileWidget
               key={widgetKey}
               onToken={setTurnstileToken}
@@ -205,6 +236,11 @@ export default function RegisterPage() {
             <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
               Sign in
             </Link>
+          </p>
+          <p className="mt-3 text-center text-xs text-gray-400">
+            <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
+            {' · '}
+            <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
           </p>
         </div>
       </div>

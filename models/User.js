@@ -23,6 +23,8 @@ const userSchema = new mongoose.Schema({
   passwordResetExpires: { type: Date, select: false },
   passwordResetSentAt: { type: Date, select: false },
   passwordChangedAt: { type: Date },
+  termsAcceptedAt: { type: Date },
+  termsVersion: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

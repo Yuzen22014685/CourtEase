@@ -7,6 +7,7 @@ const {
   sendPasswordChangedEmail,
 } = require('../utils/emailService');
 const { validatePassword } = require('../utils/validatePassword');
+const { LEGAL_VERSION } = require('../config/legal');
 
 /**
  * Generate a signed JWT for a given user id
@@ -25,7 +26,14 @@ const hashToken = (token) =>
 // ---------------------------------------------------------------------------
 const register = async (req, res, next) => {
   try {
-    const { fullName, gender, phone, email, password, skillLevel } = req.body;
+    const { fullName, gender, phone, email, password, skillLevel, acceptTerms } = req.body;
+
+    if (acceptTerms !== true) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please accept the Terms of Use and Privacy Notice to create an account.',
+      });
+    }
 
     // Validate password strength
     const passwordCheck = validatePassword(password);
@@ -54,6 +62,8 @@ const register = async (req, res, next) => {
       emailVerificationTokenHash: tokenHash,
       emailVerificationExpires: tokenExpires,
       emailVerificationSentAt: new Date(),
+      termsAcceptedAt: new Date(),
+      termsVersion: LEGAL_VERSION,
     });
 
     let emailSent = true;

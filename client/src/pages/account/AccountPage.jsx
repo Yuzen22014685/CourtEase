@@ -1,3 +1,4 @@
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import AdminLayout from '../../components/layout/AdminLayout'
 import ChangePasswordCard from '../../components/account/ChangePasswordCard'
@@ -5,6 +6,7 @@ import { UserCircleIcon } from '@heroicons/react/24/outline'
 
 export default function AccountPage({ noLayout = false }) {
   const { user, isOwner } = useAuth()
+  const location = useLocation()
 
   const roleLabel =
     user?.role === 'admin'
@@ -62,6 +64,13 @@ export default function AccountPage({ noLayout = false }) {
 
       {/* Change password card */}
       <ChangePasswordCard />
+
+      {/* Legal links */}
+      <p className="text-center text-xs text-gray-400 mt-2">
+        <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
+        {' · '}
+        <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
+      </p>
     </div>
   )
 

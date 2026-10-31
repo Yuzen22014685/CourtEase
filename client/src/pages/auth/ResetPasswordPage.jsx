@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link, useSearchParams } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useLocation } from 'react-router-dom'
 import { resetPassword } from '../../api/auth'
 import PasswordInput from '../../components/ui/PasswordInput'
 import PasswordChecklist, { checkPasswordValidity } from '../../components/ui/PasswordChecklist'
@@ -7,6 +7,7 @@ import Spinner from '../../components/ui/Spinner'
 
 export default function ResetPasswordPage() {
   const { token } = useParams()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const isInvite = searchParams.get('invite') === '1'
 
@@ -177,6 +178,11 @@ export default function ResetPasswordPage() {
                 <Link to="/login" className="font-medium text-primary-600 hover:text-primary-700">
                   ← Back to sign in
                 </Link>
+              </p>
+              <p className="mt-3 text-center text-xs text-gray-400">
+                <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
+                {' · '}
+                <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
               </p>
             </>
           )}
