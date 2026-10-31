@@ -148,6 +148,8 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
   }
 
   const homeLink = homePathForRole(user?.role)
+  const userAccountPath = isAdmin ? '/admin/account' : '/profile'
+  const userAccountLabel = isAdmin ? 'My Account' : 'My Profile'
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
@@ -273,12 +275,19 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                 </div>
               )}
 
-              <div className="hidden sm:flex items-center gap-2 text-sm ml-2 pl-2 border-l border-gray-200">
-                <UserCircleIcon className="h-5 w-5 text-gray-400" />
-                <span className="font-medium text-gray-700">{user.fullName}</span>
-                {isAdmin && (
-                  <span className="badge bg-primary-100 text-primary-700 text-xs">Admin</span>
-                )}
+              <div className="hidden sm:flex items-center ml-2 pl-2 border-l border-gray-200">
+                <Link
+                  to={userAccountPath}
+                  title={userAccountLabel}
+                  aria-label={userAccountLabel}
+                  className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-lg hover:text-primary-700 hover:bg-gray-50 transition-colors group"
+                >
+                  <UserCircleIcon className="h-5 w-5 text-gray-400 group-hover:text-primary-600 transition-colors" />
+                  <span className="font-medium text-gray-700 group-hover:text-primary-700 transition-colors">{user.fullName}</span>
+                  {isAdmin && (
+                    <span className="badge bg-primary-100 text-primary-700 text-xs">Admin</span>
+                  )}
+                </Link>
               </div>
               <button
                 id="logout-btn"
@@ -348,10 +357,16 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
 
             {/* User info & Logout */}
             <div className="pt-3 mt-2 border-t border-gray-100 flex items-center justify-between px-3">
-              <div className="flex items-center gap-2 text-xs text-gray-500 min-w-0">
-                <UserCircleIcon className="h-4 w-4 text-gray-400 shrink-0" />
+              <Link
+                to={userAccountPath}
+                onClick={() => setIsMobileMenuOpen(false)}
+                title={userAccountLabel}
+                aria-label={userAccountLabel}
+                className="flex items-center gap-2 text-xs text-gray-700 hover:text-primary-700 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors min-w-0 group"
+              >
+                <UserCircleIcon className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors shrink-0" />
                 <span className="font-medium truncate">{user.fullName}</span>
-              </div>
+              </Link>
               <button
                 id="mobile-logout-btn"
                 onClick={() => {
