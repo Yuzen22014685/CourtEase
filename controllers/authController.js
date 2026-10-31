@@ -371,6 +371,70 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+// @desc    Change password for the logged-in user (any role)
+// @route   POST /api/auth/change-password
+// @access  Private
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current password and new password are required.' });
+    }
+
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.isValid) {
+      return res.status(400).json({ success: false, message: passwordCheck.message });
+    }
+
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Account not found.' });
+    }
+
+    // 400, not 401: the frontend treats 401 as "session expired" and would log the user out
+    if (!(await user.matchPassword(currentPassword))) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
+    }
+    if (await user.matchPassword(newPassword)) {
+      return res.status(400).json({ success: false, message: 'New password must be different from your current password.' });
+    }
+
+    user.password = newPassword; // hashed by the pre('save') hook
+    // 1 s in the past: the new token below (iat in whole seconds) is accepted,
+    // every older token (other devices, stolen sessions) is rejected by protect
+    user.passwordChangedAt = new Date(Date.now() - 1000);
+    // any pending "forgot password" link becomes useless
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpires = undefined;
+    user.passwordResetSentAt = undefined;
+    await user.save({ validateModifiedOnly: true });
+
+    try {
+      await sendPasswordChangedEmail(user);
+    } catch (mailErr) {
+      console.warn('⚠️ Failed to send password changed confirmation email:', mailErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Password changed. You have been signed out on other devices.',
+      data: {
+        _id:        user._id,
+        fullName:   user.fullName,
+        email:      user.email,
+        role:       user.role,
+        gender:     user.gender,
+        phone:      user.phone,
+        skillLevel: user.skillLevel,
+        token:      generateToken(user._id),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -380,4 +444,5 @@ module.exports = {
   resendVerification,
   forgotPassword,
   resetPassword,
+  changePassword,
 };
