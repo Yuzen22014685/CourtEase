@@ -1,5 +1,14 @@
 const nodemailer = require('nodemailer');
 
+// Email delivery: SMTP (Gmail, local development) or Brevo's HTTPS API (deployment:
+// Render's free plan blocks outbound SMTP ports 25/465/587).
+// EMAIL_PROVIDER = 'smtp' | 'brevo'. Default: 'brevo' when BREVO_API_KEY is set, otherwise 'smtp'.
+const getProvider = () =>
+  (process.env.EMAIL_PROVIDER || (process.env.BREVO_API_KEY ? 'brevo' : 'smtp')).trim().toLowerCase();
+
+const BREVO_URL = 'https://api.brevo.com/v3';
+const BREVO_TIMEOUT_MS = 10000;
+
 const port = parseInt(process.env.SMTP_PORT, 10) || 465;
 
 const transporter = nodemailer.createTransport({
@@ -12,10 +21,48 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// '"CourtEase" <me@gmail.com>' -> { name: 'CourtEase', email: 'me@gmail.com' }; 'me@gmail.com' -> same email
+const parseFrom = (from) => {
+  const m = String(from || '').match(/^\s*"?([^"<]*?)"?\s*<([^>\s]+)>\s*$/);
+  if (m) return { name: m[1].trim() || 'CourtEase', email: m[2] };
+  return { name: 'CourtEase', email: String(from || '').trim() };
+};
+
+// Calls the Brevo API. Throws with the HTTP status and Brevo's message (never the key).
+const brevoRequest = async (path, options = {}) => {
+  const res = await fetch(`${BREVO_URL}${path}`, {
+    ...options,
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': process.env.BREVO_API_KEY,
+    },
+    signal: AbortSignal.timeout(BREVO_TIMEOUT_MS),
+  });
+  const text = await res.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = null; }
+  if (!res.ok) {
+    const detail = (body && (body.message || body.code)) || res.statusText;
+    throw new Error(`Brevo API error ${res.status}: ${detail}`);
+  }
+  return body;
+};
+
 /**
- * Verify SMTP connection on server startup without crashing on failure
+ * Check the email connection on server startup without crashing on failure
  */
 const verifySMTP = () => {
+  if (getProvider() === 'brevo') {
+    if (!process.env.BREVO_API_KEY) {
+      console.warn('⚠️  Email: EMAIL_PROVIDER=brevo but BREVO_API_KEY is not set');
+      return;
+    }
+    brevoRequest('/account', { method: 'GET' })
+      .then(() => console.log('✅ Email ready (Brevo API)'))
+      .catch((err) => console.warn('⚠️  Brevo check failed (check BREVO_API_KEY):', err.message));
+    return;
+  }
   transporter.verify((err) => {
     if (err) {
       console.warn('⚠️  SMTP verification failed (check credentials or connection):', err.message);
@@ -29,6 +76,23 @@ const verifySMTP = () => {
  * General helper to send an email
  */
 const sendEmail = async ({ to, subject, html }) => {
+  if (getProvider() === 'brevo') {
+    if (!process.env.BREVO_API_KEY) throw new Error('BREVO_API_KEY is not set');
+    // The sender must be verified in Brevo: EMAIL_FROM, or the Gmail address in SMTP_USER
+    const sender = parseFrom(
+      process.env.EMAIL_FROM || (process.env.SMTP_USER ? `"CourtEase" <${process.env.SMTP_USER}>` : '')
+    );
+    if (!sender.email) throw new Error('EMAIL_FROM (a verified Brevo sender) is not set');
+    const recipients = (Array.isArray(to) ? to : String(to).split(','))
+      .map((e) => e.trim())
+      .filter(Boolean)
+      .map((email) => ({ email }));
+    return brevoRequest('/smtp/email', {
+      method: 'POST',
+      body: JSON.stringify({ sender, to: recipients, subject, htmlContent: html }),
+    });
+  }
+
   const from = process.env.EMAIL_FROM || '"CourtEase" <no-reply@courtease.my>';
   return await transporter.sendMail({
     from,
