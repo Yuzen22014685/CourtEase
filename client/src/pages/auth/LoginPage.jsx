@@ -230,9 +230,11 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-primary-200 mt-4">
-          Demo — Admin: admin@courtease.my · Player: player1@courtease.my
-        </p>
+        {import.meta.env.DEV && (
+          <p className="text-center text-xs text-primary-200 mt-4">
+            Demo — Admin: admin@courtease.my · Player: player1@courtease.my
+          </p>
+        )}
       </div>
     </div>
   )
