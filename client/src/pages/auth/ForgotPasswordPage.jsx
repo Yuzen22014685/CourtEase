@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { forgotPassword } from '../../api/auth'
 import Spinner from '../../components/ui/Spinner'
 import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('')
+  const [searchParams] = useSearchParams()
+  const [email, setEmail] = useState(() => searchParams.get('email') || '')
   const [loading, setLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [countdown, setCountdown] = useState(0)

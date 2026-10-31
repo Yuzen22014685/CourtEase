@@ -20,3 +20,7 @@ export const forgotPassword = (email, turnstileToken) => api.post('/auth/forgot-
 
 /** Reset password using token */
 export const resetPassword = (token, password) => api.post(`/auth/reset-password/${token}`, { password })
+
+/** Change password for the currently logged-in user */
+export const changePassword = ({ currentPassword, newPassword }) =>
+  api.post('/auth/change-password', { currentPassword, newPassword })

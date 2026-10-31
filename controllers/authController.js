@@ -418,7 +418,7 @@ const changePassword = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Password changed. You have been signed out on other devices.',
+      message: 'Password updated. For your security, any other devices signed in to your account have been signed out.',
       data: {
         _id:        user._id,
         fullName:   user.fullName,
