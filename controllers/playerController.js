@@ -98,6 +98,7 @@ const getVenues = async (req, res, next) => {
       plain.reviewCount    = r ? r.count : 0;
       plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
       delete plain.paymentInfo;
+      delete plain.ownerId;
       const { priceFrom, priceTo } = getPriceRange(plain);
       plain.priceFrom      = priceFrom;
       plain.priceTo        = priceTo;
@@ -126,6 +127,7 @@ const getVenueById = async (req, res, next) => {
     plain.reviewCount    = r ? r.count : 0;
     plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
     delete plain.paymentInfo;
+    delete plain.ownerId;
     const { priceFrom, priceTo } = getPriceRange(plain);
     plain.priceFrom      = priceFrom;
     plain.priceTo        = priceTo;
