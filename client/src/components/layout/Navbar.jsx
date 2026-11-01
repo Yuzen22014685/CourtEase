@@ -319,7 +319,13 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link to="/login" className="btn-secondary btn-sm">Login</Link>
+              <Link
+                to="/login"
+                state={{ from: location.pathname + location.search }}
+                className="btn-secondary btn-sm"
+              >
+                Login
+              </Link>
               <Link to="/register" className="btn-primary btn-sm">Register</Link>
             </div>
           )}

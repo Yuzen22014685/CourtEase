@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const {
@@ -23,12 +24,24 @@ const {
   getUnreadCount,
 } = require('../controllers/notificationController');
 
+// Rate limiter for public venue browsing
+const publicVenueLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many requests. Please try again later.',
+  },
+});
+
 // Venue routes (public)
-router.get('/venues', getVenues);
-router.get('/venues/:id', getVenueById);
-router.get('/venues/:id/availability', getVenueAvailability);
-router.get('/venues/:id/reviews', getVenueReviews);
-router.get('/venues/:id/shop-items', getPublicVenueShopItems);
+router.get('/venues', publicVenueLimiter, getVenues);
+router.get('/venues/:id', publicVenueLimiter, getVenueById);
+router.get('/venues/:id/availability', publicVenueLimiter, getVenueAvailability);
+router.get('/venues/:id/reviews', publicVenueLimiter, getVenueReviews);
+router.get('/venues/:id/shop-items', publicVenueLimiter, getPublicVenueShopItems);
 
 // Booking routes (protected)
 router.post('/bookings', protect, createBooking);

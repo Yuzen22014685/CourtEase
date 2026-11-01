@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { homePathForRole } from '../utils/routes'
 import PlayerRoute from './PlayerRoute'
+import PublicPlayerRoute from './PublicPlayerRoute'
 import AdminRoute from './AdminRoute'
 import OwnerRoute from './OwnerRoute'
 import ScrollToTop from '../components/ScrollToTop'
@@ -48,7 +49,7 @@ import NotFoundPage from '../pages/NotFoundPage'
 function RootRedirect() {
   const { user, loading } = useAuth()
   if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/venues" replace />
   return <Navigate to={homePathForRole(user.role)} replace />
 }
 
@@ -70,10 +71,10 @@ export default function AppRouter() {
 
       {/* Player */}
       <Route path="/venues" element={
-        <PlayerRoute><VenuesPage /></PlayerRoute>
+        <PublicPlayerRoute><VenuesPage /></PublicPlayerRoute>
       } />
       <Route path="/venues/:id" element={
-        <PlayerRoute><VenueDetailPage /></PlayerRoute>
+        <PublicPlayerRoute><VenueDetailPage /></PublicPlayerRoute>
       } />
       <Route path="/my-bookings" element={
         <PlayerRoute><MyBookingsPage /></PlayerRoute>

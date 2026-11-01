@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { homePathForRole } from '../../utils/routes'
@@ -8,21 +8,46 @@ import ErrorMessage from '../../components/ui/ErrorMessage'
 import Spinner from '../../components/ui/Spinner'
 import TurnstileWidget from '../../components/ui/TurnstileWidget'
 
+function isSafeReturnPath(path) {
+  if (typeof path !== 'string') return false
+  const trimmed = path.trim()
+  return (
+    trimmed.startsWith('/') &&
+    !trimmed.startsWith('//') &&
+    !trimmed.includes('://') &&
+    !trimmed.includes('\\') &&
+    trimmed !== '/login' &&
+    trimmed !== '/register' &&
+    !trimmed.startsWith('/login?') &&
+    !trimmed.startsWith('/register?')
+  )
+}
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, loginUser } = useAuth()
+  const hasNavigatedRef = useRef(false)
 
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  const getPostLoginPath = useCallback((role) => {
+    const returnPath = location.state?.from || new URLSearchParams(location.search).get('redirect')
+    if (role === 'player' && isSafeReturnPath(returnPath)) {
+      return returnPath.trim()
+    }
+    return homePathForRole(role)
+  }, [location.state, location.search])
+
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      navigate(homePathForRole(user.role), { replace: true })
+    if (user && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true
+      navigate(getPostLoginPath(user.role), { replace: true })
     }
-  }, [user, navigate])
+  }, [user, navigate, getPostLoginPath])
 
   // Unverified email handling
   const [notVerified, setNotVerified] = useState(false)
@@ -85,8 +110,10 @@ export default function LoginPage() {
     try {
       const res = await login(form)
       const data = res.data.data
+      const targetPath = getPostLoginPath(data.role)
+      hasNavigatedRef.current = true
       loginUser(data)
-      navigate(homePathForRole(data.role), { replace: true })
+      navigate(targetPath, { replace: true })
     } catch (err) {
       if (err.response?.status === 403 && err.response?.data?.code === 'EMAIL_NOT_VERIFIED') {
         setNotVerified(true)

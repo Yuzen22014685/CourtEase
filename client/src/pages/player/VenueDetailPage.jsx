@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
 import { getVenueById, getVenueAvailability, getVenueReviews, getVenueShopItems } from '../../api/venues'
 import { createBooking } from '../../api/bookings'
@@ -62,6 +63,10 @@ const hasUncoveredHours = (venue) => {
 
 export default function VenueDetailPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { user } = useAuth()
+  const [authPromptOpen, setAuthPromptOpen] = useState(false)
 
   // ── Venue info ────────────────────────────────────────────────
   const { data: venueData, loading: venueLoading, error: venueError } =
@@ -188,6 +193,10 @@ export default function VenueDetailPage() {
 
   // Open checkout starting at 'addons' (if items exist) or 'review'
   const handleStartCheckout = () => {
+    if (!user) {
+      setAuthPromptOpen(true)
+      return
+    }
     setCheckoutStep(shopItems.length > 0 ? 'addons' : 'review')
     setCheckoutOpen(true)
   }
@@ -220,6 +229,10 @@ export default function VenueDetailPage() {
 
   // ── Slot toggle ───────────────────────────────────────────────
   const handleSlotClick = (courtId, courtNumber, slot) => {
+    if (!user) {
+      setAuthPromptOpen(true)
+      return
+    }
     if (!slot.available) return
     const key = slotKey(courtId, slot.start)
     setCart((prev) => {
@@ -238,6 +251,10 @@ export default function VenueDetailPage() {
 
   // ── Checkout submit ───────────────────────────────────────────
   const handleCheckout = async () => {
+    if (!user) {
+      setAuthPromptOpen(true)
+      return
+    }
     if (cart.length === 0 || !venue) return
     setBookingLoading(true)
 
@@ -826,6 +843,52 @@ export default function VenueDetailPage() {
         }}
         onCancel={() => setSkipConfirmOpen(false)}
       />
+
+      {/* ── Sign in to book Modal ── */}
+      <Modal
+        isOpen={authPromptOpen}
+        onClose={() => setAuthPromptOpen(false)}
+        title="Sign in to book"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Create a free account or sign in to book this court.
+          </p>
+          <div className="flex flex-col gap-2 pt-2">
+            <button
+              type="button"
+              id="auth-prompt-login-btn"
+              onClick={() => {
+                setAuthPromptOpen(false)
+                navigate('/login', { state: { from: location.pathname + location.search } })
+              }}
+              className="btn-primary w-full justify-center"
+            >
+              Sign in
+            </button>
+            <button
+              type="button"
+              id="auth-prompt-register-btn"
+              onClick={() => {
+                setAuthPromptOpen(false)
+                navigate('/register')
+              }}
+              className="btn-secondary w-full justify-center"
+            >
+              Create account
+            </button>
+            <button
+              type="button"
+              id="auth-prompt-close-btn"
+              onClick={() => setAuthPromptOpen(false)}
+              className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium transition-colors text-center"
+            >
+              Keep browsing
+            </button>
+          </div>
+        </div>
+      </Modal>
     </Layout>
   )
 }
