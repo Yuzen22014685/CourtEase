@@ -18,7 +18,7 @@ const PRIVATE_PREFIX = 'cld-private:';
 const PRIVATE_TTL_S = 2 * 60 * 60; // private links valid at least 2 hours
 const ROUND_S = 60 * 60;           // expiry rounded up to the hour (same link for an hour -> browser caching)
 
-const PUBLIC_KINDS = new Set(['venue-photo', 'venue-layout', 'venue-qr', 'shop-item', 'platform-qr']);
+const PUBLIC_KINDS = new Set(['venue-photo', 'venue-layout', 'venue-qr', 'shop-item', 'platform-qr', 'event-poster']);
 const PRIVATE_KINDS = new Set(['booking-receipt', 'commission-receipt']);
 
 const getDriver = () => (process.env.STORAGE_DRIVER || 'local').trim().toLowerCase();

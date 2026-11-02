@@ -59,6 +59,18 @@ const {
   rejectStatement,
 } = require('../controllers/commissionController');
 const upload = require('../middleware/upload');
+const {
+  getOwnerVenueEvents,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  verifyEventEditable,
+  uploadEventPoster,
+  deleteEventPoster,
+  getAdminEvents,
+  hideEvent,
+  restoreEvent,
+} = require('../controllers/eventController');
 
 // Base guard: all routes require JWT and role of admin or venue_owner
 router.use(protect, requireRole('admin', 'venue_owner'));
@@ -176,6 +188,34 @@ router.patch('/reviews/:id/hide', adminOnly, hideReview);
 
 // PATCH /api/admin/reviews/:id/restore (Admin only)
 router.patch('/reviews/:id/restore', adminOnly, restoreReview);
+
+// ─── Venue Events ──────────────────────────────────────────────────────────
+// Owner: manage events of own venue (owners write, admins only moderate)
+const ownerOnly = requireRole('venue_owner');
+router.get('/venues/:id/events', ownerOnly, requireVenueAccess('id'), getOwnerVenueEvents);
+router.post('/venues/:id/events', ownerOnly, requireVenueAccess('id'), createEvent);
+router.patch('/venues/:id/events/:eventId', ownerOnly, requireVenueAccess('id'), updateEvent);
+router.delete('/venues/:id/events/:eventId', ownerOnly, requireVenueAccess('id'), deleteEvent);
+router.post(
+  '/venues/:id/events/:eventId/poster',
+  ownerOnly,
+  requireVenueAccess('id'),
+  verifyEventEditable,
+  upload.single('poster'),
+  uploadEventPoster
+);
+router.delete(
+  '/venues/:id/events/:eventId/poster',
+  ownerOnly,
+  requireVenueAccess('id'),
+  verifyEventEditable,
+  deleteEventPoster
+);
+
+// Admin: moderation (hide with reason / restore)
+router.get('/events', adminOnly, getAdminEvents);
+router.patch('/events/:eventId/hide', adminOnly, hideEvent);
+router.patch('/events/:eventId/restore', adminOnly, restoreEvent);
 
 // ─── Platform Commission ──────────────────────────────────────────────────────
 // GET /api/admin/commission/payment-info
