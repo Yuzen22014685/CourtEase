@@ -363,13 +363,21 @@ export default function AdminEventsPage() {
 
                         {/* Badges */}
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          {event.deletedByOwnerAt && (
+                            <Badge status="inactive" label="Deleted by owner" />
+                          )}
                           {event.isHidden ? (
                             <Badge status="rejected" label="Hidden" />
-                          ) : (
+                          ) : !event.deletedByOwnerAt ? (
                             <Badge status="visible" label="Visible" />
-                          )}
+                          ) : null}
                           {event.isPast && <Badge status="expired" label="Past" />}
                         </div>
+                        {event.deletedByOwnerAt && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Removed by the owner on {formatDateTime(event.deletedByOwnerAt)}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -444,26 +452,28 @@ export default function AdminEventsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end">
-                    {event.isHidden ? (
-                      <button
-                        type="button"
-                        onClick={() => openRestoreConfirm(event)}
-                        className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1.5 px-3"
-                      >
-                        Restore
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openHideModal(event)}
-                        className="btn-secondary btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 text-xs py-1.5 px-3 flex items-center gap-1.5"
-                      >
-                        <EyeSlashIcon className="h-3.5 w-3.5" />
-                        <span>Hide</span>
-                      </button>
-                    )}
-                  </div>
+                  {!event.deletedByOwnerAt && (
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end">
+                      {event.isHidden ? (
+                        <button
+                          type="button"
+                          onClick={() => openRestoreConfirm(event)}
+                          className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1.5 px-3"
+                        >
+                          Restore
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openHideModal(event)}
+                          className="btn-secondary btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 text-xs py-1.5 px-3 flex items-center gap-1.5"
+                        >
+                          <EyeSlashIcon className="h-3.5 w-3.5" />
+                          <span>Hide</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

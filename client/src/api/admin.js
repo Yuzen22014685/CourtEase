@@ -93,6 +93,7 @@ export const uploadEventPoster = (venueId, eventId, file) => {
 }
 export const deleteEventPoster = (venueId, eventId) =>
   api.delete(`/admin/venues/${venueId}/events/${eventId}/poster`)
+export const getOwnerHiddenEventCount = () => api.get('/admin/events/hidden-count')
 
 // Event moderation (Admin)
 export const getAdminEvents = (params) => api.get('/admin/events', { params })

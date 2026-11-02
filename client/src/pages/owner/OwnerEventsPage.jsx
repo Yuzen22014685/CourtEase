@@ -71,6 +71,7 @@ export default function OwnerEventsPage() {
       setPageError(null)
       const res = await getOwnerVenueEvents(selectedVenue._id)
       setEvents(res.data?.data || [])
+      window.dispatchEvent(new Event('ce:owner-events-changed'))
     } catch (err) {
       setPageError(err.response?.data?.message || 'Failed to load events')
     } finally {
@@ -310,6 +311,7 @@ export default function OwnerEventsPage() {
     try {
       await deleteVenueEvent(selectedVenue._id, deletingEvent._id)
       setDeletingEvent(null)
+      window.dispatchEvent(new Event('ce:owner-events-changed'))
       await fetchEvents()
     } catch (err) {
       setPageError(err.response?.data?.message || 'Failed to delete event')
@@ -421,19 +423,19 @@ export default function OwnerEventsPage() {
           {/* Hidden Warning Banner */}
           {event.isHidden && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 space-y-1">
-              <div className="font-semibold flex items-center gap-1.5 text-red-900">
-                <ExclamationTriangleIcon className="h-4 w-4 text-red-600 shrink-0" />
-                <span>Hidden by CourtEase admin</span>
+              <div className="flex items-start gap-1.5">
+                <ExclamationTriangleIcon className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                <p>
+                  Hidden by CourtEase admin: <span className="font-medium">{event.hiddenReason}</span>. Players can't see this event. Editing won't make it visible again — contact{' '}
+                  <a
+                    href="mailto:courtease.support@gmail.com"
+                    className="underline font-medium hover:text-red-950"
+                  >
+                    courtease.support@gmail.com
+                  </a>
+                  , or remove it.
+                </p>
               </div>
-              <p>
-                Reason: <span className="font-medium">{event.hiddenReason || 'Policy violation'}</span>. Players can't see this event. Editing won't make it visible again — contact{' '}
-                <a
-                  href="mailto:courtease.support@gmail.com"
-                  className="underline font-medium hover:text-red-950"
-                >
-                  courtease.support@gmail.com
-                </a>.
-              </p>
             </div>
           )}
         </div>
@@ -460,29 +462,16 @@ export default function OwnerEventsPage() {
               </button>
             )}
 
-            {/* Delete button: disabled if hidden */}
-            {event.isHidden ? (
-              <button
-                type="button"
-                disabled
-                className="inline-flex items-center gap-1 text-xs text-gray-400 cursor-not-allowed py-1 px-2 rounded-lg bg-gray-100/70"
-                title="Can't delete a hidden event"
-                aria-label="Can't delete a hidden event"
-              >
-                <TrashIcon className="h-3.5 w-3.5" />
-                <span>Can't delete a hidden event</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setDeletingEvent(event)}
-                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Delete event"
-                aria-label={`Delete ${event.title}`}
-              >
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            )}
+            {/* Delete button: works for both visible and hidden */}
+            <button
+              type="button"
+              onClick={() => setDeletingEvent(event)}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title={event.isHidden ? 'Remove event' : 'Delete event'}
+              aria-label={event.isHidden ? `Remove ${event.title}` : `Delete ${event.title}`}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -808,9 +797,27 @@ export default function OwnerEventsPage() {
       {/* ── Confirm Delete Dialog ── */}
       <ConfirmDialog
         isOpen={Boolean(deletingEvent)}
-        title={deletingEvent ? `Delete "${deletingEvent.title}"?` : 'Delete Event'}
-        message="Delete this event? This cannot be undone."
-        confirmText={isDeleting ? 'Deleting...' : 'Delete'}
+        title={
+          deletingEvent?.isHidden
+            ? 'Remove hidden event?'
+            : deletingEvent
+            ? `Delete "${deletingEvent.title}"?`
+            : 'Delete Event'
+        }
+        message={
+          deletingEvent?.isHidden
+            ? 'This event was hidden by a CourtEase admin. It will disappear from your list, but CourtEase keeps a record of it.'
+            : 'Delete this event? This cannot be undone.'
+        }
+        confirmText={
+          isDeleting
+            ? deletingEvent?.isHidden
+              ? 'Removing...'
+              : 'Deleting...'
+            : deletingEvent?.isHidden
+            ? 'Remove'
+            : 'Delete'
+        }
         cancelText="Cancel"
         confirmVariant="danger"
         onConfirm={handleConfirmDelete}
