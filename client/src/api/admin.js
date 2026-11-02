@@ -21,6 +21,7 @@ export const getMonthlyInsights = (month, venueId) =>
 
 export const approveBooking = (id) => api.patch(`/admin/bookings/${id}/approve`)
 export const rejectBooking = (id, reason) => api.patch(`/admin/bookings/${id}/reject`, { reason })
+export const requestNewReceipt = (id, reason) => api.patch(`/admin/bookings/${id}/request-receipt`, { reason })
 export const getPendingCount = () => api.get('/admin/bookings/pending-count')
 
 // Venue management

@@ -31,6 +31,10 @@ export function getPlayerPaymentBadge(bookings) {
     return null
   }
 
+  if (activeBookings.some((b) => b.status === 'pending' && b.receiptRequest && !b.receiptImage)) {
+    return { status: 'pending', label: 'New receipt needed' }
+  }
+
   // Any paymentStatus 'pending' → "Awaiting payment" (as now)
   if (activeBookings.some((b) => b.paymentStatus === 'pending')) {
     return { status: 'pending', label: 'Awaiting payment' }
@@ -336,9 +340,11 @@ export default function OrderCard({
       {(pendingWithoutReceipt || hasReceiptUploaded) && (
         <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3">
           {pendingWithoutReceipt ? (
-            <div className="flex items-center justify-between w-full">
+            <div className="flex items-center justify-between w-full gap-3">
               <span className="text-xs text-amber-600 font-medium">
-                Payment receipt required for confirmation
+                {pendingWithoutReceipt.receiptRequest?.reason
+                  ? `The venue asked for a new receipt: ${pendingWithoutReceipt.receiptRequest.reason}`
+                  : 'Payment receipt required for confirmation'}
               </span>
               <button
                 type="button"
@@ -346,7 +352,7 @@ export default function OrderCard({
                 className="btn-primary btn-sm text-xs flex items-center gap-1.5 px-3 py-1.5"
               >
                 <ArrowUpTrayIcon className="h-4 w-4" />
-                Upload Receipt
+                {pendingWithoutReceipt.receiptRequest ? 'Upload new receipt' : 'Upload Receipt'}
               </button>
             </div>
           ) : hasReceiptUploaded ? (

@@ -30,6 +30,15 @@ const bookingSchema = new mongoose.Schema({
   paymentRef: { type: String, index: true },
   receiptId: { type: String, unique: true, sparse: true },
   receiptImage: { type: String },
+  previousReceipts: [{ _id: false, image: { type: String }, replacedAt: { type: Date } }],
+  receiptRequest: {
+    type: new mongoose.Schema({
+      reason: { type: String, trim: true, maxlength: 300 },
+      requestedAt: { type: Date },
+    }, { _id: false }),
+    default: null,
+  },
+  receiptRequestCount: { type: Number, default: 0 },
   receiptReminderSent: { type: Boolean, default: false },
   summaryEmailSentAt: { type: Date, default: null }, // order summary email sent (set on the order's first booking)
   rejectionReason: { type: String, trim: true, maxlength: 300 },
@@ -63,6 +72,9 @@ bookingSchema.index({ venueId: 1, date: 1, courtId: 1 });
 bookingSchema.set('toJSON', {
   transform: (doc, ret) => {
     if (ret.receiptImage) ret.receiptImage = signUploadPath(ret.receiptImage);
+    if (Array.isArray(ret.previousReceipts)) {
+      ret.previousReceipts = ret.previousReceipts.map((r) => ({ ...r, image: signUploadPath(r.image) }));
+    }
     return ret;
   },
 });

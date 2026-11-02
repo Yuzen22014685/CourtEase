@@ -430,7 +430,12 @@ const getMyBookings = async (req, res, next) => {
           hiddenReason: existingReview.hiddenReason ?? null,
         }
         : null;
-      return { ...plain, receiptImage: signUploadPath(plain.receiptImage), canCancel, canReschedule, rescheduleBlockedReason, canReview, myReview };
+      return {
+        ...plain,
+        receiptImage: signUploadPath(plain.receiptImage),
+        previousReceipts: (plain.previousReceipts || []).map((r) => ({ ...r, image: signUploadPath(r.image) })),
+        canCancel, canReschedule, rescheduleBlockedReason, canReview, myReview,
+      };
     });
 
     res.json({ success: true, count: data.length, data });
@@ -685,6 +690,7 @@ const uploadReceipt = async (req, res, next) => {
 
     booking.receiptImage = newReceipt;
     booking.paymentStatus = 'paid';
+    booking.receiptRequest = null; // a new upload answers the venue's request
 
     try {
       await booking.save();

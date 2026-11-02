@@ -80,6 +80,7 @@ const sessionOf = (b) => ({
 const BOOKING_TEMPLATES = {
   confirmed: tpl.bookingConfirmed,
   rejected: tpl.bookingRejected,
+  receipt_requested: tpl.receiptRequested,
   cancelled: tpl.bookingCancelled,
   rescheduled: tpl.bookingRescheduled,
   reminder: tpl.sessionReminder,
@@ -88,8 +89,9 @@ const BOOKING_TEMPLATES = {
 
 /**
  * bookingEmail(bookingId, kind, opts)
- * kind: confirmed | rejected | cancelled | rescheduled | reminder | expired
+ * kind: confirmed | rejected | cancelled | rescheduled | reminder | expired | receipt_requested
  * opts: { auto: true } for cron auto-confirm, { byAdmin: true } for an admin cancel
+ *       { count } for receipt_requested (sessions in the payment)
  */
 const bookingEmail = (bookingId, kind, opts = {}) =>
   later(`${kind} ${bookingId}`, async () => {
@@ -109,7 +111,8 @@ const bookingEmail = (bookingId, kind, opts = {}) =>
       playerName: b.playerId.fullName,
       venue: venueOf(b.venueId),
       session: sessionOf(b),
-      reason: b.rejectionReason,
+      reason: kind === 'receipt_requested' ? b.receiptRequest?.reason : b.rejectionReason,
+      count: Number(opts.count) || 1,
       from,
       auto: Boolean(opts.auto),
       byAdmin: Boolean(opts.byAdmin),
