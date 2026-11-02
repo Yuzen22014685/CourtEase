@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Event = require('../models/Event');
 const Venue = require('../models/Venue');
 const { saveFile, deleteFile } = require('../utils/storage');
+const { getOwnedVenueIds } = require('../utils/venueAccess');
 const {
     todayMY,
     isValidDateString,
@@ -19,6 +20,9 @@ const MAX_UPCOMING_PER_VENUE = 20;
 const MAX_DAYS_AHEAD = 365;
 const EDITABLE_FIELDS = ['title', 'description', 'date', 'startTime', 'endTime', 'howToJoin', 'fee'];
 const ADMIN_PAGE_SIZE = 20;
+
+// Events an owner removed after they were hidden: kept for the admin, invisible to everyone else
+const NOT_DELETED = { deletedByOwnerAt: null };
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,6 +64,7 @@ const validateEventFields = (f, now = new Date()) => {
 const toOwnerJSON = (e, now = new Date()) => {
     const o = e.toObject();
     delete o.hiddenBy;
+    delete o.deletedByOwnerAt;
     delete o.__v;
     o.isPast = isEventEnded(e, now);
     return o;
@@ -84,6 +89,8 @@ const toPublicJSON = (e) => ({
 const activeVenueIds = async () =>
     (await Venue.find({ isActive: { $ne: false } }).select('_id')).map((v) => v._id);
 
+const findOwnEvent = (venueId, eventId) => Event.findOne({ _id: eventId, venueId, ...NOT_DELETED });
+
 // ---------------------------------------------------------------------------
 // OWNER  (routes: requireRole('venue_owner') + requireVenueAccess('id'))
 // ---------------------------------------------------------------------------
@@ -92,11 +99,29 @@ const activeVenueIds = async () =>
 const getOwnerVenueEvents = async (req, res, next) => {
     try {
         const now = new Date();
-        const events = await Event.find({ venueId: req.params.id }).sort({ date: 1, startTime: 1 });
+        const events = await Event.find({ venueId: req.params.id, ...NOT_DELETED }).sort({ date: 1, startTime: 1 });
         const data = events.map((e) => toOwnerJSON(e, now));
         const upcoming = data.filter((e) => !e.isPast);
         const past = data.filter((e) => e.isPast).reverse();
         res.json({ success: true, count: data.length, data: [...upcoming, ...past] });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// GET /api/admin/events/hidden-count  (venue_owner) -> upcoming hidden events across own venues (tab badge)
+const getOwnerHiddenEventCount = async (req, res, next) => {
+    try {
+        const now = new Date();
+        const venueIds = await getOwnedVenueIds(req.user);
+        const events = await Event.find({
+            venueId: { $in: venueIds || [] },
+            isHidden: true,
+            date: { $gte: todayMY(now) },
+            ...NOT_DELETED,
+        }).select('date endTime');
+        const count = events.filter((e) => !isEventEnded(e, now)).length;
+        res.json({ success: true, count });
     } catch (err) {
         next(err);
     }
@@ -110,7 +135,11 @@ const createEvent = async (req, res, next) => {
         const error = validateEventFields(fields, now);
         if (error) return res.status(400).json({ success: false, message: error });
 
-        const upcomingCount = await Event.countDocuments({ venueId: req.params.id, date: { $gte: todayMY(now) } });
+        const upcomingCount = await Event.countDocuments({
+            venueId: req.params.id,
+            date: { $gte: todayMY(now) },
+            ...NOT_DELETED,
+        });
         if (upcomingCount >= MAX_UPCOMING_PER_VENUE) {
             return res.status(400).json({
                 success: false,
@@ -134,7 +163,7 @@ const updateEvent = async (req, res, next) => {
         if (!mongoose.isValidObjectId(eventId)) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
-        const event = await Event.findOne({ _id: eventId, venueId: req.params.id });
+        const event = await findOwnEvent(req.params.id, eventId);
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
         if (isEventEnded(event, now)) {
             return res.status(400).json({ success: false, message: 'Past events cannot be edited' });
@@ -153,20 +182,21 @@ const updateEvent = async (req, res, next) => {
 };
 
 // DELETE /api/admin/venues/:id/events/:eventId
-// A hidden event cannot be deleted by the owner (keeps the moderation record).
+// Visible event -> deleted for real (record + poster file).
+// Hidden event  -> soft delete: gone for the owner, kept (with poster) as the admin's moderation record.
 const deleteEvent = async (req, res, next) => {
     try {
         const { eventId } = req.params;
         if (!mongoose.isValidObjectId(eventId)) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
-        const event = await Event.findOne({ _id: eventId, venueId: req.params.id });
+        const event = await findOwnEvent(req.params.id, eventId);
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+
         if (event.isHidden) {
-            return res.status(400).json({
-                success: false,
-                message: 'This event was hidden by an admin and cannot be deleted. Contact CourtEase support.',
-            });
+            event.deletedByOwnerAt = new Date();
+            await event.save();
+            return res.json({ success: true, message: 'Event removed' });
         }
 
         const oldPoster = event.posterImage;
@@ -179,14 +209,14 @@ const deleteEvent = async (req, res, next) => {
     }
 };
 
-// Middleware before multer: event exists, belongs to this venue, not over yet
+// Middleware before multer: event exists, belongs to this venue, not deleted, not over yet
 const verifyEventEditable = async (req, res, next) => {
     try {
         const { id, eventId } = req.params;
         if (!mongoose.isValidObjectId(eventId)) {
             return res.status(404).json({ success: false, message: 'Event not found' });
         }
-        const event = await Event.findOne({ _id: eventId, venueId: id });
+        const event = await findOwnEvent(id, eventId);
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
         if (isEventEnded(event)) {
             return res.status(400).json({ success: false, message: 'Past events cannot be edited' });
@@ -250,6 +280,7 @@ const deleteEventPoster = async (req, res, next) => {
 // ---------------------------------------------------------------------------
 
 // GET /api/admin/events?page=1&venueId=&status=visible|hidden&when=upcoming|past
+// Includes events the owner removed (deletedByOwnerAt set) so the moderation history stays complete.
 const getAdminEvents = async (req, res, next) => {
     try {
         const now = new Date();
@@ -320,6 +351,9 @@ const hideEvent = async (req, res, next) => {
 
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+        if (event.deletedByOwnerAt) {
+            return res.status(400).json({ success: false, message: 'The owner has removed this event' });
+        }
 
         event.isHidden = true;
         event.hiddenReason = reason;
@@ -342,6 +376,9 @@ const restoreEvent = async (req, res, next) => {
         }
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+        if (event.deletedByOwnerAt) {
+            return res.status(400).json({ success: false, message: 'The owner has removed this event, so it cannot be restored' });
+        }
         if (!event.isHidden) return res.status(400).json({ success: false, message: 'Event is not hidden' });
 
         event.isHidden = false;
@@ -369,6 +406,7 @@ const getPublicEvents = async (req, res, next) => {
             venueId: { $in: venueIds },
             isHidden: { $ne: true },
             date: { $gte: todayMY(now) },
+            ...NOT_DELETED,
         })
             .sort({ date: 1, startTime: 1 })
             .limit(200)
@@ -392,7 +430,12 @@ const getPublicVenueEvents = async (req, res, next) => {
         const venue = await Venue.findOne({ _id: id, isActive: { $ne: false } }).select('_id');
         if (!venue) return res.status(404).json({ success: false, message: 'Venue not found' });
 
-        const events = await Event.find({ venueId: id, isHidden: { $ne: true }, date: { $gte: todayMY(now) } })
+        const events = await Event.find({
+            venueId: id,
+            isHidden: { $ne: true },
+            date: { $gte: todayMY(now) },
+            ...NOT_DELETED,
+        })
             .sort({ date: 1, startTime: 1 })
             .populate('venueId', 'name area');
 
@@ -405,6 +448,7 @@ const getPublicVenueEvents = async (req, res, next) => {
 
 module.exports = {
     getOwnerVenueEvents,
+    getOwnerHiddenEventCount,
     createEvent,
     updateEvent,
     deleteEvent,

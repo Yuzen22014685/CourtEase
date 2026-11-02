@@ -24,6 +24,8 @@ const eventSchema = new mongoose.Schema(
         hiddenReason: { type: String, trim: true, maxlength: 300, default: null },
         hiddenAt: { type: Date, default: null },
         hiddenBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        // Owner removed a hidden event: kept as a moderation record, never shown again
+        deletedByOwnerAt: { type: Date, default: null },
     },
     { timestamps: true }
 );

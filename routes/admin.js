@@ -61,6 +61,7 @@ const {
 const upload = require('../middleware/upload');
 const {
   getOwnerVenueEvents,
+  getOwnerHiddenEventCount,
   createEvent,
   updateEvent,
   deleteEvent,
@@ -192,6 +193,7 @@ router.patch('/reviews/:id/restore', adminOnly, restoreReview);
 // ─── Venue Events ──────────────────────────────────────────────────────────
 // Owner: manage events of own venue (owners write, admins only moderate)
 const ownerOnly = requireRole('venue_owner');
+router.get('/events/hidden-count', ownerOnly, getOwnerHiddenEventCount);
 router.get('/venues/:id/events', ownerOnly, requireVenueAccess('id'), getOwnerVenueEvents);
 router.post('/venues/:id/events', ownerOnly, requireVenueAccess('id'), createEvent);
 router.patch('/venues/:id/events/:eventId', ownerOnly, requireVenueAccess('id'), updateEvent);
