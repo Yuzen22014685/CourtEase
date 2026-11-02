@@ -69,6 +69,7 @@ const {
   uploadEventPoster,
   deleteEventPoster,
   getAdminEvents,
+  getAdminEventReviewCount,
   hideEvent,
   restoreEvent,
 } = require('../controllers/eventController');
@@ -215,6 +216,7 @@ router.delete(
 );
 
 // Admin: moderation (hide with reason / restore)
+router.get('/events/review-count', adminOnly, getAdminEventReviewCount);
 router.get('/events', adminOnly, getAdminEvents);
 router.patch('/events/:eventId/hide', adminOnly, hideEvent);
 router.patch('/events/:eventId/restore', adminOnly, restoreEvent);

@@ -24,6 +24,9 @@ const ADMIN_PAGE_SIZE = 20;
 // Events an owner removed after they were hidden: kept for the admin, invisible to everyone else
 const NOT_DELETED = { deletedByOwnerAt: null };
 
+// Hidden, changed by the owner since, not removed -> admin should review it
+const NEEDS_REVIEW = { isHidden: true, ownerUpdatedAt: { $ne: null }, deletedByOwnerAt: null };
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -174,6 +177,7 @@ const updateEvent = async (req, res, next) => {
         if (error) return res.status(400).json({ success: false, message: error });
 
         for (const k of EDITABLE_FIELDS) event[k] = fields[k];
+        if (event.isHidden) event.ownerUpdatedAt = new Date(); // resubmitted for review
         await event.save();
         res.json({ success: true, data: toOwnerJSON(event, now) });
     } catch (err) {
@@ -247,6 +251,7 @@ const uploadEventPoster = async (req, res, next) => {
 
         const oldPoster = event.posterImage;
         event.posterImage = newPoster;
+        if (event.isHidden) event.ownerUpdatedAt = new Date();
         try {
             await event.save();
         } catch (dbErr) {
@@ -267,6 +272,7 @@ const deleteEventPoster = async (req, res, next) => {
         const event = req.event;
         const oldPoster = event.posterImage;
         event.posterImage = null;
+        if (event.isHidden) event.ownerUpdatedAt = new Date();
         await event.save();
         if (oldPoster) await deleteFile(oldPoster);
         res.json({ success: true, data: toOwnerJSON(event) });
@@ -295,6 +301,7 @@ const getAdminEvents = async (req, res, next) => {
         }
         if (req.query.status === 'visible') filter.isHidden = { $ne: true };
         else if (req.query.status === 'hidden') filter.isHidden = true;
+        else if (req.query.status === 'review') Object.assign(filter, NEEDS_REVIEW);
 
         const today = todayMY(now);
         if (req.query.when === 'upcoming') filter.date = { $gte: today };
@@ -331,6 +338,18 @@ const getAdminEvents = async (req, res, next) => {
     }
 };
 
+// GET /api/admin/events/review-count (admin) -> upcoming hidden events the owner has updated (sidebar badge)
+const getAdminEventReviewCount = async (req, res, next) => {
+    try {
+        const now = new Date();
+        const events = await Event.find({ ...NEEDS_REVIEW, date: { $gte: todayMY(now) } }).select('date endTime');
+        const count = events.filter((e) => !isEventEnded(e, now)).length;
+        res.json({ success: true, count });
+    } catch (err) {
+        next(err);
+    }
+};
+
 // PATCH /api/admin/events/:eventId/hide { reason }
 const hideEvent = async (req, res, next) => {
     try {
@@ -359,6 +378,7 @@ const hideEvent = async (req, res, next) => {
         event.hiddenReason = reason;
         event.hiddenAt = new Date();
         event.hiddenBy = req.user._id;
+        event.ownerUpdatedAt = null; // a new hide starts a new review cycle
         await event.save();
 
         res.json({ success: true, message: 'Event hidden', data: event });
@@ -385,6 +405,7 @@ const restoreEvent = async (req, res, next) => {
         event.hiddenReason = null;
         event.hiddenAt = null;
         event.hiddenBy = null;
+        event.ownerUpdatedAt = null;
         await event.save();
 
         res.json({ success: true, message: 'Event restored', data: event });
@@ -456,6 +477,7 @@ module.exports = {
     uploadEventPoster,
     deleteEventPoster,
     getAdminEvents,
+    getAdminEventReviewCount,
     hideEvent,
     restoreEvent,
     getPublicEvents,
