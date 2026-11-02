@@ -1,12 +1,13 @@
 // middleware/privateUploads.js — guards GET /uploads/<file>.
 //
 // DEFAULT DENY: a file is PUBLIC only if a public field references it
-// (venue photos, venue layout, venue payment QR, shop item photo, platform payment QR).
+// (venue photos, venue layout, venue payment QR, shop item photo, event poster, platform payment QR).
 // Everything else — booking receipts, commission receipts, orphaned files — needs a valid
 // signed URL (?exp=&sig=), which only authorised API responses contain (see utils/signedUrl.js).
 
 const Venue = require('../models/Venue');
 const ShopItem = require('../models/ShopItem');
+const Event = require('../models/Event');
 const PlatformSettings = require('../models/PlatformSettings');
 const { verifyUploadSignature } = require('../utils/signedUrl');
 
@@ -30,6 +31,7 @@ const isPublicFile = async (name) => {
             ],
         })) ||
         (await ShopItem.exists({ photo: { $in: forms } })) ||
+        (await Event.exists({ posterImage: { $in: forms } })) ||
         (await PlatformSettings.exists({ 'paymentInfo.duitNowQr': { $in: forms } }))
     );
     if (isPublic) {
