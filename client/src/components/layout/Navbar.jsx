@@ -183,8 +183,8 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
             </Link>
           </div>
 
-          {/* Player nav links */}
-          {!isStaff && user && (
+          {/* Navigation links (players and guests) */}
+          {!isStaff && (
             <nav className="hidden sm:flex items-center gap-1">
               <NavLink
                 to="/venues"
@@ -193,17 +193,27 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                 Venues
               </NavLink>
               <NavLink
-                to="/my-bookings"
+                to="/events"
                 className={desktopNavLinkClass}
               >
-                My Bookings
+                Events
               </NavLink>
-              <NavLink
-                to="/profile"
-                className={desktopNavLinkClass}
-              >
-                Profile
-              </NavLink>
+              {user && (
+                <>
+                  <NavLink
+                    to="/my-bookings"
+                    className={desktopNavLinkClass}
+                  >
+                    My Bookings
+                  </NavLink>
+                  <NavLink
+                    to="/profile"
+                    className={desktopNavLinkClass}
+                  >
+                    Profile
+                  </NavLink>
+                </>
+              )}
             </nav>
           )}
 
@@ -213,6 +223,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
               {!isStaff && (
                 <div className="relative" ref={dropdownRef}>
                   <button
+                    type="button"
                     onClick={toggleDropdown}
                     className="relative p-2 text-gray-400 hover:text-gray-500 rounded-full hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
                   >
@@ -242,6 +253,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                             return (
                               <Component
                                 key={notif._id}
+                                type={isClickable ? 'button' : undefined}
                                 onClick={isClickable ? () => handleNotificationClick(notif) : undefined}
                                 className={`w-full text-left px-4 py-3 border-b border-gray-50 last:border-0 flex items-center gap-3 transition-colors ${!notif.isRead ? 'bg-blue-50/50' : ''
                                   } ${isClickable
@@ -291,6 +303,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
               </div>
               <button
                 id="logout-btn"
+                type="button"
                 onClick={handleLogout}
                 className={`${isStaff ? 'flex' : 'hidden sm:flex'} items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600
                            rounded-lg hover:text-red-600 hover:bg-red-50 transition-colors`}
@@ -327,13 +340,29 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                 Login
               </Link>
               <Link to="/register" className="btn-primary btn-sm">Register</Link>
+
+              {/* Mobile hamburger button (guests) */}
+              <button
+                ref={mobileBtnRef}
+                type="button"
+                onClick={toggleMobileMenu}
+                className="sm:hidden p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+                aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={isMobileMenuOpen}
+              >
+                {isMobileMenuOpen ? (
+                  <XMarkIcon className="h-6 w-6" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" />
+                )}
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Mobile dropdown panel (players only) */}
-      {!isStaff && user && isMobileMenuOpen && (
+      {/* Mobile dropdown panel (players + guests) */}
+      {!isStaff && isMobileMenuOpen && (
         <div
           ref={mobileMenuRef}
           className="sm:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm animate-fadeIn"
@@ -347,44 +376,74 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
               Venues
             </NavLink>
             <NavLink
-              to="/my-bookings"
+              to="/events"
               onClick={() => setIsMobileMenuOpen(false)}
               className={mobileNavLinkClass}
             >
-              My Bookings
+              Events
             </NavLink>
-            <NavLink
-              to="/profile"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={mobileNavLinkClass}
-            >
-              Profile
-            </NavLink>
+            {user ? (
+              <>
+                <NavLink
+                  to="/my-bookings"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={mobileNavLinkClass}
+                >
+                  My Bookings
+                </NavLink>
+                <NavLink
+                  to="/profile"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={mobileNavLinkClass}
+                >
+                  Profile
+                </NavLink>
 
-            {/* User info & Logout */}
-            <div className="pt-3 mt-2 border-t border-gray-100 flex items-center justify-between px-3">
-              <Link
-                to={userAccountPath}
-                onClick={() => setIsMobileMenuOpen(false)}
-                title={userAccountLabel}
-                aria-label={userAccountLabel}
-                className="flex items-center gap-2 text-xs text-gray-700 hover:text-primary-700 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors min-w-0 group"
-              >
-                <UserCircleIcon className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors shrink-0" />
-                <span className="font-medium truncate">{user.fullName}</span>
-              </Link>
-              <button
-                id="mobile-logout-btn"
-                onClick={() => {
-                  setIsMobileMenuOpen(false)
-                  handleLogout()
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                <span>Logout</span>
-              </button>
-            </div>
+                {/* User info & Logout */}
+                <div className="pt-3 mt-2 border-t border-gray-100 flex items-center justify-between px-3">
+                  <Link
+                    to={userAccountPath}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    title={userAccountLabel}
+                    aria-label={userAccountLabel}
+                    className="flex items-center gap-2 text-xs text-gray-700 hover:text-primary-700 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors min-w-0 group"
+                  >
+                    <UserCircleIcon className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors shrink-0" />
+                    <span className="font-medium truncate">{user.fullName}</span>
+                  </Link>
+                  <button
+                    id="mobile-logout-btn"
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false)
+                      handleLogout()
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-4 w-4" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="pt-3 mt-2 border-t border-gray-100 flex items-center gap-2 px-3">
+                <Link
+                  to="/login"
+                  state={{ from: location.pathname + location.search }}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="btn-secondary btn-sm flex-1 text-center justify-center"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="btn-primary btn-sm flex-1 text-center justify-center"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       )}

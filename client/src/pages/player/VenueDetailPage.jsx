@@ -2,12 +2,13 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
-import { getVenueById, getVenueAvailability, getVenueReviews, getVenueShopItems } from '../../api/venues'
+import { getVenueById, getVenueAvailability, getVenueReviews, getVenueShopItems, getVenueEvents } from '../../api/venues'
 import { createBooking } from '../../api/bookings'
 import Layout from '../../components/layout/Layout'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
+import ImageLightbox from '../../components/ui/ImageLightbox'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
 import PayVenueCard from '../../components/bookings/PayVenueCard'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -29,6 +30,7 @@ import {
   ShieldCheckIcon,
   PhoneIcon,
   BuildingOffice2Icon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
 import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline'
@@ -162,6 +164,34 @@ export default function VenueDetailPage() {
       })
     return () => {
       mounted = false
+    }
+  }, [id])
+
+  // ── Upcoming Events ───────────────────────────────────────────
+  const [venueEvents, setVenueEvents]       = useState([])
+  const [expandedEvents, setExpandedEvents] = useState({})
+  const [activePoster, setActivePoster]     = useState(null)
+
+  // Load venue's upcoming visible events independently
+  useEffect(() => {
+    let cancelled = false
+    setVenueEvents([])
+    if (!id) return
+
+    getVenueEvents(id)
+      .then((res) => {
+        if (!cancelled && res.data?.data) {
+          setVenueEvents(res.data.data)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setVenueEvents([])
+        }
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [id])
 
@@ -600,6 +630,133 @@ export default function VenueDetailPage() {
               </p>
             )}
 
+            {/* Upcoming Events Section */}
+            {venueEvents.length > 0 && (
+              <div className="card p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <CalendarDaysIcon className="h-5 w-5 text-primary-600" />
+                    <h2 className="text-lg font-bold text-gray-900">Upcoming events</h2>
+                  </div>
+                  {venueEvents.length > 3 && (
+                    <Link
+                      to="/events"
+                      className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+                    >
+                      See all events ({venueEvents.length}) →
+                    </Link>
+                  )}
+                </div>
+
+                <div className="divide-y divide-gray-100">
+                  {venueEvents.slice(0, 3).map((event) => {
+                    const isExpanded = Boolean(expandedEvents[event._id])
+                    const posterUrl = event.posterImage ? getImageUrl(event.posterImage) : null
+
+                    return (
+                      <div key={event._id} className="py-3.5 first:pt-0 last:pb-0">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 min-w-0">
+                            {/* Poster thumbnail or calendar icon (object-contain on bg-gray-50) */}
+                            {posterUrl ? (
+                              <button
+                                type="button"
+                                onClick={() => setActivePoster({ src: posterUrl, caption: event.title })}
+                                aria-label={`View poster for ${event.title}`}
+                                className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden shrink-0 flex items-center justify-center cursor-zoom-in hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                title={`View poster for ${event.title}`}
+                              >
+                                <img
+                                  src={posterUrl}
+                                  alt={event.title}
+                                  className="w-full h-full object-contain"
+                                />
+                              </button>
+                            ) : (
+                              <div className="w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                                <CalendarDaysIcon className="h-5 w-5" />
+                              </div>
+                            )}
+
+                            <div className="min-w-0">
+                              <h3 className="text-sm font-semibold text-gray-900 leading-snug">
+                                {event.title}
+                              </h3>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-gray-500">
+                                <span className="font-medium text-primary-700">
+                                  {formatDate(event.date)}
+                                </span>
+                                <span>·</span>
+                                <span>
+                                  {formatTime(event.startTime)} – {formatTime(event.endTime)}
+                                </span>
+                                {event.fee && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="font-medium text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                      {event.fee}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {(event.description || event.howToJoin) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedEvents((prev) => ({
+                                  ...prev,
+                                  [event._id]: !prev[event._id],
+                                }))
+                              }
+                              className="text-xs text-gray-500 hover:text-primary-600 px-2 py-1 rounded hover:bg-gray-50 font-medium shrink-0 flex items-center gap-1 transition-colors"
+                            >
+                              {isExpanded ? 'Less' : 'Details'}
+                              <ChevronDownIcon
+                                className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                                  isExpanded ? 'rotate-180' : ''
+                                }`}
+                              />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Collapsible Details */}
+                        {isExpanded && (
+                          <div className="mt-3 pl-0 sm:pl-15 space-y-2 text-xs text-gray-600">
+                            {event.description && (
+                              <p className="whitespace-pre-line leading-relaxed bg-gray-50/50 p-2.5 rounded-lg border border-gray-100">
+                                {event.description}
+                              </p>
+                            )}
+                            {event.howToJoin && (
+                              <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                <span className="font-semibold text-gray-700">How to join: </span>
+                                <span className="whitespace-pre-line">{event.howToJoin}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {venueEvents.length > 3 && (
+                  <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+                    <Link
+                      to="/events"
+                      className="text-xs font-semibold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
+                    >
+                      See all events →
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Reviews Section */}
             <div className="card p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
@@ -889,6 +1046,14 @@ export default function VenueDetailPage() {
           </div>
         </div>
       </Modal>
+      {/* ── Poster Lightbox ── */}
+      <ImageLightbox
+        isOpen={Boolean(activePoster)}
+        onClose={() => setActivePoster(null)}
+        src={activePoster?.src}
+        alt={activePoster?.caption}
+        caption={activePoster?.caption}
+      />
     </Layout>
   )
 }

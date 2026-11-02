@@ -74,6 +74,33 @@ export const uploadShopItemPhoto = (venueId, itemId, formData) =>
 export const deleteShopItemPhoto = (venueId, itemId) =>
   api.delete(`/admin/venues/${venueId}/shop-items/${itemId}/photo`)
 
+// Venue events (Owner)
+export const getOwnerVenueEvents = (venueId) => api.get(`/admin/venues/${venueId}/events`)
+export const createVenueEvent = (venueId, data) => api.post(`/admin/venues/${venueId}/events`, data)
+export const updateVenueEvent = (venueId, eventId, data) =>
+  api.patch(`/admin/venues/${venueId}/events/${eventId}`, data)
+export const deleteVenueEvent = (venueId, eventId) =>
+  api.delete(`/admin/venues/${venueId}/events/${eventId}`)
+export const uploadEventPoster = (venueId, eventId, file) => {
+  const formData = file instanceof FormData ? file : (() => {
+    const fd = new FormData()
+    fd.append('poster', file)
+    return fd
+  })()
+  return api.post(`/admin/venues/${venueId}/events/${eventId}/poster`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+export const deleteEventPoster = (venueId, eventId) =>
+  api.delete(`/admin/venues/${venueId}/events/${eventId}/poster`)
+export const getOwnerHiddenEventCount = () => api.get('/admin/events/hidden-count')
+
+// Event moderation (Admin)
+export const getAdminEvents = (params) => api.get('/admin/events', { params })
+export const hideEvent = (eventId, reason) => api.patch(`/admin/events/${eventId}/hide`, { reason })
+export const restoreEvent = (eventId) => api.patch(`/admin/events/${eventId}/restore`)
+export const getAdminEventReviewCount = () => api.get('/admin/events/review-count')
+
 // Platform Commission
 export const getCommissionSettings = () => api.get('/admin/commission/settings')
 export const updateCommissionSettings = (data) => api.patch('/admin/commission/settings', data)

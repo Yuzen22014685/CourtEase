@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
-import { getPendingCount } from '../../api/admin'
+import { getPendingCount, getOwnerHiddenEventCount } from '../../api/admin'
 import Spinner from '../ui/Spinner'
 import {
   CalendarDaysIcon,
@@ -13,13 +13,15 @@ import {
   UserCircleIcon,
   SparklesIcon,
   ShoppingBagIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 
 const tabs = [
   { to: '/owner/today', label: 'Today', icon: SparklesIcon },
   { to: '/owner/bookings', label: 'Bookings', icon: CalendarDaysIcon, hasBadge: true },
-  { to: '/owner/venue', label: 'My Venue', icon: BuildingOffice2Icon },
+  { to: '/owner/venue', label: 'My Venue', mobileLabel: 'Venue', icon: BuildingOffice2Icon },
   { to: '/owner/shop', label: 'Shop', icon: ShoppingBagIcon },
+  { to: '/owner/events', label: 'Events', icon: MegaphoneIcon, hasHiddenBadge: true },
   { to: '/owner/reviews', label: 'Reviews', icon: ChatBubbleLeftRightIcon },
   { to: '/owner/insights', label: 'Insights', icon: ChartBarIcon },
 ]
@@ -30,6 +32,17 @@ export default function OwnerLayout() {
   const navigate = useNavigate()
 
   const [pendingCount, setPendingCount] = useState(0)
+  const [hiddenEventCount, setHiddenEventCount] = useState(0)
+  const location = useLocation()
+
+  const fetchHiddenCount = useCallback(async () => {
+    try {
+      const res = await getOwnerHiddenEventCount()
+      setHiddenEventCount(res.data?.count ?? 0)
+    } catch {
+      // silently ignore — failed request must not break the layout
+    }
+  }, [])
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -53,12 +66,32 @@ export default function OwnerLayout() {
     }
   }, [])
 
+  // Hidden events count: mount effect sets up initial fetch, 30s interval, and custom event listener
+  useEffect(() => {
+    fetchHiddenCount()
+    const interval = setInterval(fetchHiddenCount, 30_000)
+
+    const handleOwnerEventsChanged = () => fetchHiddenCount()
+    window.addEventListener('ce:owner-events-changed', handleOwnerEventsChanged)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('ce:owner-events-changed', handleOwnerEventsChanged)
+    }
+  }, [fetchHiddenCount])
+
+  // Hidden events count: route-change effect only calls fetch (no intervals or listeners created)
+  useEffect(() => {
+    fetchHiddenCount()
+  }, [location.pathname, fetchHiddenCount])
+
   const handleLogout = async () => {
     await logoutUser()
     navigate('/login')
   }
 
   const badgeDisplay = pendingCount > 99 ? '99+' : pendingCount
+  const hiddenBadgeDisplay = hiddenEventCount > 99 ? '99+' : hiddenEventCount
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -146,7 +179,7 @@ export default function OwnerLayout() {
           <div className="hidden sm:block border-t border-gray-100 bg-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <nav className="flex space-x-2 py-2 overflow-x-auto">
-                {tabs.map(({ to, label, icon: Icon, hasBadge }) => (
+                {tabs.map(({ to, label, icon: Icon, hasBadge, hasHiddenBadge }) => (
                   <NavLink
                     key={to}
                     to={to}
@@ -163,6 +196,11 @@ export default function OwnerLayout() {
                     {hasBadge && pendingCount > 0 && (
                       <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
                         {badgeDisplay}
+                      </span>
+                    )}
+                    {hasHiddenBadge && hiddenEventCount > 0 && (
+                      <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                        {hiddenBadgeDisplay}
                       </span>
                     )}
                   </NavLink>
@@ -203,7 +241,7 @@ export default function OwnerLayout() {
           aria-label="Mobile Bottom Navigation"
           className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-center h-16 px-1 safe-bottom shadow-lg"
         >
-          {tabs.map(({ to, label, icon: Icon, hasBadge }) => (
+          {tabs.map(({ to, label, mobileLabel, icon: Icon, hasBadge, hasHiddenBadge }) => (
             <NavLink
               key={to}
               to={to}
@@ -220,8 +258,13 @@ export default function OwnerLayout() {
                     {badgeDisplay}
                   </span>
                 )}
+                {hasHiddenBadge && hiddenEventCount > 0 && (
+                  <span className="absolute -top-1 -right-2.5 inline-flex items-center justify-center min-w-[1rem] h-3.5 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none">
+                    {hiddenBadgeDisplay}
+                  </span>
+                )}
               </div>
-              <span className="mt-1 truncate max-w-[52px]">{label}</span>
+              <span className="mt-1 truncate max-w-full">{mobileLabel || label}</span>
             </NavLink>
           ))}
         </nav>

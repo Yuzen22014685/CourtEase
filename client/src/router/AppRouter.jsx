@@ -22,6 +22,7 @@ import ResetPasswordPage  from '../pages/auth/ResetPasswordPage'
 // Player pages
 import VenuesPage      from '../pages/player/VenuesPage'
 import VenueDetailPage from '../pages/player/VenueDetailPage'
+import EventsPage      from '../pages/player/EventsPage'
 import MyBookingsPage  from '../pages/player/MyBookingsPage'
 import ProfilePage     from '../pages/player/ProfilePage'
 
@@ -30,13 +31,15 @@ import DashboardPage     from '../pages/admin/DashboardPage'
 import AdminVenuesPage   from '../pages/admin/VenuesPage'
 import OwnersPage        from '../pages/admin/OwnersPage'
 import AdminReviewsPage  from '../pages/admin/ReviewsPage'
+import AdminEventsPage   from '../pages/admin/AdminEventsPage'
 import AdminBookingsPage from '../pages/admin/BookingsPage'
 import AnalyticsPage     from '../pages/admin/AnalyticsPage'
 import CommissionPage    from '../pages/admin/CommissionPage'
 
 // Owner pages
-import TodayPage from '../pages/owner/TodayPage'
-import ShopPage  from '../pages/owner/ShopPage'
+import TodayPage       from '../pages/owner/TodayPage'
+import ShopPage        from '../pages/owner/ShopPage'
+import OwnerEventsPage from '../pages/owner/OwnerEventsPage'
 
 // Shared Account page
 import AccountPage from '../pages/account/AccountPage'
@@ -76,6 +79,9 @@ export default function AppRouter() {
       <Route path="/venues/:id" element={
         <PublicPlayerRoute><VenueDetailPage /></PublicPlayerRoute>
       } />
+      <Route path="/events" element={
+        <PublicPlayerRoute><EventsPage /></PublicPlayerRoute>
+      } />
       <Route path="/my-bookings" element={
         <PlayerRoute><MyBookingsPage /></PlayerRoute>
       } />
@@ -95,6 +101,9 @@ export default function AppRouter() {
       } />
       <Route path="/admin/reviews" element={
         <AdminRoute><AdminReviewsPage /></AdminRoute>
+      } />
+      <Route path="/admin/events" element={
+        <AdminRoute><AdminEventsPage /></AdminRoute>
       } />
       <Route path="/admin/bookings" element={
         <AdminRoute><AdminBookingsPage /></AdminRoute>
@@ -125,6 +134,7 @@ export default function AppRouter() {
         <Route path="bookings" element={<AdminBookingsPage noLayout />} />
         <Route path="venue" element={<AdminVenuesPage noLayout />} />
         <Route path="shop" element={<ShopPage />} />
+        <Route path="events" element={<OwnerEventsPage />} />
         <Route path="reviews" element={<AdminReviewsPage noLayout />} />
         <Route path="insights" element={<AnalyticsPage noLayout />} />
         <Route path="account" element={<AccountPage noLayout />} />

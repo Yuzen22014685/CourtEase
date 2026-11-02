@@ -23,6 +23,7 @@ const {
   markAsRead,
   getUnreadCount,
 } = require('../controllers/notificationController');
+const { getPublicEvents, getPublicVenueEvents } = require('../controllers/eventController');
 
 // Rate limiter for public venue browsing
 const publicVenueLimiter = rateLimit({
@@ -42,6 +43,8 @@ router.get('/venues/:id', publicVenueLimiter, getVenueById);
 router.get('/venues/:id/availability', publicVenueLimiter, getVenueAvailability);
 router.get('/venues/:id/reviews', publicVenueLimiter, getVenueReviews);
 router.get('/venues/:id/shop-items', publicVenueLimiter, getPublicVenueShopItems);
+router.get('/venues/:id/events', publicVenueLimiter, getPublicVenueEvents);
+router.get('/events', publicVenueLimiter, getPublicEvents);
 
 // Booking routes (protected)
 router.post('/bookings', protect, createBooking);
