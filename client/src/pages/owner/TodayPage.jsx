@@ -471,6 +471,10 @@ export default function TodayPage() {
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                           ✓ Receipt uploaded
                         </span>
+                      ) : b.receiptRequest && !b.receiptImage ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                          New receipt requested
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                           ⚠️ No receipt yet

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useOwnerVenue } from '../../context/OwnerVenueContext'
 import { useApi } from '../../hooks/useApi'
-import { getAllBookings, approveBooking, rejectBooking, getAdminVenues } from '../../api/admin'
+import { getAllBookings, approveBooking, rejectBooking, requestNewReceipt, getAdminVenues } from '../../api/admin'
 import AdminLayout from '../../components/layout/AdminLayout'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
@@ -27,6 +27,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
   const [reviewBooking, setReviewBooking] = useState(null)
   const [reviewMode, setReviewMode]       = useState('default') // 'default' | 'confirm-approve' | 'confirm-approve-all' | 'reject-form' | 'reject-all-form'
   const [rejectReason, setRejectReason]   = useState('')
+  const [receiptRequestReason, setReceiptRequestReason] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [actionProgress, setActionProgress] = useState('')
   const [modalError, setModalError]       = useState(null)
@@ -132,6 +133,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
     setReviewBooking(b)
     setReviewMode('default')
     setRejectReason('')
+    setReceiptRequestReason('')
     setModalError(null)
   }
 
@@ -140,6 +142,7 @@ export default function AdminBookingsPage({ noLayout = false }) {
     setReviewBooking(null)
     setReviewMode('default')
     setRejectReason('')
+    setReceiptRequestReason('')
     setModalError(null)
     setActionProgress('')
   }
@@ -233,6 +236,29 @@ export default function AdminBookingsPage({ noLayout = false }) {
       setTimeout(() => setActionMessage(null), 4000)
     } catch (err) {
       setModalError(err.response?.data?.message || 'Failed to reject booking')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleExecuteRequestReceipt = async () => {
+    if (!reviewBooking) return
+    const trimmed = receiptRequestReason.trim()
+    if (trimmed.length < 5) {
+      setModalError('Reason must be at least 5 characters.')
+      return
+    }
+    setActionLoading(true)
+    setModalError(null)
+    try {
+      await requestNewReceipt(reviewBooking._id, trimmed)
+      setActionMessage('New receipt requested. The player has been notified.')
+      refetch()
+      closeReview()
+      window.dispatchEvent(new Event('pending-count-changed'))
+      setTimeout(() => setActionMessage(null), 4000)
+    } catch (err) {
+      setModalError(err.response?.data?.message || 'Failed to request new receipt')
     } finally {
       setActionLoading(false)
     }
@@ -473,6 +499,11 @@ export default function AdminBookingsPage({ noLayout = false }) {
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <Badge status={b.status} />
+                      {b.status === 'pending' && b.receiptRequest && !b.receiptImage && (
+                        <span className="ml-1.5 inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                          Receipt requested
+                        </span>
+                      )}
                       {b.autoConfirmed && (
                         <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                           Auto-confirmed
@@ -595,6 +626,11 @@ export default function AdminBookingsPage({ noLayout = false }) {
                         <td className="text-xs text-gray-700 font-medium">{formatPaymentMethod(b.paymentMethod)}</td>
                         <td>
                           <Badge status={b.status} />
+                          {b.status === 'pending' && b.receiptRequest && !b.receiptImage && (
+                            <span className="ml-1.5 inline-block text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                              Receipt requested
+                            </span>
+                          )}
                           {b.autoConfirmed && (
                             <span className="mt-1.5 flex w-fit text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                               Auto-confirmed
@@ -834,6 +870,20 @@ export default function AdminBookingsPage({ noLayout = false }) {
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                 Proof of Payment
               </label>
+              {reviewBooking.receiptRequest?.reason && !reviewBooking.receiptImage && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                  <p className="font-semibold">
+                    New receipt requested · {new Date(reviewBooking.receiptRequest.requestedAt).toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium', timeStyle: 'short' })}
+                  </p>
+                  <p>Reason: {reviewBooking.receiptRequest.reason}</p>
+                  <p className="text-amber-700">Waiting for the player to upload a new receipt.</p>
+                </div>
+              )}
+              {reviewBooking.receiptImage && (reviewBooking.receiptRequestCount || 0) > 0 && (
+                <p className="text-[11px] font-medium text-primary-700">
+                  New receipt uploaded after {reviewBooking.receiptRequestCount} request{reviewBooking.receiptRequestCount > 1 ? 's' : ''}.
+                </p>
+              )}
               {reviewBooking.receiptImage ? (
                 <div className="bg-gray-100/70 border border-gray-200 rounded-xl p-2 flex flex-col items-center justify-center">
                   <a
@@ -853,11 +903,27 @@ export default function AdminBookingsPage({ noLayout = false }) {
                     </span>
                   </a>
                 </div>
-              ) : (
+              ) : !reviewBooking.receiptRequest?.reason ? (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center text-amber-800 text-sm">
                   <ExclamationTriangleIcon className="h-6 w-6 text-amber-500 mx-auto mb-1" />
                   <p className="font-semibold">No receipt uploaded yet</p>
                   <p className="text-xs text-amber-700 mt-0.5">The player has not uploaded a payment receipt for this booking.</p>
+                </div>
+              ) : null}
+              {reviewBooking.previousReceipts?.length > 0 && (
+                <div className="text-xs text-gray-600 space-y-1 mt-3">
+                  <p className="font-semibold text-gray-700">Previous receipts ({reviewBooking.previousReceipts.length})</p>
+                  {reviewBooking.previousReceipts.map((r, i) => (
+                    <a
+                      key={i}
+                      href={getImageUrl(r.image)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-primary-600 hover:underline"
+                    >
+                      Receipt {i + 1} · replaced {new Date(r.replacedAt).toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', dateStyle: 'medium', timeStyle: 'short' })}
+                    </a>
+                  ))}
                 </div>
               )}
             </div>
@@ -906,6 +972,26 @@ export default function AdminBookingsPage({ noLayout = false }) {
                 {/* Error Message inside modal */}
                 {modalError && (
                   <ErrorMessage message={modalError} />
+                )}
+
+                {reviewMode === 'default' && reviewBooking.status === 'pending' && reviewBooking.receiptImage && (reviewBooking.receiptRequestCount || 0) < 2 && (
+                  <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-amber-50/60 border border-amber-200">
+                    <p className="text-xs text-amber-900 leading-snug">
+                      Receipt unclear or amount wrong? Ask the player for a new one instead of rejecting.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setReviewMode('request-receipt-form')}
+                      className="shrink-0 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-medium text-amber-700 bg-white border border-amber-300 hover:bg-amber-50 transition-colors"
+                    >
+                      Ask for new receipt
+                    </button>
+                  </div>
+                )}
+                {reviewMode === 'default' && reviewBooking.status === 'pending' && reviewBooking.receiptImage && (reviewBooking.receiptRequestCount || 0) >= 2 && (
+                  <p className="text-[11px] text-gray-500">
+                    A new receipt has already been requested twice for this booking. Please approve or reject it.
+                  </p>
                 )}
 
                 {/* Action Section */}
@@ -1055,6 +1141,56 @@ export default function AdminBookingsPage({ noLayout = false }) {
                       >
                         {actionLoading && <Spinner size="sm" />}
                         Confirm reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {reviewMode === 'request-receipt-form' && (
+                  <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 space-y-3 animate-fadeIn">
+                    <div>
+                      <label htmlFor="receipt-request-reason" className="block text-xs font-semibold text-amber-900 mb-1">
+                        What is wrong with the receipt? <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        id="receipt-request-reason"
+                        rows={3}
+                        maxLength={300}
+                        value={receiptRequestReason}
+                        onChange={(e) => setReceiptRequestReason(e.target.value)}
+                        placeholder="e.g. Amount does not match, receipt is blurry, wrong account (min 5 characters)..."
+                        className="input text-sm w-full bg-white border-amber-200 focus:border-amber-500 focus:ring-amber-500"
+                      />
+                      <div className="flex justify-between items-center text-[11px] text-gray-500 mt-1">
+                        <span className={receiptRequestReason.trim().length < 5 ? 'text-red-600 font-medium' : 'text-green-600 font-medium'}>
+                          {receiptRequestReason.trim().length < 5
+                            ? `Minimum 5 characters required (${receiptRequestReason.trim().length}/5)`
+                            : 'Reason requirement met'}
+                        </span>
+                        <span>{receiptRequestReason.length}/300</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-snug">
+                      The booking stays pending and the court stays held. The player is notified and must upload a new receipt before the session starts, otherwise the booking expires.
+                      {pendingInGroup.length > 1 ? ` This applies to all ${pendingInGroup.length} sessions in this payment.` : ''}
+                    </p>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={actionLoading}
+                        onClick={() => { setReviewMode('default'); setReceiptRequestReason(''); setModalError(null); }}
+                        className="btn-secondary btn-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={actionLoading || receiptRequestReason.trim().length < 5}
+                        onClick={handleExecuteRequestReceipt}
+                        className="btn-sm px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                      >
+                        {actionLoading && <Spinner size="sm" />}
+                        Send request
                       </button>
                     </div>
                   </div>
