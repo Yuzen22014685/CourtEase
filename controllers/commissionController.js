@@ -6,6 +6,7 @@ const Venue = require('../models/Venue');
 const Booking = require('../models/Booking');
 const { computeMonthlyStats, monthRange, currentMonthMY, MONTH_RE } = require('../utils/insights');
 const { getOwnedVenueIds, canAccessVenue } = require('../utils/venueAccess');
+const { commissionChangedEmail } = require('../utils/notify');
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
@@ -64,6 +65,7 @@ const updateSettings = async (req, res, next) => {
   try {
     const settings = await PlatformSettings.getSettings();
     const { commissionRate, includeAddOns, bankName, accountName, accountNumber } = req.body || {};
+    const before = { rate: settings.commissionRate, includeAddOns: Boolean(settings.includeAddOns) };
 
     if (commissionRate !== undefined) {
       const rateNum = Number(commissionRate);
@@ -134,6 +136,10 @@ const updateSettings = async (req, res, next) => {
     }
 
     await settings.save();
+    const after = { rate: settings.commissionRate, includeAddOns: Boolean(settings.includeAddOns) };
+    if (before.rate !== after.rate || before.includeAddOns !== after.includeAddOns) {
+      commissionChangedEmail(before, after); // background: one email per owner of an active venue
+    }
     res.json({ success: true, message: 'Settings updated successfully', data: settings });
   } catch (err) {
     next(err);

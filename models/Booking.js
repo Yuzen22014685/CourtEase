@@ -31,13 +31,14 @@ const bookingSchema = new mongoose.Schema({
   receiptId: { type: String, unique: true, sparse: true },
   receiptImage: { type: String },
   receiptReminderSent: { type: Boolean, default: false },
+  summaryEmailSentAt: { type: Date, default: null }, // order summary email sent (set on the order's first booking)
   rejectionReason: { type: String, trim: true, maxlength: 300 },
   rescheduleCount: { type: Number, default: 0 },
   rescheduledFrom: {
-    date:      { type: String },
+    date: { type: String },
     startTime: { type: String },
-    endTime:   { type: String },
-    courtId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
+    endTime: { type: String },
+    courtId: { type: mongoose.Schema.Types.ObjectId, ref: 'Court' },
   },
   items: [
     {

@@ -23,6 +23,7 @@ const {
   markAsRead,
   getUnreadCount,
 } = require('../controllers/notificationController');
+const { requestOrderSummaryEmail } = require('../controllers/orderEmailController');
 const { getPublicEvents, getPublicVenueEvents } = require('../controllers/eventController');
 
 // Rate limiter for public venue browsing
@@ -48,6 +49,7 @@ router.get('/events', publicVenueLimiter, getPublicEvents);
 
 // Booking routes (protected)
 router.post('/bookings', protect, createBooking);
+router.post('/bookings/orders/:paymentRef/summary-email', protect, requestOrderSummaryEmail);
 router.get('/bookings/me', protect, getMyBookings);
 router.get('/bookings/:id/payment-info', protect, getBookingPaymentInfo);
 router.patch('/bookings/:id/cancel', protect, cancelBooking);

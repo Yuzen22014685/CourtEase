@@ -11,6 +11,7 @@ const {
     addDaysToDateString,
     toMYDate,
 } = require('../utils/malaysiaTime');
+const { eventHiddenEmail } = require('../utils/notify');
 
 // ---------------------------------------------------------------------------
 // Rules
@@ -380,6 +381,7 @@ const hideEvent = async (req, res, next) => {
         event.hiddenBy = req.user._id;
         event.ownerUpdatedAt = null; // a new hide starts a new review cycle
         await event.save();
+        eventHiddenEmail(event._id);
 
         res.json({ success: true, message: 'Event hidden', data: event });
     } catch (err) {

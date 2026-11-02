@@ -12,6 +12,7 @@ const {
   percentChange,
 } = require('../utils/insights');
 const { saveAndHandOverAddOns } = require('../utils/addOns');
+const { bookingEmail } = require('../utils/notify');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "HH:MM" → minutes since midnight
@@ -337,6 +338,7 @@ const approveBooking = async (req, res, next) => {
       type: 'booking_approved',
       message: `Your booking for ${booking.venueId.name} on ${booking.date} at ${booking.startTime} has been approved!`,
     });
+    bookingEmail(booking._id, 'confirmed');
 
     res.json({ success: true, message: 'Booking approved', data: booking });
   } catch (err) {
@@ -383,6 +385,7 @@ const rejectBooking = async (req, res, next) => {
       type: 'booking_rejected',
       message: `Your booking for ${booking.venueId.name} on ${booking.date} at ${booking.startTime} was rejected because the payment could not be verified. Reason: ${trimmedReason}`,
     });
+    bookingEmail(booking._id, 'rejected');
 
     res.json({ success: true, message: 'Booking rejected', data: booking });
   } catch (err) {

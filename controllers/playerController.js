@@ -18,6 +18,7 @@ const { getHourlyRate, computeCourtAmount, getPriceRange } = require('../utils/p
 const { buildAvailabilityMatrix } = require('../utils/availability');
 const { signUploadPath } = require('../utils/signedUrl');
 const { saveAndHandOverAddOns } = require('../utils/addOns');
+const { bookingEmail } = require('../utils/notify');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,7 +72,7 @@ const computeVenueRatings = async (venueIds) => {
   const map = new Map();
   for (const row of agg) {
     map.set(row._id.toString(), {
-      avg:   Math.round(row.avg * 10) / 10, // 1 decimal
+      avg: Math.round(row.avg * 10) / 10, // 1 decimal
       count: row.count,
     });
   }
@@ -94,14 +95,14 @@ const getVenues = async (req, res, next) => {
     const data = venues.map((v) => {
       const plain = v.toObject();
       const r = ratingMap.get(v._id.toString());
-      plain.rating         = r ? r.avg   : null;
-      plain.reviewCount    = r ? r.count : 0;
+      plain.rating = r ? r.avg : null;
+      plain.reviewCount = r ? r.count : 0;
       plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
       delete plain.paymentInfo;
       delete plain.ownerId;
       const { priceFrom, priceTo } = getPriceRange(plain);
-      plain.priceFrom      = priceFrom;
-      plain.priceTo        = priceTo;
+      plain.priceFrom = priceFrom;
+      plain.priceTo = priceTo;
       return plain;
     });
 
@@ -123,14 +124,14 @@ const getVenueById = async (req, res, next) => {
     const ratingMap = await computeVenueRatings([venue._id]);
     const plain = venue.toObject();
     const r = ratingMap.get(venue._id.toString());
-    plain.rating         = r ? r.avg   : null;
-    plain.reviewCount    = r ? r.count : 0;
+    plain.rating = r ? r.avg : null;
+    plain.reviewCount = r ? r.count : 0;
     plain.paymentOptions = computePaymentOptions(plain.paymentInfo);
     delete plain.paymentInfo;
     delete plain.ownerId;
     const { priceFrom, priceTo } = getPriceRange(plain);
-    plain.priceFrom      = priceFrom;
-    plain.priceTo        = priceTo;
+    plain.priceFrom = priceFrom;
+    plain.priceTo = priceTo;
 
     res.json({ success: true, data: plain });
   } catch (err) {
@@ -421,13 +422,13 @@ const getMyBookings = async (req, res, next) => {
       const existingReview = reviewsByBookingId.get(b._id.toString());
       const hasReview = Boolean(existingReview);
       const canReview = canReviewBooking(plain, playerId, hasReview);
-      const myReview  = hasReview
+      const myReview = hasReview
         ? {
-            rating: existingReview.rating,
-            comment: existingReview.comment,
-            isHidden: Boolean(existingReview.isHidden),
-            hiddenReason: existingReview.hiddenReason ?? null,
-          }
+          rating: existingReview.rating,
+          comment: existingReview.comment,
+          isHidden: Boolean(existingReview.isHidden),
+          hiddenReason: existingReview.hiddenReason ?? null,
+        }
         : null;
       return { ...plain, receiptImage: signUploadPath(plain.receiptImage), canCancel, canReschedule, rescheduleBlockedReason, canReview, myReview };
     });
@@ -469,6 +470,7 @@ const cancelBooking = async (req, res, next) => {
 
     booking.status = 'cancelled';
     await saveAndHandOverAddOns(booking);
+    bookingEmail(booking._id, 'cancelled', { byAdmin: req.user.role === 'admin' });
 
     res.json({ success: true, message: 'Booking cancelled', data: booking });
   } catch (err) {
@@ -584,18 +586,18 @@ const rescheduleBooking = async (req, res, next) => {
 
     // Save old values for rescheduledFrom
     const oldValues = {
-      date:      booking.date,
+      date: booking.date,
       startTime: booking.startTime,
-      endTime:   booking.endTime,
-      courtId:   booking.courtId,
+      endTime: booking.endTime,
+      courtId: booking.courtId,
     };
 
     // Apply changes
     booking.rescheduledFrom = oldValues;
-    booking.date      = newDate;
+    booking.date = newDate;
     booking.startTime = newStart;
-    booking.endTime   = newEnd;
-    booking.courtId   = newCourtId;
+    booking.endTime = newEnd;
+    booking.courtId = newCourtId;
     booking.rescheduleCount = (booking.rescheduleCount || 0) + 1;
     await booking.save();
 
@@ -613,6 +615,7 @@ const rescheduleBooking = async (req, res, next) => {
       // Notification creation failure should not fail the reschedule
       console.error('Failed to create reschedule notification:', notifErr.message);
     }
+    bookingEmail(booking._id, 'rescheduled');
 
     res.json({ success: true, message: 'Booking rescheduled successfully', data: booking });
   } catch (err) {
@@ -729,11 +732,11 @@ const createReview = async (req, res, next) => {
     }
 
     const review = await Review.create({
-      venueId:   booking.venueId,
+      venueId: booking.venueId,
       bookingId: booking._id,
-      playerId:  req.user._id,
-      rating:    ratingNum,
-      comment:   comment ? comment.trim() : '',
+      playerId: req.user._id,
+      rating: ratingNum,
+      comment: comment ? comment.trim() : '',
     });
 
     res.status(201).json({ success: true, data: review });
@@ -775,11 +778,11 @@ const getVenueReviews = async (req, res, next) => {
           ? `${parts[0]} ${parts[parts.length - 1][0]}.`
           : parts[0];
       return {
-        _id:             r._id,
-        rating:          r.rating,
-        comment:         r.comment,
-        date:            r.createdAt,
-        reviewerName:    displayName,
+        _id: r._id,
+        rating: r.rating,
+        comment: r.comment,
+        date: r.createdAt,
+        reviewerName: displayName,
         verifiedBooking: true,
       };
     });
@@ -788,8 +791,8 @@ const getVenueReviews = async (req, res, next) => {
       success: true,
       total,
       page,
-      pages:    Math.ceil(total / PAGE_SIZE),
-      hasMore:  page * PAGE_SIZE < total,
+      pages: Math.ceil(total / PAGE_SIZE),
+      hasMore: page * PAGE_SIZE < total,
       data,
     });
   } catch (err) {

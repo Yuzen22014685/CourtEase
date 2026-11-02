@@ -75,7 +75,7 @@ const verifySMTP = () => {
 /**
  * General helper to send an email
  */
-const sendEmail = async ({ to, subject, html }) => {
+const sendEmail = async ({ to, subject, html, text }) => {
   if (getProvider() === 'brevo') {
     if (!process.env.BREVO_API_KEY) throw new Error('BREVO_API_KEY is not set');
     // The sender must be verified in Brevo: EMAIL_FROM, or the Gmail address in SMTP_USER
@@ -89,7 +89,7 @@ const sendEmail = async ({ to, subject, html }) => {
       .map((email) => ({ email }));
     return brevoRequest('/smtp/email', {
       method: 'POST',
-      body: JSON.stringify({ sender, to: recipients, subject, htmlContent: html }),
+      body: JSON.stringify({ sender, to: recipients, subject, htmlContent: html, ...(text ? { textContent: text } : {}) }),
     });
   }
 
@@ -99,6 +99,7 @@ const sendEmail = async ({ to, subject, html }) => {
     to,
     subject,
     html,
+    ...(text ? { text } : {}),
   });
 };
 
