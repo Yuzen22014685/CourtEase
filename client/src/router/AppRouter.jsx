@@ -22,6 +22,7 @@ import ResetPasswordPage  from '../pages/auth/ResetPasswordPage'
 // Player pages
 import VenuesPage      from '../pages/player/VenuesPage'
 import VenueDetailPage from '../pages/player/VenueDetailPage'
+import EventsPage      from '../pages/player/EventsPage'
 import MyBookingsPage  from '../pages/player/MyBookingsPage'
 import ProfilePage     from '../pages/player/ProfilePage'
 
@@ -77,6 +78,9 @@ export default function AppRouter() {
       } />
       <Route path="/venues/:id" element={
         <PublicPlayerRoute><VenueDetailPage /></PublicPlayerRoute>
+      } />
+      <Route path="/events" element={
+        <PublicPlayerRoute><EventsPage /></PublicPlayerRoute>
       } />
       <Route path="/my-bookings" element={
         <PlayerRoute><MyBookingsPage /></PlayerRoute>
