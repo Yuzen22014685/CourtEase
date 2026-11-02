@@ -3,6 +3,8 @@ const Booking = require('../models/Booking');
 const Notification = require('../models/Notification');
 const { getSessionStart, getSessionEnd } = require('../config/bookingPolicy');
 const { saveAndHandOverAddOns } = require('../utils/addOns');
+const { todayMY, addDaysToDateString } = require('../utils/malaysiaTime');
+const { bookingEmail } = require('../utils/notify');
 
 // ---------------------------------------------------------------------------
 // Helper: parse "YYYY-MM-DDTHH:MM:00+08:00" from booking date + time
@@ -80,8 +82,8 @@ const reminderJob = cron.schedule('*/5 * * * *', async () => {
 
     // We'll fetch today's and tomorrow's confirmed bookings and filter in JS
     // to avoid complex date+time string querying in MongoDB
-    const todayStr = now.toISOString().split('T')[0];
-    const tomorrowStr = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const todayStr = todayMY(now); // Malaysia date (UTC was a day behind between 00:00 and 08:00 MYT)
+    const tomorrowStr = addDaysToDateString(todayStr, 1);
 
     const upcoming = await Booking.find({
       date: { $in: [todayStr, tomorrowStr] },
@@ -96,12 +98,18 @@ const reminderJob = cron.schedule('*/5 * * * *', async () => {
         // Check if a reminder already exists for this booking
         const exists = await Notification.findOne({ bookingId: booking._id, type: 'reminder' });
         if (!exists) {
-          await Notification.create({
-            playerId: booking.playerId,
-            bookingId: booking._id,
-            type: 'reminder',
-            message: `Reminder: Your court booking at ${booking.startTime} on ${booking.date} starts in about 1 hour. Get ready!`,
-          });
+          try {
+            await Notification.create({
+              playerId: booking.playerId,
+              bookingId: booking._id,
+              type: 'reminder',
+              message: `Reminder: Your court booking at ${booking.startTime} on ${booking.date} starts in about 1 hour. Get ready!`,
+            });
+          } catch (notifErr) {
+            if (notifErr.code === 11000) continue; // another run already sent this reminder
+            throw notifErr;
+          }
+          bookingEmail(booking._id, 'reminder'); // email only when the reminder is new
           console.log(`[CRON] Reminder sent for booking ${booking._id}`);
         }
       }
@@ -176,6 +184,7 @@ const runPendingSafetyNet = async () => {
             type: 'booking_auto_confirmed',
             message: `Your booking at ${booking.venueId?.name || 'the venue'} on ${booking.date} at ${booking.startTime} has been confirmed.`,
           });
+          bookingEmail(booking._id, 'confirmed', { auto: true });
         } catch (notifErr) {
           if (notifErr.code !== 11000) throw notifErr; // ignore duplicate-key; re-throw others
         }
@@ -192,6 +201,7 @@ const runPendingSafetyNet = async () => {
             type: 'booking_expired',
             message: `Your booking at ${booking.venueId?.name || 'the venue'} on ${booking.date} at ${booking.startTime} expired because no payment receipt was uploaded before the session.`,
           });
+          bookingEmail(booking._id, 'expired');
         } catch (notifErr) {
           if (notifErr.code !== 11000) throw notifErr;
         }

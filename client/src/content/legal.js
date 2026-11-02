@@ -2,8 +2,8 @@
 // LEGAL_VERSION must match LEGAL_VERSION in config/legal.js on the backend.
 // When the text changes materially: update LEGAL_VERSION and LEGAL_EFFECTIVE in both places.
 
-export const LEGAL_VERSION = '2026-11-01'
-export const LEGAL_EFFECTIVE = '1 November 2026'
+export const LEGAL_VERSION = '2026-11-02'
+export const LEGAL_EFFECTIVE = '2 November 2026'
 export const SUPPORT_EMAIL = 'courtease.support@gmail.com'
 
 export const PRIVACY = {
@@ -40,7 +40,7 @@ export const PRIVACY = {
             bullets: [
                 'To create and manage your account and verify your email address.',
                 'To process your bookings and let the venue confirm your payment.',
-                'To send service emails: email verification, password reset and security notices. We do not send marketing emails.',
+                'To send service emails: email verification, password reset and security notices; booking emails (a summary with payment instructions, payment confirmed or not confirmed, cancellations, changes, expiry and a reminder about 1 hour before your session); and, for venue owners, notices about event moderation and platform fee changes. We do not send marketing emails.',
                 'To show reviews that help other players choose a venue.',
                 'To prevent fraud and abuse (bot checks, rate limits, receipt checks).',
                 'To administer platform commission with venue owners.',

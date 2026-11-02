@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
 import { getVenueById, getVenueAvailability, getVenueReviews, getVenueShopItems, getVenueEvents } from '../../api/venues'
-import { createBooking } from '../../api/bookings'
+import { createBooking, requestOrderSummaryEmail } from '../../api/bookings'
 import Layout from '../../components/layout/Layout'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
@@ -363,6 +363,10 @@ export default function VenueDetailPage() {
     setBookingResults(results)
     clearCart()
     refetchAvail()
+
+    if (results.successes.length > 0 && sharedPaymentRef) {
+      requestOrderSummaryEmail(sharedPaymentRef).catch(() => {})
+    }
 
     if (results.successes.length > 0) {
       setCheckoutStep('pay')
