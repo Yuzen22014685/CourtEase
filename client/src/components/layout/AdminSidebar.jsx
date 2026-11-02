@@ -1,7 +1,11 @@
-import { NavLink, Link } from 'react-router-dom'
+import { NavLink, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useEffect, useState } from 'react'
-import { getPendingCount, getSubmittedCommissionCount } from '../../api/admin'
+import {
+  getPendingCount,
+  getSubmittedCommissionCount,
+  getAdminEventReviewCount,
+} from '../../api/admin'
 import {
   HomeIcon,
   BuildingOffice2Icon,
@@ -56,6 +60,7 @@ const navItems = [
     label: 'Events',
     icon: MegaphoneIcon,
     activeIcon: MegaphoneIconSolid,
+    showEventReviewBadge: true,
   },
   {
     to: '/admin/bookings',
@@ -90,10 +95,54 @@ export default function AdminSidebar({
   onClose,
   pendingCount: propPendingCount,
   commissionCount: propCommissionCount,
+  eventReviewCount: propEventReviewCount,
 }) {
   const { user } = useAuth()
+  const location = useLocation()
   const [localPendingCount, setLocalPendingCount] = useState(0)
   const [localCommissionCount, setLocalCommissionCount] = useState(0)
+  const [localEventReviewCount, setLocalEventReviewCount] = useState(0)
+
+  // Review count: mount effect (interval + listener created ONCE)
+  useEffect(() => {
+    if (propEventReviewCount !== undefined) return
+
+    const fetchReviewCount = async () => {
+      try {
+        const res = await getAdminEventReviewCount()
+        setLocalEventReviewCount(res.data?.count ?? 0)
+      } catch {
+        // silently ignore — badge won't show if the request fails
+      }
+    }
+
+    fetchReviewCount()
+    const interval = setInterval(fetchReviewCount, 30_000)
+
+    const handleEventsChanged = () => fetchReviewCount()
+    window.addEventListener('ce:admin-events-changed', handleEventsChanged)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('ce:admin-events-changed', handleEventsChanged)
+    }
+  }, [propEventReviewCount])
+
+  // Review count: route-change effect (only calls fetch)
+  useEffect(() => {
+    if (propEventReviewCount !== undefined) return
+
+    const fetchReviewCount = async () => {
+      try {
+        const res = await getAdminEventReviewCount()
+        setLocalEventReviewCount(res.data?.count ?? 0)
+      } catch {
+        // silently ignore
+      }
+    }
+
+    fetchReviewCount()
+  }, [location.pathname, propEventReviewCount])
 
   useEffect(() => {
     if (propCommissionCount !== undefined) return
@@ -183,9 +232,12 @@ export default function AdminSidebar({
   const commissionCount = propCommissionCount !== undefined ? propCommissionCount : localCommissionCount
   const commissionBadgeLabel = commissionCount > 99 ? '99+' : String(commissionCount)
 
+  const eventReviewCount = propEventReviewCount !== undefined ? propEventReviewCount : localEventReviewCount
+  const eventReviewBadgeLabel = eventReviewCount > 99 ? '99+' : String(eventReviewCount)
+
   const renderNav = (onItemClick) => (
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-      {navItems.map(({ to, label, icon: Icon, activeIcon: ActiveIcon, showPendingBadge, showCommissionBadge }) => (
+      {navItems.map(({ to, label, icon: Icon, activeIcon: ActiveIcon, showPendingBadge, showCommissionBadge, showEventReviewBadge }) => (
         <NavLink
           key={to}
           to={to}
@@ -210,6 +262,11 @@ export default function AdminSidebar({
               {showCommissionBadge && commissionCount > 0 && (
                 <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-blue-600 text-white text-[10px] font-bold leading-none">
                   {commissionBadgeLabel}
+                </span>
+              )}
+              {showEventReviewBadge && eventReviewCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
+                  {eventReviewBadgeLabel}
                 </span>
               )}
             </>

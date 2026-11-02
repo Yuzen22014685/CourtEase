@@ -99,6 +99,7 @@ export const getOwnerHiddenEventCount = () => api.get('/admin/events/hidden-coun
 export const getAdminEvents = (params) => api.get('/admin/events', { params })
 export const hideEvent = (eventId, reason) => api.patch(`/admin/events/${eventId}/hide`, { reason })
 export const restoreEvent = (eventId) => api.patch(`/admin/events/${eventId}/restore`)
+export const getAdminEventReviewCount = () => api.get('/admin/events/review-count')
 
 // Platform Commission
 export const getCommissionSettings = () => api.get('/admin/commission/settings')

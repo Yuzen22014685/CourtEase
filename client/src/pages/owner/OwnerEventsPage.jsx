@@ -8,7 +8,7 @@ import {
   uploadEventPoster,
   deleteEventPoster,
 } from '../../api/admin'
-import { formatDate, formatTime, getImageUrl, todayMY, addDaysISO } from '../../utils/format'
+import { formatDate, formatTime, formatDateTime, getImageUrl, todayMY, addDaysISO } from '../../utils/format'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -425,16 +425,16 @@ export default function OwnerEventsPage() {
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 space-y-1">
               <div className="flex items-start gap-1.5">
                 <ExclamationTriangleIcon className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-                <p>
-                  Hidden by CourtEase admin: <span className="font-medium">{event.hiddenReason}</span>. Players can't see this event. Editing won't make it visible again — contact{' '}
-                  <a
-                    href="mailto:courtease.support@gmail.com"
-                    className="underline font-medium hover:text-red-950"
-                  >
-                    courtease.support@gmail.com
-                  </a>
-                  , or remove it.
-                </p>
+                <div className="space-y-1">
+                  <p>
+                    Hidden by CourtEase admin: <span className="font-medium">{event.hiddenReason}</span>. Players can't see this event. Edit it to fix the issue — an admin will review your changes and can make it visible again. Or remove it.
+                  </p>
+                  {event.ownerUpdatedAt && (
+                    <p className="text-amber-800 font-medium">
+                      Changes sent for review on {formatDateTime(event.ownerUpdatedAt)}.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

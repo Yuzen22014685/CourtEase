@@ -37,6 +37,7 @@ const STATUS_TABS = [
   { id: '', label: 'All' },
   { id: 'visible', label: 'Visible' },
   { id: 'hidden', label: 'Hidden' },
+  { id: 'review', label: 'Needs review' },
 ]
 
 const WHEN_TABS = [
@@ -140,9 +141,10 @@ export default function AdminEventsPage() {
     setModalError(null)
     try {
       await hideEvent(hideTargetEvent._id, trimmed)
-      setActionMessage('Event has been hidden.')
+      setActionMessage(hideTargetEvent.isHidden ? 'Event has been hidden again.' : 'Event has been hidden.')
       setActionError(null)
       closeHideModal()
+      window.dispatchEvent(new Event('ce:admin-events-changed'))
       refetch()
       setTimeout(() => setActionMessage(null), 5000)
     } catch (err) {
@@ -170,6 +172,7 @@ export default function AdminEventsPage() {
       setActionMessage('Event has been restored and is visible to players.')
       setActionError(null)
       closeRestoreConfirm()
+      window.dispatchEvent(new Event('ce:admin-events-changed'))
       refetch()
       setTimeout(() => setActionMessage(null), 5000)
     } catch (err) {
@@ -371,11 +374,19 @@ export default function AdminEventsPage() {
                           ) : !event.deletedByOwnerAt ? (
                             <Badge status="visible" label="Visible" />
                           ) : null}
+                          {event.isHidden && event.ownerUpdatedAt && !event.deletedByOwnerAt && (
+                            <Badge status="pending" label="Updated by owner" />
+                          )}
                           {event.isPast && <Badge status="expired" label="Past" />}
                         </div>
                         {event.deletedByOwnerAt && (
                           <p className="text-xs text-gray-500 mt-1">
                             Removed by the owner on {formatDateTime(event.deletedByOwnerAt)}
+                          </p>
+                        )}
+                        {event.isHidden && event.ownerUpdatedAt && !event.deletedByOwnerAt && (
+                          <p className="text-xs text-amber-700 mt-1">
+                            Owner updated it on {formatDateTime(event.ownerUpdatedAt)} — check it, then Restore or hide again with a new reason.
                           </p>
                         )}
                       </div>
@@ -441,7 +452,7 @@ export default function AdminEventsPage() {
                     {event.isHidden && (
                       <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 space-y-1">
                         <p className="font-semibold break-words">
-                          Hidden: {event.hiddenReason || 'Policy violation'}
+                          Hidden: {event.hiddenReason}
                         </p>
                         <p className="text-[11px] text-red-600">
                           by {event.hiddenBy?.fullName || 'Admin'}
@@ -453,15 +464,25 @@ export default function AdminEventsPage() {
 
                   {/* Actions */}
                   {!event.deletedByOwnerAt && (
-                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end">
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
                       {event.isHidden ? (
-                        <button
-                          type="button"
-                          onClick={() => openRestoreConfirm(event)}
-                          className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1.5 px-3"
-                        >
-                          Restore
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openHideModal(event)}
+                            className="btn-secondary btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 text-xs py-1.5 px-3 flex items-center gap-1.5"
+                          >
+                            <EyeSlashIcon className="h-3.5 w-3.5" />
+                            <span>Hide again</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openRestoreConfirm(event)}
+                            className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1.5 px-3"
+                          >
+                            Restore
+                          </button>
+                        </>
                       ) : (
                         <button
                           type="button"
@@ -511,7 +532,7 @@ export default function AdminEventsPage() {
         <Modal
           isOpen={Boolean(hideTargetEvent)}
           onClose={closeHideModal}
-          title="Hide event"
+          title={hideTargetEvent?.isHidden ? 'Hide again' : 'Hide event'}
           size="md"
         >
           {hideTargetEvent && (
@@ -577,12 +598,12 @@ export default function AdminEventsPage() {
                   {modalLoading ? (
                     <>
                       <Spinner size="sm" />
-                      <span>Hiding...</span>
+                      <span>{hideTargetEvent?.isHidden ? 'Hiding again...' : 'Hiding...'}</span>
                     </>
                   ) : (
                     <>
                       <EyeSlashIcon className="h-4 w-4" />
-                      <span>Hide event</span>
+                      <span>{hideTargetEvent?.isHidden ? 'Hide again' : 'Hide event'}</span>
                     </>
                   )}
                 </button>
