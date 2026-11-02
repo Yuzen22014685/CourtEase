@@ -13,6 +13,13 @@ const {
 } = require('../utils/insights');
 const { saveAndHandOverAddOns } = require('../utils/addOns');
 const { bookingEmail } = require('../utils/notify');
+const { todayMY, addDaysToDateString } = require('../utils/malaysiaTime');
+
+// Analytics window in Malaysia time: [today - days, today] as "YYYY-MM-DD"
+const analyticsWindow = (days) => {
+  const todayStr = todayMY();
+  return { todayStr, sinceStr: addDaysToDateString(todayStr, -days) };
+};
 
 // ---------------------------------------------------------------------------
 // Helper: parse "HH:MM" → minutes since midnight
@@ -153,11 +160,7 @@ const getAllBookings = async (req, res, next) => {
 const getRevenueAnalytics = async (req, res, next) => {
   try {
     const days = parseInt(req.query.days) || 30;
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-    const sinceStr = since.toISOString().split('T')[0];
+    const { todayStr, sinceStr } = analyticsWindow(days);
 
     const venueQuery = req.user.role === 'venue_owner' ? { ownerId: req.user._id } : {};
     const venues = await Venue.find(venueQuery);
@@ -208,11 +211,7 @@ const getRevenueAnalytics = async (req, res, next) => {
 const getPeakHours = async (req, res, next) => {
   try {
     const days = parseInt(req.query.days) || 30;
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-    const sinceStr = since.toISOString().split('T')[0];
+    const { todayStr, sinceStr } = analyticsWindow(days);
 
     let venueFilter = req.query.venueId || undefined;
     if (req.user.role === 'venue_owner') {
@@ -266,11 +265,7 @@ const getPeakHours = async (req, res, next) => {
 const getUtilization = async (req, res, next) => {
   try {
     const days = parseInt(req.query.days) || 30;
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-    const since = new Date();
-    since.setDate(since.getDate() - days);
-    const sinceStr = since.toISOString().split('T')[0];
+    const { todayStr, sinceStr } = analyticsWindow(days);
 
     const venueQuery = req.user.role === 'venue_owner' ? { ownerId: req.user._id } : {};
     const venues = await Venue.find(venueQuery);

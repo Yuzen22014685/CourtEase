@@ -1,7 +1,7 @@
-// services/chatbot.js — CourtEase Assistant (Google Gemini API via REST, no SDK).
+// services/chatbot.js — CourtEase Assistant (Google Gemini API 503via REST, no SDK).
 //
 // PRIVACY (PDPA data minimisation):
-//   Sent to Gemini: PUBLIC venue data (whitelisted fields), fixed policies, live slot
+//   Sent to Gemini: PUBLIC venue data (whitelisted fields, incl. public upcoming events), fixed policies, live slot
 //   availability, and the player's own chat text. Nothing else.
 //   NEVER sent: user identity, bookings, payment details (paymentInfo), owner data, reviews.
 //   Chat text is not stored and not logged.
@@ -11,6 +11,8 @@ const ShopItem = require('../models/ShopItem');
 const { getPriceRange } = require('../utils/pricing');
 const { buildAvailabilityMatrix } = require('../utils/availability');
 const { CHANGE_CUTOFF_HOURS, MAX_RESCHEDULES } = require('../config/bookingPolicy');
+const Event = require('../models/Event');
+const { todayMY, addDaysToDateString, toMYDate } = require('../utils/malaysiaTime');
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const DEFAULT_MODEL = 'gemini-3.1-flash-lite';
@@ -30,6 +32,7 @@ class ChatbotError extends Error {
     constructor(message, status = 503) {
         super(message);
         this.status = status;
+        this.expose = true; // user-friendly message: the error handler may show it even on a 503
     }
 }
 
@@ -107,6 +110,20 @@ const loadKnowledge = async () => {
         .select('venueId name description category price readyInfo')
         .lean();
 
+    // Public upcoming events (visible, not removed, next 30 days): the same data as the public Events page.
+    const today = todayMY();
+    const nowTs = Date.now();
+    const events = (await Event.find({
+        venueId: { $in: venues.map((v) => v._id) },
+        isHidden: { $ne: true },
+        deletedByOwnerAt: null,
+        date: { $gte: today, $lte: addDaysToDateString(today, MAX_DAYS_AHEAD) },
+    })
+        .sort({ date: 1, startTime: 1 })
+        .select('venueId title description date startTime endTime fee howToJoin')
+        .lean())
+        .filter((e) => toMYDate(e.date, e.endTime).getTime() > nowTs);
+
     const result = venues.map((v) => {
         const { priceFrom, priceTo } = getPriceRange(v);
         const shop = items
@@ -136,6 +153,18 @@ const loadKnowledge = async () => {
             rating: v.rating || null,
             description: (v.description || '').slice(0, 300),
             shop,
+            upcomingEvents: events
+                .filter((e) => String(e.venueId) === String(v._id))
+                .slice(0, 5)
+                .map((e) => ({
+                    title: e.title,
+                    date: e.date,
+                    day: DAY_NAMES[new Date(`${e.date}T00:00:00Z`).getUTCDay()],
+                    time: `${e.startTime}-${e.endTime}`,
+                    ...(e.fee ? { fee: e.fee } : {}),
+                    ...(e.howToJoin ? { howToJoin: e.howToJoin.slice(0, 150) } : {}),
+                    description: (e.description || '').slice(0, 200),
+                })),
         };
     });
 
@@ -232,7 +261,7 @@ const buildSystemPrompt = (venues) => {
         `TODAY is ${now.weekday}, ${now.date}. Current time in Malaysia: ${now.time}.`,
         '',
         'RULES',
-        '1. Only help with CourtEase topics: the venues below, prices, opening hours, facilities, shop add-ons, court availability, and how booking, payment, cancelling and rescheduling work on CourtEase. Politely decline anything else in one sentence.',
+        '1. Only help with CourtEase topics: the venues below, prices, opening hours, facilities, shop add-ons, upcoming venue events (upcomingEvents), court availability, and how booking, payment, cancelling and rescheduling work on CourtEase. Politely decline anything else in one sentence.',
         '2. Use ONLY facts from VENUES, POLICIES and tool results. Never guess prices, hours, availability or facilities. If the information is not there, say you do not have it and suggest contacting the venue (give its phone number if listed).',
         '3. For any question about free slots or availability, call check_availability. Never say a slot is free without a tool result. Remind the player that availability can change and to confirm on the venue page.',
         "4. You cannot make, change or cancel bookings, and you cannot see the player's bookings, account or payments. For those, direct them to the venue page (Book button) or the My Bookings page.",
@@ -245,7 +274,8 @@ const buildSystemPrompt = (venues) => {
         '- When the session starts: a pending booking WITH a receipt is confirmed automatically; a pending booking WITHOUT a receipt expires.',
         `- Reschedule: once per booking, more than ${CHANGE_CUTOFF_HOURS} hours before the session, and only to a slot with the same or lower price. (Limit: ${MAX_RESCHEDULES}.)`,
         '- Cancel: any time before the session starts. Cancellations are not refunded.',
-        '- Shop add-ons (products and services) can only be ordered together with a court booking and are paid in the same payment. Cancelling the session that holds the add-ons forfeits them.',
+        '- Shop add-ons (products and services) can only be ordered together with a court booking and are paid in the same payment. If the session holding the add-ons is cancelled, rejected or expires, they move to the next active session in the same order; they are forfeited only when no session of the order is left.',
+        '- Events (social nights, clinics, open play) are posted by venues and shown on the Events page and each venue page. Players join as described in howToJoin; CourtEase does not take registrations or payments for events.',
         '- After playing, players can leave a review of the venue.',
         '',
         'VENUES (JSON)',
