@@ -8,6 +8,7 @@ import Layout from '../../components/layout/Layout'
 import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
+import ImageLightbox from '../../components/ui/ImageLightbox'
 import UploadReceiptPanel from '../../components/bookings/UploadReceiptPanel'
 import PayVenueCard from '../../components/bookings/PayVenueCard'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -169,6 +170,7 @@ export default function VenueDetailPage() {
   // ── Upcoming Events ───────────────────────────────────────────
   const [venueEvents, setVenueEvents]       = useState([])
   const [expandedEvents, setExpandedEvents] = useState({})
+  const [activePoster, setActivePoster]     = useState(null)
 
   // Load venue's upcoming visible events independently
   useEffect(() => {
@@ -657,13 +659,19 @@ export default function VenueDetailPage() {
                           <div className="flex items-start gap-3 min-w-0">
                             {/* Poster thumbnail or calendar icon (object-contain on bg-gray-50) */}
                             {posterUrl ? (
-                              <div className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden shrink-0 flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => setActivePoster({ src: posterUrl, caption: event.title })}
+                                aria-label={`View poster for ${event.title}`}
+                                className="w-12 h-12 rounded-lg bg-gray-50 border border-gray-100 overflow-hidden shrink-0 flex items-center justify-center cursor-zoom-in hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                title={`View poster for ${event.title}`}
+                              >
                                 <img
                                   src={posterUrl}
                                   alt={event.title}
                                   className="w-full h-full object-contain"
                                 />
-                              </div>
+                              </button>
                             ) : (
                               <div className="w-12 h-12 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
                                 <CalendarDaysIcon className="h-5 w-5" />
@@ -1038,6 +1046,14 @@ export default function VenueDetailPage() {
           </div>
         </div>
       </Modal>
+      {/* ── Poster Lightbox ── */}
+      <ImageLightbox
+        isOpen={Boolean(activePoster)}
+        onClose={() => setActivePoster(null)}
+        src={activePoster?.src}
+        alt={activePoster?.caption}
+        caption={activePoster?.caption}
+      />
     </Layout>
   )
 }

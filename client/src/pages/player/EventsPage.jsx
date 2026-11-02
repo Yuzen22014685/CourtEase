@@ -6,16 +6,17 @@ import Layout from '../../components/layout/Layout'
 import SkeletonCard from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
+import ImageLightbox from '../../components/ui/ImageLightbox'
 import {
   CalendarDaysIcon,
   ClockIcon,
   MapPinIcon,
-  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline'
 import { formatDate, formatTime, getImageUrl } from '../../utils/format'
 
 export default function EventsPage() {
   const [selectedArea, setSelectedArea] = useState('')
+  const [activePoster, setActivePoster] = useState(null)
 
   const fetchFn = useCallback(() => getPublicEvents(), [])
   const { data, loading, error, refetch } = useApi(fetchFn, [])
@@ -126,16 +127,29 @@ export default function EventsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {events.map((event) => (
-              <EventCard key={event._id} event={event} />
+              <EventCard
+                key={event._id}
+                event={event}
+                onOpenPoster={(src, caption) => setActivePoster({ src, caption })}
+              />
             ))}
           </div>
         )}
+
+        {/* Poster Lightbox */}
+        <ImageLightbox
+          isOpen={Boolean(activePoster)}
+          onClose={() => setActivePoster(null)}
+          src={activePoster?.src}
+          alt={activePoster?.caption}
+          caption={activePoster?.caption}
+        />
       </div>
     </Layout>
   )
 }
 
-function EventCard({ event }) {
+function EventCard({ event, onOpenPoster }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const isLongDescription = (event.description?.length ?? 0) > 180
 
@@ -148,22 +162,19 @@ function EventCard({ event }) {
     >
       {/* Poster on top or fallback banner */}
       {posterUrl ? (
-        <a
-          href={posterUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="relative h-56 w-full rounded-xl overflow-hidden bg-gray-50 border border-gray-100 shrink-0 group/poster block"
-          title="Click to view full poster"
+        <button
+          type="button"
+          onClick={() => onOpenPoster(posterUrl, event.title)}
+          aria-label={`View poster for ${event.title}`}
+          className="relative h-56 w-full rounded-xl overflow-hidden bg-gray-50 border border-gray-100 shrink-0 group/poster block cursor-zoom-in text-left focus:outline-none focus:ring-2 focus:ring-primary-500"
+          title={`View poster for ${event.title}`}
         >
           <img
             src={posterUrl}
             alt={event.title}
             className="w-full h-full object-contain group-hover/poster:scale-[1.02] transition-transform duration-300"
           />
-          <span className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover/poster:opacity-100 transition-opacity">
-            <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-          </span>
-        </a>
+        </button>
       ) : (
         <div className="h-56 w-full rounded-xl bg-emerald-50/70 border border-emerald-100 flex flex-col items-center justify-center p-4 text-center shrink-0">
           <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-2 text-emerald-600">
