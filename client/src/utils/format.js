@@ -47,6 +47,18 @@ export const todayString = () => {
   return `${y}-${m}-${day}`
 }
 
+/** Get today as YYYY-MM-DD in Malaysia time (UTC+8) */
+export const todayMY = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' })
+
+/** Add N days to a YYYY-MM-DD date string, returning YYYY-MM-DD */
+export const addDaysISO = (dateStr, days) => {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d + Number(days)))
+  return date.toISOString().slice(0, 10)
+}
+
 // '2026-10' -> 'October 2026'
 export const formatMonth = (month) => {
   const [y, m] = month.split('-').map(Number)
@@ -129,6 +141,3 @@ export const formatPriceRange = (venue) => {
 // "1 session", "2 sessions"
 export const pluralize = (count, singular, plural = `${singular}s`) =>
   `${count} ${Number(count) === 1 ? singular : plural}`
-
-
-

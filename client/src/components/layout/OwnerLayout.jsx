@@ -13,13 +13,15 @@ import {
   UserCircleIcon,
   SparklesIcon,
   ShoppingBagIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 
 const tabs = [
   { to: '/owner/today', label: 'Today', icon: SparklesIcon },
   { to: '/owner/bookings', label: 'Bookings', icon: CalendarDaysIcon, hasBadge: true },
-  { to: '/owner/venue', label: 'My Venue', icon: BuildingOffice2Icon },
+  { to: '/owner/venue', label: 'My Venue', mobileLabel: 'Venue', icon: BuildingOffice2Icon },
   { to: '/owner/shop', label: 'Shop', icon: ShoppingBagIcon },
+  { to: '/owner/events', label: 'Events', icon: MegaphoneIcon },
   { to: '/owner/reviews', label: 'Reviews', icon: ChatBubbleLeftRightIcon },
   { to: '/owner/insights', label: 'Insights', icon: ChartBarIcon },
 ]
@@ -203,7 +205,7 @@ export default function OwnerLayout() {
           aria-label="Mobile Bottom Navigation"
           className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-center h-16 px-1 safe-bottom shadow-lg"
         >
-          {tabs.map(({ to, label, icon: Icon, hasBadge }) => (
+          {tabs.map(({ to, label, mobileLabel, icon: Icon, hasBadge }) => (
             <NavLink
               key={to}
               to={to}
@@ -221,7 +223,7 @@ export default function OwnerLayout() {
                   </span>
                 )}
               </div>
-              <span className="mt-1 truncate max-w-[52px]">{label}</span>
+              <span className="mt-1 truncate max-w-full">{mobileLabel || label}</span>
             </NavLink>
           ))}
         </nav>

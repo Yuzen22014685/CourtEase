@@ -35,8 +35,9 @@ import AnalyticsPage     from '../pages/admin/AnalyticsPage'
 import CommissionPage    from '../pages/admin/CommissionPage'
 
 // Owner pages
-import TodayPage from '../pages/owner/TodayPage'
-import ShopPage  from '../pages/owner/ShopPage'
+import TodayPage       from '../pages/owner/TodayPage'
+import ShopPage        from '../pages/owner/ShopPage'
+import OwnerEventsPage from '../pages/owner/OwnerEventsPage'
 
 // Shared Account page
 import AccountPage from '../pages/account/AccountPage'
@@ -125,6 +126,7 @@ export default function AppRouter() {
         <Route path="bookings" element={<AdminBookingsPage noLayout />} />
         <Route path="venue" element={<AdminVenuesPage noLayout />} />
         <Route path="shop" element={<ShopPage />} />
+        <Route path="events" element={<OwnerEventsPage />} />
         <Route path="reviews" element={<AdminReviewsPage noLayout />} />
         <Route path="insights" element={<AnalyticsPage noLayout />} />
         <Route path="account" element={<AccountPage noLayout />} />
