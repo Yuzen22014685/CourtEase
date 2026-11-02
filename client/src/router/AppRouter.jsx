@@ -30,6 +30,7 @@ import DashboardPage     from '../pages/admin/DashboardPage'
 import AdminVenuesPage   from '../pages/admin/VenuesPage'
 import OwnersPage        from '../pages/admin/OwnersPage'
 import AdminReviewsPage  from '../pages/admin/ReviewsPage'
+import AdminEventsPage   from '../pages/admin/AdminEventsPage'
 import AdminBookingsPage from '../pages/admin/BookingsPage'
 import AnalyticsPage     from '../pages/admin/AnalyticsPage'
 import CommissionPage    from '../pages/admin/CommissionPage'
@@ -96,6 +97,9 @@ export default function AppRouter() {
       } />
       <Route path="/admin/reviews" element={
         <AdminRoute><AdminReviewsPage /></AdminRoute>
+      } />
+      <Route path="/admin/events" element={
+        <AdminRoute><AdminEventsPage /></AdminRoute>
       } />
       <Route path="/admin/bookings" element={
         <AdminRoute><AdminBookingsPage /></AdminRoute>

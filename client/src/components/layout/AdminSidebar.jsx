@@ -12,6 +12,7 @@ import {
   UserGroupIcon,
   BanknotesIcon,
   UserCircleIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -22,6 +23,7 @@ import {
   UserGroupIcon as UserGroupIconSolid,
   BanknotesIcon as BanknotesIconSolid,
   UserCircleIcon as UserCircleIconSolid,
+  MegaphoneIcon as MegaphoneIconSolid,
 } from '@heroicons/react/24/solid'
 
 const navItems = [
@@ -48,6 +50,12 @@ const navItems = [
     label: 'Reviews',
     icon: ChatBubbleLeftRightIcon,
     activeIcon: ChatBubbleLeftRightIconSolid,
+  },
+  {
+    to: '/admin/events',
+    label: 'Events',
+    icon: MegaphoneIcon,
+    activeIcon: MegaphoneIconSolid,
   },
   {
     to: '/admin/bookings',
