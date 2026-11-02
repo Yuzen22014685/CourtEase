@@ -325,6 +325,8 @@ const approveBooking = async (req, res, next) => {
 
     booking.status = 'confirmed';
     booking.confirmedAt = new Date();
+    booking.paymentStatus = 'paid'; // the owner has verified the payment (receipt, bank statement or in person)
+    booking.receiptRequest = null;  // closes any open "new receipt" request
     await booking.save();
 
     await Notification.create({
@@ -372,6 +374,7 @@ const rejectBooking = async (req, res, next) => {
     booking.status = 'rejected';
     booking.paymentStatus = 'not_verified';
     booking.rejectionReason = trimmedReason.slice(0, 300);
+    booking.receiptRequest = null; // reject is final; closes any open "new receipt" request
     await saveAndHandOverAddOns(booking);
 
     await Notification.create({

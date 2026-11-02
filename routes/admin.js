@@ -12,6 +12,7 @@ const {
   rejectBooking,
   getMonthlyInsights,
 } = require('../controllers/adminController');
+const { requestNewReceipt } = require('../controllers/receiptRequestController');
 const {
   getAdminVenues,
   createVenue,
@@ -88,6 +89,9 @@ router.patch('/bookings/:id/approve', approveBooking);
 
 // PATCH /api/admin/bookings/:id/reject
 router.patch('/bookings/:id/reject', rejectBooking);
+
+// PATCH /api/admin/bookings/:id/request-receipt — booking stays pending, player re-uploads
+router.patch('/bookings/:id/request-receipt', requestNewReceipt);
 
 // GET /api/admin/analytics/revenue
 router.get('/analytics/revenue', getRevenueAnalytics);

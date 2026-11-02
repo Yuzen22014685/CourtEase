@@ -271,7 +271,7 @@ const buildSystemPrompt = (venues) => {
         '',
         'POLICIES',
         '- Players pay the venue directly by DuitNow QR or bank transfer (shown at checkout) using one payment reference, then upload the payment receipt. The venue checks the receipt and confirms the booking. CourtEase never holds the money.',
-        '- When the session starts: a pending booking WITH a receipt is confirmed automatically; a pending booking WITHOUT a receipt expires.',
+        '- When the session starts: a pending booking WITH a receipt is confirmed automatically; a pending booking WITHOUT a receipt expires. If the venue asks for a new receipt, the booking stays pending and the court stays held; the player must upload a new receipt in My Bookings before the session starts, otherwise the booking expires. A venue can ask at most twice per booking.',
         `- Reschedule: once per booking, more than ${CHANGE_CUTOFF_HOURS} hours before the session, and only to a slot with the same or lower price. (Limit: ${MAX_RESCHEDULES}.)`,
         '- Cancel: any time before the session starts. Cancellations are not refunded.',
         '- Shop add-ons (products and services) can only be ordered together with a court booking and are paid in the same payment. If the session holding the add-ons is cancelled, rejected or expires, they move to the next active session in the same order; they are forfeited only when no session of the order is left.',

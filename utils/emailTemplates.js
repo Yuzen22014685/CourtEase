@@ -217,6 +217,27 @@ const bookingRejected = ({ playerName, venue, session, reason }) =>
     ],
   });
 
+const receiptRequested = ({ playerName, venue, session, reason, count = 1 }) =>
+  render({
+    subject: `New payment receipt needed – ${venue.name}, ${fmtDate(session.date)}`,
+    heading: 'Please upload a new payment receipt',
+    name: playerName,
+    intro: [
+      count > 1
+        ? `${venue.name} could not verify the receipt for payment ${session.paymentRef}, which covers ${count} sessions. Your courts are still held for you.`
+        : `${venue.name} could not verify your payment receipt. Your court is still held for you.`,
+    ],
+    callout: {
+      tone: 'warn',
+      text: `Reason: ${reason || 'not given'}\nUpload a new receipt before the session starts, otherwise the booking will expire.`,
+    },
+    sections: [{ title: 'Session', rows: sessionRows(venue, session) }],
+    cta: { label: 'Upload new receipt', url: clientUrl('/my-bookings') },
+    outro: [
+      `If you have questions about your payment, contact the venue${venue.phone ? ` (${venue.phone})` : ''} with your payment reference.`,
+    ],
+  });
+
 const bookingCancelled = ({ playerName, venue, session, byAdmin }) =>
   render({
     subject: `Booking cancelled – ${venue.name}, ${fmtDate(session.date)}`,
@@ -331,6 +352,7 @@ module.exports = {
   orderSummary,
   bookingConfirmed,
   bookingRejected,
+  receiptRequested,
   bookingCancelled,
   bookingRescheduled,
   sessionReminder,
