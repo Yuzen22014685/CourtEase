@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useApi } from '../../hooks/useApi'
@@ -139,16 +139,16 @@ export default function VenueDetailPage() {
   }, [venue?.paymentOptions])
 
   // ── Checkout modal state ──────────────────────────────────────
-  const [checkoutOpen, setCheckoutOpen]     = useState(false)
-  const [checkoutStep, setCheckoutStep]     = useState('review')
-  const [paymentMethod, setPaymentMethod]   = useState('duitnow_qr')
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const [checkoutStep, setCheckoutStep] = useState('review')
+  const [paymentMethod, setPaymentMethod] = useState('duitnow_qr')
   const [bookingLoading, setBookingLoading] = useState(false)
   // bookingResults: { successes: [...], failures: [...] } | null
   const [bookingResults, setBookingResults] = useState(null)
   const [uploadComplete, setUploadComplete] = useState(false)
-  const [uploadSkipped, setUploadSkipped]   = useState(false)
+  const [uploadSkipped, setUploadSkipped] = useState(false)
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false)
-  const [shopItems, setShopItems]           = useState([])
+  const [shopItems, setShopItems] = useState([])
   const [selectedAddOns, setSelectedAddOns] = useState({})
 
   // Load venue's shop items when venue page loads (so first step is known before opening)
@@ -168,9 +168,9 @@ export default function VenueDetailPage() {
   }, [id])
 
   // ── Upcoming Events ───────────────────────────────────────────
-  const [venueEvents, setVenueEvents]       = useState([])
+  const [venueEvents, setVenueEvents] = useState([])
   const [expandedEvents, setExpandedEvents] = useState({})
-  const [activePoster, setActivePoster]     = useState(null)
+  const [activePoster, setActivePoster] = useState(null)
 
   // Load venue's upcoming visible events independently
   useEffect(() => {
@@ -290,11 +290,11 @@ export default function VenueDetailPage() {
 
     // Snapshot cart into a plain immutable array BEFORE any await.
     const cartSnapshot = cart.map((s) => ({
-      courtId:     s.courtId,
+      courtId: s.courtId,
       courtNumber: s.courtNumber,
-      start:       s.start,
-      end:         s.end,
-      price:       s.price,
+      start: s.start,
+      end: s.end,
+      price: s.price,
     }))
 
     // Build items = [{ itemId, quantity, note }] for quantity > 0
@@ -315,11 +315,11 @@ export default function VenueDetailPage() {
     for (const slot of cartSnapshot) {
       try {
         const payload = {
-          venueId:     id,
-          courtId:     slot.courtId,
-          date:        selectedDate,
-          startTime:   slot.start,
-          endTime:     slot.end,
+          venueId: id,
+          courtId: slot.courtId,
+          date: selectedDate,
+          startTime: slot.start,
+          endTime: slot.end,
           paymentMethod,
         }
         if (sharedPaymentRef) {
@@ -335,26 +335,26 @@ export default function VenueDetailPage() {
         }
 
         results.successes.push({
-          bookingId:     b._id,
-          courtId:       slot.courtId,
-          courtNumber:   slot.courtNumber,
-          start:         slot.start,
-          end:           slot.end,
-          receiptId:     b.receiptId,
-          paymentRef:    b.paymentRef,
-          amount:        b.amount,
+          bookingId: b._id,
+          courtId: slot.courtId,
+          courtNumber: slot.courtNumber,
+          start: slot.start,
+          end: slot.end,
+          receiptId: b.receiptId,
+          paymentRef: b.paymentRef,
+          amount: b.amount,
           paymentMethod: b.paymentMethod,
-          items:         b.items || [],
-          itemsTotal:    b.itemsTotal || 0,
+          items: b.items || [],
+          itemsTotal: b.itemsTotal || 0,
         })
       } catch (err) {
         const message = err.response?.data?.message || 'Booking failed. Please try again.'
         results.failures.push({
-          courtId:     slot.courtId,
+          courtId: slot.courtId,
           courtNumber: slot.courtNumber,
-          start:       slot.start,
-          end:         slot.end,
-          error:       message,
+          start: slot.start,
+          end: slot.end,
+          error: message,
         })
       }
     }
@@ -365,7 +365,7 @@ export default function VenueDetailPage() {
     refetchAvail()
 
     if (results.successes.length > 0 && sharedPaymentRef) {
-      requestOrderSummaryEmail(sharedPaymentRef).catch(() => {})
+      requestOrderSummaryEmail(sharedPaymentRef).catch(() => { })
     }
 
     if (results.successes.length > 0) {
@@ -376,9 +376,9 @@ export default function VenueDetailPage() {
   }
 
   // Derived
-  const cartSet    = new Set(cart.map((s) => slotKey(s.courtId, s.start)))
+  const cartSet = new Set(cart.map((s) => slotKey(s.courtId, s.start)))
   const totalPrice = cart.reduce((sum, item) => sum + (item.price ?? venue?.pricePerHour ?? 0), 0)
-  const matrix     = availData?.matrix ?? []
+  const matrix = availData?.matrix ?? []
 
   const isMobileBarVisible = cart.length > 0 && !mobileCartOpen && !checkoutOpen
 
@@ -420,10 +420,10 @@ export default function VenueDetailPage() {
               <div className="flex gap-4 overflow-x-auto pb-4 mb-4 snap-x hide-scrollbar">
                 {venue.photos.map((photo, i) => (
                   <div key={i} className="relative shrink-0 snap-center">
-                    <img 
-                      src={getImageUrl(photo)} 
-                      alt={`${venue.name} - view ${i + 1}`} 
-                      className="h-56 sm:h-72 w-[85%] sm:w-auto aspect-[4/3] object-cover rounded-xl shadow-sm border border-gray-100" 
+                    <img
+                      src={getImageUrl(photo)}
+                      alt={`${venue.name} - view ${i + 1}`}
+                      className="h-56 sm:h-72 w-[85%] sm:w-auto aspect-[4/3] object-cover rounded-xl shadow-sm border border-gray-100"
                       onError={(e) => {
                         e.target.style.display = 'none'
                         if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'
@@ -719,9 +719,8 @@ export default function VenueDetailPage() {
                             >
                               {isExpanded ? 'Less' : 'Details'}
                               <ChevronDownIcon
-                                className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                                  isExpanded ? 'rotate-180' : ''
-                                }`}
+                                className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
+                                  }`}
                               />
                             </button>
                           )}
@@ -768,7 +767,7 @@ export default function VenueDetailPage() {
                 {reviewsMeta.total > 0 && venue?.rating != null && (
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
-                      {[1,2,3,4,5].map((s) => (
+                      {[1, 2, 3, 4, 5].map((s) => (
                         s <= Math.round(venue.rating)
                           ? <StarIcon key={s} className="h-4 w-4 text-amber-400" />
                           : <StarOutlineIcon key={s} className="h-4 w-4 text-amber-300" />
@@ -801,7 +800,7 @@ export default function VenueDetailPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-0.5 mb-2">
-                        {[1,2,3,4,5].map((s) => (
+                        {[1, 2, 3, 4, 5].map((s) => (
                           s <= r.rating
                             ? <StarIcon key={s} className="h-3.5 w-3.5 text-amber-400" />
                             : <StarOutlineIcon key={s} className="h-3.5 w-3.5 text-amber-300" />
@@ -896,12 +895,12 @@ export default function VenueDetailPage() {
           checkoutStep === 'addons'
             ? 'Select Add-ons'
             : checkoutStep === 'review'
-            ? 'Review Booking'
-            : checkoutStep === 'pay'
-            ? 'Step 3 — Pay the venue, then upload your receipt'
-            : bookingResults?.successes?.length === 0
-            ? 'Booking Failed'
-            : 'Booking Summary'
+              ? 'Review Booking'
+              : checkoutStep === 'pay'
+                ? 'Step 3 — Pay the venue, then upload your receipt'
+                : bookingResults?.successes?.length === 0
+                  ? 'Booking Failed'
+                  : 'Booking Summary'
         }
         size="lg"
       >
@@ -1073,93 +1072,150 @@ function SlotMatrix({ matrix, cartSet, selectedDate, showPriceHeader, onSlotClic
   ).toISOString().slice(0, 10)
   const isToday = selectedDate === todayMY
 
+  const scrollRef = useRef(null)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const updateScrollHint = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }, [])
+
+  // New availability (date change / refetch): scroll the grid sideways (never the page)
+  // to the first time column where any open court has a free slot that is not in the past.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const nowMs = Date.now()
+    const columns = matrix[0]?.slots ?? []
+    const firstIndex = columns.findIndex((_col, i) =>
+      matrix.some((court) => {
+        if (court.status === 'maintenance') return false
+        const slot = court.slots[i]
+        if (!slot || !slot.available) return false
+        return !(isToday && new Date(`${selectedDate}T${slot.start}:00+08:00`).getTime() <= nowMs)
+      })
+    )
+    const frame = requestAnimationFrame(() => {
+      if (firstIndex > 0) {
+        const headerCells = el.querySelectorAll('thead th')
+        const courtCol = headerCells[0]
+        const target = headerCells[firstIndex + 1]
+        if (courtCol && target) {
+          el.scrollTo({ left: Math.max(0, target.offsetLeft - courtCol.offsetWidth - 8), behavior: 'smooth' })
+        }
+      }
+      updateScrollHint()
+    })
+    window.addEventListener('resize', updateScrollHint)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updateScrollHint)
+    }
+  }, [matrix, selectedDate, isToday, updateScrollHint])
+
   return (
-    <div className="slot-matrix-scroll p-1">
-      <table className="min-w-max w-full text-xs">
-        <thead>
-          <tr>
-            <th className="sticky left-0 z-10 bg-white px-4 py-3 text-left font-medium text-gray-400
+    <div>
+      <div className="relative">
+        <div ref={scrollRef} onScroll={updateScrollHint} className="slot-matrix-scroll p-1">
+          <table className="min-w-max w-full text-xs">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 bg-white px-4 py-3 text-left font-medium text-gray-400
                             border-b border-gray-100 w-20">
-              Court
-            </th>
-            {allSlots.map((slot) => (
-              <th key={slot.start}
-                  className="px-2 py-3 font-medium text-gray-400 border-b border-gray-100
+                  Court
+                </th>
+                {allSlots.map((slot) => (
+                  <th key={slot.start}
+                    className="px-2 py-3 font-medium text-gray-400 border-b border-gray-100
                              text-center whitespace-nowrap min-w-[72px]">
-                <div>{slot.start}</div>
-                {showPriceHeader && slot?.price != null && (
-                  <div className="text-[10px] text-gray-400 font-normal mt-0.5">
-                    {formatCurrency(slot.price)}
-                  </div>
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {matrix.map((court) => {
-            const isMaintenance = court.status === 'maintenance'
-
-            return (
-              <tr key={court.courtId} className={isMaintenance ? 'bg-gray-50/40' : 'hover:bg-gray-50/30'}>
-                <td
-                  className={clsx(
-                    'sticky left-0 z-10 px-4 py-2.5 border-b border-gray-50 whitespace-nowrap',
-                    isMaintenance
-                      ? 'bg-gray-100 text-gray-500 font-medium'
-                      : 'bg-white font-semibold text-gray-700'
-                  )}
-                >
-                  {isMaintenance
-                    ? `Court ${court.courtNumber} · Maintenance`
-                    : `Court ${court.courtNumber}`}
-                </td>
-                {court.slots.map((slot) => {
-                  const key    = `${court.courtId}::${slot.start}`
-                  const inCart = cartSet.has(key)
-
-                  const isPast = isToday &&
-                    new Date(`${selectedDate}T${slot.start}:00+08:00`) <= new Date()
-
-                  const unavailable = !slot.available || isPast || isMaintenance
-
-                  const slotLabel = isMaintenance
-                    ? 'under maintenance'
-                    : inCart
-                    ? 'in cart (click to remove)'
-                    : isPast
-                    ? 'past'
-                    : slot.available
-                    ? 'available'
-                    : 'booked'
-
-                  return (
-                    <td key={slot.start} className="px-1 py-2 border-b border-gray-50 text-center">
-                      <button
-                        onClick={() => onSlotClick(court.courtId, court.courtNumber, slot)}
-                        disabled={unavailable}
-                        className={clsx(
-                          'w-full rounded-lg py-1.5 px-1 font-medium transition-all duration-150 text-xs',
-                          inCart
-                            ? 'bg-amber-100 text-amber-800 border border-amber-400 shadow-sm scale-105 ring-1 ring-amber-300'
-                            : isMaintenance
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : unavailable
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
-                            : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-400 cursor-pointer'
-                        )}
-                        aria-label={`Court ${court.courtNumber}, ${slot.start}–${slot.end}, ${slotLabel}`}
-                      >
-                        {inCart ? '✓' : unavailable ? '–' : slot.start}
-                      </button>
-                    </td>
-                  )
-                })}
+                    <div>{slot.start}</div>
+                    {showPriceHeader && slot?.price != null && (
+                      <div className="text-[10px] text-gray-400 font-normal mt-0.5">
+                        {formatCurrency(slot.price)}
+                      </div>
+                    )}
+                  </th>
+                ))}
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {matrix.map((court) => {
+                const isMaintenance = court.status === 'maintenance'
+
+                return (
+                  <tr key={court.courtId} className={isMaintenance ? 'bg-gray-50/40' : 'hover:bg-gray-50/30'}>
+                    <td
+                      className={clsx(
+                        'sticky left-0 z-10 px-4 py-2.5 border-b border-gray-50 whitespace-nowrap',
+                        isMaintenance
+                          ? 'bg-gray-100 text-gray-500 font-medium'
+                          : 'bg-white font-semibold text-gray-700'
+                      )}
+                    >
+                      {isMaintenance
+                        ? `Court ${court.courtNumber} · Maintenance`
+                        : `Court ${court.courtNumber}`}
+                    </td>
+                    {court.slots.map((slot) => {
+                      const key = `${court.courtId}::${slot.start}`
+                      const inCart = cartSet.has(key)
+
+                      const isPast = isToday &&
+                        new Date(`${selectedDate}T${slot.start}:00+08:00`) <= new Date()
+
+                      const unavailable = !slot.available || isPast || isMaintenance
+
+                      const slotLabel = isMaintenance
+                        ? 'under maintenance'
+                        : inCart
+                          ? 'in cart (click to remove)'
+                          : isPast
+                            ? 'past'
+                            : slot.available
+                              ? 'available'
+                              : 'booked'
+
+                      return (
+                        <td key={slot.start} className="px-1 py-2 border-b border-gray-50 text-center">
+                          <button
+                            onClick={() => onSlotClick(court.courtId, court.courtNumber, slot)}
+                            disabled={unavailable}
+                            className={clsx(
+                              'w-full rounded-lg py-1.5 px-1 font-medium transition-all duration-150 text-xs',
+                              inCart
+                                ? 'bg-amber-100 text-amber-800 border border-amber-400 shadow-sm scale-105 ring-1 ring-amber-300'
+                                : isMaintenance
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : unavailable
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
+                                    : 'bg-primary-50 text-primary-700 border border-primary-200 hover:bg-primary-100 hover:border-primary-400 cursor-pointer'
+                            )}
+                            aria-label={`Court ${court.courtNumber}, ${slot.start}–${slot.end}, ${slotLabel}`}
+                          >
+                            {inCart ? '✓' : unavailable ? '–' : slot.start}
+                          </button>
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {canScrollRight && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-10 z-20 bg-gradient-to-l from-white to-transparent"
+          />
+        )}
+      </div>
+      {canScrollRight && (
+        <p className="sm:hidden px-4 pb-3 pt-1 text-[11px] text-gray-400 text-right">
+          Swipe for more times →
+        </p>
+      )}
     </div>
   )
 }
