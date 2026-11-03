@@ -213,6 +213,39 @@ export default function DashboardPage() {
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900 text-sm">Recent Bookings</h2>
           </div>
+          {!bookingsLoading && !bookingsError && recentBookings.length > 0 && (
+            <div className="md:hidden divide-y divide-gray-100">
+              {recentBookings.map((b) => (
+                <div key={b._id} className="px-5 py-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">
+                        {b.playerId?.fullName ?? '—'}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {b.playerId?.email ?? '—'}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <Badge status={b.status} />
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    {b.venueId?.name ?? '—'} · {b.venueId?.area ?? '—'}
+                  </p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">
+                      {formatDate(b.date)} · {formatTime(b.startTime)}–{formatTime(b.endTime)}
+                    </span>
+                    <span className="font-semibold text-primary-700">
+                      {formatCurrency(b.amount)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {bookingsLoading ? (
             <div className="p-5 space-y-3">
               {[1, 2, 3, 4, 5].map(n => <SkeletonText key={n} lines={1} />)}
@@ -222,7 +255,7 @@ export default function DashboardPage() {
           ) : recentBookings.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">No bookings yet.</p>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="table min-w-[640px]">
                 <thead>
                   <tr>

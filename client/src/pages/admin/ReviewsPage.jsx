@@ -7,7 +7,7 @@ import AdminLayout from '../../components/layout/AdminLayout'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
-import { SkeletonRow } from '../../components/ui/SkeletonCard'
+import SkeletonCard, { SkeletonRow } from '../../components/ui/SkeletonCard'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
 import Spinner from '../../components/ui/Spinner'
@@ -175,6 +175,7 @@ export default function ReviewsPage({ noLayout = false }) {
           </p>
         </div>
         <button
+          type="button"
           onClick={refetch}
           className="btn-secondary btn-sm"
           title="Refresh"
@@ -194,6 +195,7 @@ export default function ReviewsPage({ noLayout = false }) {
                 return (
                   <button
                     key={tab.id}
+                    type="button"
                     onClick={() => handleTabChange(tab.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                       isActive
@@ -230,6 +232,7 @@ export default function ReviewsPage({ noLayout = false }) {
 
               {hasFilters && (
                 <button
+                  type="button"
                   onClick={clearFilters}
                   className="btn-secondary btn-sm text-xs py-1.5"
                 >
@@ -264,7 +267,127 @@ export default function ReviewsPage({ noLayout = false }) {
           </div>
         )}
 
+        {/* Mobile Reviews Cards */}
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            [1, 2, 3].map((n) => <SkeletonCard key={n} />)
+          ) : reviews.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-gray-400">
+              {hasFilters
+                ? 'No reviews match your selected filters.'
+                : 'No customer reviews have been submitted yet.'}
+            </div>
+          ) : (
+            reviews.map((r) => (
+              <div
+                key={r._id}
+                className={`card p-4 space-y-3 ${r.isHidden ? 'bg-gray-50/50' : ''}`}
+              >
+                {/* Top row: reviewer name + email on left; Badge on right */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 text-sm truncate">
+                      {r.playerId?.fullName ?? '—'}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {r.playerId?.email ?? '—'}
+                    </p>
+                  </div>
+                  <div className="shrink-0">
+                    <Badge
+                      status={r.isHidden ? 'hidden' : 'visible'}
+                      label={r.isHidden ? 'Hidden' : 'Visible'}
+                    />
+                  </div>
+                </div>
+
+                {/* Admin only: venue line */}
+                {!isOwner && (
+                  <p className="text-xs font-medium text-gray-700">
+                    {r.venueId?.name ?? '—'} · {r.venueId?.area ?? '—'}
+                  </p>
+                )}
+
+                {/* Stars row */}
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) =>
+                    s <= r.rating ? (
+                      <StarSolid key={s} className="h-3.5 w-3.5 text-amber-400" />
+                    ) : (
+                      <StarOutline key={s} className="h-3.5 w-3.5 text-amber-300" />
+                    )
+                  )}
+                  <span className="text-xs font-semibold text-gray-700 ml-1">
+                    {r.rating}/5
+                  </span>
+                </div>
+
+                {/* Comment */}
+                {r.comment ? (
+                  <p className="text-xs text-gray-600 leading-relaxed line-clamp-4">
+                    "{r.comment}"
+                  </p>
+                ) : (
+                  <p className="text-xs italic text-gray-400">No comment provided</p>
+                )}
+
+                {/* Booking line */}
+                <p className="text-xs text-gray-500">
+                  Booking {r.bookingId?.date ? formatDate(r.bookingId.date) : '—'} ·{' '}
+                  {r.bookingId?.startTime && r.bookingId?.endTime
+                    ? `${formatTime(r.bookingId.startTime)}–${formatTime(r.bookingId.endTime)}`
+                    : '—'}
+                </p>
+
+                {/* Review date */}
+                <p className="text-xs text-gray-400">
+                  Reviewed {formatDateTime(r.createdAt)}
+                </p>
+
+                {/* If hidden: reason + hidden-at block */}
+                {r.isHidden && (
+                  <div className="p-2.5 rounded-lg bg-gray-100/70 border border-gray-200/60 space-y-0.5 text-xs text-gray-600">
+                    <p className="leading-tight break-words">
+                      <span className="font-medium text-gray-800">Reason:</span>{' '}
+                      {r.hiddenReason}
+                    </p>
+                    {r.hiddenAt && (
+                      <p className="text-[10px] text-gray-400">
+                        Hidden {formatDateTime(r.hiddenAt)}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Admin only: action area */}
+                {!isOwner && (
+                  <div className="pt-2 border-t border-gray-100 flex gap-2">
+                    {r.isHidden ? (
+                      <button
+                        type="button"
+                        onClick={() => openRestoreConfirm(r)}
+                        className="btn-secondary w-full text-xs py-1.5 px-3 inline-flex items-center justify-center gap-1.5 text-primary-700 hover:text-primary-800 hover:bg-primary-50"
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openHideModal(r)}
+                        className="btn-secondary w-full text-xs py-1.5 px-3 inline-flex items-center justify-center gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        Hide
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Table Card */}
+        <div className="hidden md:block">
         <div className="table-wrapper">
           <div className="overflow-x-auto">
             <table className="table min-w-[950px]">
@@ -295,7 +418,7 @@ export default function ReviewsPage({ noLayout = false }) {
                         }
                         action={
                           hasFilters ? (
-                            <button onClick={clearFilters} className="btn-secondary">
+                            <button type="button" onClick={clearFilters} className="btn-secondary">
                               Clear filters
                             </button>
                           ) : null
@@ -386,6 +509,7 @@ export default function ReviewsPage({ noLayout = false }) {
                         <td className="text-right whitespace-nowrap">
                           {r.isHidden ? (
                             <button
+                              type="button"
                               onClick={() => openRestoreConfirm(r)}
                               className="btn-secondary btn-sm text-primary-700 hover:text-primary-800 hover:bg-primary-50 text-xs py-1 px-2.5"
                             >
@@ -393,6 +517,7 @@ export default function ReviewsPage({ noLayout = false }) {
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => openHideModal(r)}
                               className="btn-secondary btn-sm text-red-600 hover:text-red-700 hover:bg-red-50 text-xs py-1 px-2.5"
                             >
@@ -416,6 +541,7 @@ export default function ReviewsPage({ noLayout = false }) {
               </p>
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                   className="btn-secondary btn-sm"
@@ -423,6 +549,7 @@ export default function ReviewsPage({ noLayout = false }) {
                   Previous
                 </button>
                 <button
+                  type="button"
                   onClick={() => setPage((p) => Math.min(pages, p + 1))}
                   disabled={page === pages}
                   className="btn-secondary btn-sm"
@@ -433,6 +560,8 @@ export default function ReviewsPage({ noLayout = false }) {
             </div>
           )}
         </div>
+      </div>
+
       </div>
 
       {/* Hide Review Modal */}

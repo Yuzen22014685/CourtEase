@@ -6,7 +6,7 @@ import Modal from '../../components/ui/Modal'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import EmptyState from '../../components/ui/EmptyState'
-import { SkeletonRow } from '../../components/ui/SkeletonCard'
+import SkeletonCard, { SkeletonRow } from '../../components/ui/SkeletonCard'
 import { formatDateTime } from '../../utils/format'
 import {
   PlusIcon,
@@ -153,6 +153,7 @@ export default function OwnersPage() {
           </div>
 
           <button
+            type="button"
             id="add-owner-btn"
             onClick={handleOpenAddModal}
             className="btn-primary inline-flex items-center gap-2 self-start sm:self-auto"
@@ -170,6 +171,7 @@ export default function OwnersPage() {
               <span>{toastMessage}</span>
             </div>
             <button
+              type="button"
               onClick={() => setToastMessage(null)}
               className="text-emerald-500 hover:text-emerald-800 p-0.5 rounded"
               aria-label="Dismiss message"
@@ -187,6 +189,7 @@ export default function OwnersPage() {
               <span>{warningMessage}</span>
             </div>
             <button
+              type="button"
               onClick={() => setWarningMessage(null)}
               className="text-amber-500 hover:text-amber-800 p-0.5 rounded"
               aria-label="Dismiss warning"
@@ -204,6 +207,7 @@ export default function OwnersPage() {
               <span>{actionError}</span>
             </div>
             <button
+              type="button"
               onClick={() => setActionError(null)}
               className="text-red-500 hover:text-red-800 p-0.5 rounded"
               aria-label="Dismiss error"
@@ -232,7 +236,93 @@ export default function OwnersPage() {
           </div>
         </div>
 
+        {/* Mobile Owners Cards */}
+        <div className="space-y-3 md:hidden">
+          {loading ? (
+            [1, 2, 3].map((n) => <SkeletonCard key={n} />)
+          ) : filteredOwners.length === 0 ? (
+            <div className="card p-6 text-center text-sm text-gray-400">
+              {searchQuery
+                ? 'No matching venue owners'
+                : 'No venue owners found'}
+            </div>
+          ) : (
+            filteredOwners.map((owner) => {
+              const isResending = resendingId === owner._id
+
+              return (
+                <div key={owner._id} className="card p-4 space-y-3">
+                  {/* Top row: avatar + name + email */}
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 font-bold text-xs flex items-center justify-center shrink-0">
+                      {owner.fullName?.charAt(0)?.toUpperCase() || 'O'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-gray-900 text-sm truncate">
+                        {owner.fullName}
+                      </p>
+                      <p className="text-xs text-gray-500 break-all">
+                        {owner.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Venues list */}
+                  <div>
+                    <span className="text-gray-400 block text-[10px] mb-1">Assigned Venues</span>
+                    {owner.venues && owner.venues.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {owner.venues.map((v) => (
+                          <span
+                            key={v._id}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200"
+                          >
+                            <BuildingOffice2Icon className="h-3 w-3 text-primary-500" />
+                            <span>{v.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">None</span>
+                    )}
+                  </div>
+
+                  {/* Added-date line */}
+                  <p className="text-xs text-gray-400">
+                    Added {formatDateTime(owner.createdAt)}
+                  </p>
+
+                  {/* Action area */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <button
+                      id={`resend-invite-card-${owner._id}`}
+                      type="button"
+                      onClick={() => handleResendInvite(owner._id)}
+                      disabled={isResending}
+                      className="btn-secondary w-full text-xs py-1.5 px-3 inline-flex items-center justify-center gap-1.5"
+                      title="Resend 72-hour onboarding invite email"
+                    >
+                      {isResending ? (
+                        <>
+                          <Spinner size="sm" />
+                          <span>Sending…</span>
+                        </>
+                      ) : (
+                        <>
+                          <EnvelopeIcon className="h-3.5 w-3.5 text-gray-500" />
+                          <span>Resend invite</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
         {/* Owners Table */}
+        <div className="hidden md:block">
         <div className="table-wrapper">
           <div className="overflow-x-auto">
             <table className="table min-w-[700px]">
@@ -335,6 +425,8 @@ export default function OwnersPage() {
             </table>
           </div>
         </div>
+      </div>
+
       </div>
 
       {/* Add Owner Modal */}
