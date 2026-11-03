@@ -446,7 +446,7 @@ export default function MyBookingsPage() {
 
         {/* Info Toast */}
         {infoToast && (
-          <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 sm:max-w-md z-50 flex items-center gap-2.5 bg-gray-900/95 backdrop-blur text-white text-sm px-4 py-3 rounded-xl shadow-xl border border-gray-800 animate-fadeIn">
+          <div className="fixed bottom-20 left-4 right-4 sm:left-auto sm:bottom-6 sm:right-6 sm:max-w-md z-50 flex items-center gap-2.5 bg-gray-900/95 backdrop-blur text-white text-sm px-4 py-3 rounded-xl shadow-xl border border-gray-800 animate-fadeIn">
             <CheckCircleIcon className="h-5 w-5 text-emerald-400 shrink-0" />
             <span>{infoToast}</span>
           </div>
