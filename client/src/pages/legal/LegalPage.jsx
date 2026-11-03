@@ -3,6 +3,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useAuth } from '../../context/AuthContext'
 import { homePathForRole } from '../../utils/routes'
 import { PRIVACY, TERMS, LEGAL_EFFECTIVE } from '../../content/legal'
+import LogoMark from '../../components/ui/LogoMark'
 
 export default function LegalPage({ doc }) {
   const navigate = useNavigate()
@@ -40,11 +41,11 @@ export default function LegalPage({ doc }) {
       <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-200">
         <div className="max-w-3xl mx-auto px-4 py-3 sm:py-3.5 flex items-center justify-between gap-4">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center
-                            group-hover:bg-primary-700 transition-colors shrink-0">
-              <span className="text-white text-lg" aria-hidden>🏸</span>
+            <div className="w-8 h-8 flex items-center justify-center
+                            shrink-0">
+              <LogoMark className="h-8 w-8" />
             </div>
-            <span className="font-bold text-gray-900 text-lg tracking-tight">
+            <span className="font-bold text-court-blue text-lg tracking-tight">
               Court<span className="text-primary-600">Ease</span>
             </span>
           </Link>

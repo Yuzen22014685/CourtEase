@@ -4,6 +4,7 @@ import { resendVerification } from '../../api/auth'
 import Spinner from '../../components/ui/Spinner'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import TurnstileWidget from '../../components/ui/TurnstileWidget'
+import LogoMark from '../../components/ui/LogoMark'
 
 export default function CheckEmailPage() {
   const [searchParams] = useSearchParams()
@@ -53,8 +54,8 @@ export default function CheckEmailPage() {
       <div className="relative w-full max-w-md animate-slideUp">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm mb-4">
-            <span className="text-3xl">🏸</span>
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white shadow-sm mb-4">
+            <LogoMark className="h-10 w-10" />
           </div>
           <h1 className="text-3xl font-bold text-white">CourtEase</h1>
           <p className="text-primary-200 text-sm mt-1">Penang's badminton booking platform</p>

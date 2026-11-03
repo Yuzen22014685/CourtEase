@@ -29,6 +29,7 @@ import {
   UserCircleIcon as UserCircleIconSolid,
   MegaphoneIcon as MegaphoneIconSolid,
 } from '@heroicons/react/24/solid'
+  import LogoMark from '../ui/LogoMark'
 
 const navItems = [
   {
@@ -323,11 +324,11 @@ export default function AdminSidebar({
           {/* Brand header with close button */}
           <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
-                <span className="text-white text-lg">🏸</span>
+              <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                <LogoMark className="h-8 w-8" />
               </div>
               <div>
-                <span className="font-bold text-gray-900">Court<span className="text-primary-600">Ease</span></span>
+                <span className="font-bold text-court-blue">Court<span className="text-primary-600">Ease</span></span>
                 <p className="text-xs text-gray-400">Admin Console</p>
               </div>
             </div>
