@@ -11,23 +11,26 @@ import {
   ClockIcon,
   CurrencyDollarIcon,
   BuildingOffice2Icon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon } from '@heroicons/react/24/solid'
 import { getImageUrl, formatPriceRange } from '../../utils/format'
 import { sortVenuesByDistance, formatDistance } from '../../utils/distance'
 
 const AREA_COLOURS = {
-  'Bayan Lepas':     'bg-blue-100 text-blue-700',
-  'Georgetown':      'bg-purple-100 text-purple-700',
-  'Bukit Mertajam':  'bg-orange-100 text-orange-700',
-  'Tanjung Bungah':  'bg-teal-100 text-teal-700',
-  'Jelutong':        'bg-rose-100 text-rose-700',
-  'Butterworth':     'bg-cyan-100 text-cyan-700',
-  'Seberang Jaya':   'bg-indigo-100 text-indigo-700',
+  'Bayan Lepas': 'bg-blue-100 text-blue-700',
+  'Georgetown': 'bg-purple-100 text-purple-700',
+  'Bukit Mertajam': 'bg-orange-100 text-orange-700',
+  'Tanjung Bungah': 'bg-teal-100 text-teal-700',
+  'Jelutong': 'bg-rose-100 text-rose-700',
+  'Butterworth': 'bg-cyan-100 text-cyan-700',
+  'Seberang Jaya': 'bg-indigo-100 text-indigo-700',
 }
 
 export default function VenuesPage() {
   const [selectedArea, setSelectedArea] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
   const [userLocation, setUserLocation] = useState(null)
   const [locating, setLocating] = useState(false)
   const [locationError, setLocationError] = useState('')
@@ -42,14 +45,35 @@ export default function VenuesPage() {
     return Array.from(new Set(allVenues.map((v) => v.area).filter(Boolean))).sort()
   }, [allVenues])
 
-  // Filter venues by selected area and optionally sort by distance
+  // Area filter → search (every word must match name, area, address or a facility) → optional distance sort
   const venues = useMemo(() => {
     const base = allVenues || []
-    const filtered = selectedArea
-      ? base.filter((v) => v.area === selectedArea)
-      : base
+    const byArea = selectedArea ? base.filter((v) => v.area === selectedArea) : base
+    const terms = searchQuery.toLowerCase().split(/\s+/).filter(Boolean)
+    const filtered = terms.length === 0
+      ? byArea
+      : byArea.filter((v) => {
+        const haystack = [v.name, v.area, v.address, ...(v.facilities || [])]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+        return terms.every((t) => haystack.includes(t))
+      })
     return userLocation ? sortVenuesByDistance(filtered, userLocation) : filtered
-  }, [allVenues, selectedArea, userLocation])
+  }, [allVenues, selectedArea, searchQuery, userLocation])
+
+  const isFiltering = Boolean(selectedArea || searchQuery.trim())
+  const clearFilters = () => {
+    setSearchQuery('')
+    setSelectedArea('')
+  }
+
+
+
+
+
+
+
 
   const handleNearMe = useCallback(() => {
     if (locating) return
@@ -100,13 +124,40 @@ export default function VenuesPage() {
           <h1 className="page-title text-3xl mb-3">Find Your Court</h1>
           <p className="text-gray-500 text-sm max-w-lg">
             Book hourly slots at premium badminton venues across Penang.
-            Select an area to filter.
+            Search by name, area or facility, or pick an area.
           </p>
         </div>
 
         {/* Area filter & Near me */}
+        {/* Search */}
+        <div className="relative w-full sm:max-w-sm mb-3">
+          <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            id="venue-search"
+            type="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search venues or facilities"
+            aria-label="Search venues"
+            className="input rounded-full py-1.5 pl-9 pr-9 w-full text-base sm:text-sm placeholder:text-sm [&::-webkit-search-cancel-button]:hidden"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <button
+            type="button"
             id="area-filter-all"
             onClick={() => setSelectedArea('')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all
@@ -120,6 +171,7 @@ export default function VenuesPage() {
           {availableAreas.map((area) => (
             <button
               key={area}
+              type="button"
               id={`area-filter-${area.replace(/\s+/g, '-').toLowerCase()}`}
               onClick={() => setSelectedArea(area)}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all
@@ -178,6 +230,11 @@ export default function VenuesPage() {
         )}
 
         {/* Grid */}
+        {!loading && !error && isFiltering && venues.length > 0 && (
+          <p className="text-xs text-gray-500 mb-3">
+            Showing {venues.length} of {allVenues.length} venues
+          </p>
+        )}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3, 4, 5, 6].map((n) => <SkeletonCard key={n} />)}
@@ -186,12 +243,20 @@ export default function VenuesPage() {
           <EmptyState
             icon="🏸"
             title="No venues found"
-            description={selectedArea ? `No venues in ${selectedArea} yet.` : 'No venues available.'}
+            description={
+              searchQuery.trim()
+                ? `No venues match “${searchQuery.trim()}”${selectedArea ? ` in ${selectedArea}` : ''}.`
+                : selectedArea
+                  ? `No venues in ${selectedArea} yet.`
+                  : 'No venues available.'
+            }
             action={
-              selectedArea
-                ? <button onClick={() => setSelectedArea('')} className="btn-secondary">
-                    Clear filter
+              isFiltering
+                ? (
+                  <button type="button" onClick={clearFilters} className="btn-secondary">
+                    Clear search and filters
                   </button>
+                )
                 : null
             }
           />
@@ -230,9 +295,8 @@ function VenueCard({ venue }) {
           />
         ) : null}
         <div
-          className={`w-full h-full ${
-            venue.photos?.[0] ? 'hidden' : 'flex'
-          } flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-gray-400 p-4 text-center`}
+          className={`w-full h-full ${venue.photos?.[0] ? 'hidden' : 'flex'
+            } flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 text-gray-400 p-4 text-center`}
         >
           <BuildingOffice2Icon className="h-9 w-9 text-gray-300 mb-1" />
           <span className="text-xs font-medium text-gray-500">{venue.name}</span>
