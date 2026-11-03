@@ -25,6 +25,7 @@ import VenueDetailPage from '../pages/player/VenueDetailPage'
 import EventsPage      from '../pages/player/EventsPage'
 import MyBookingsPage  from '../pages/player/MyBookingsPage'
 import ProfilePage     from '../pages/player/ProfilePage'
+import HelpPage        from '../pages/help/HelpPage'
 
 // Admin pages
 import DashboardPage     from '../pages/admin/DashboardPage'
@@ -87,6 +88,9 @@ export default function AppRouter() {
       } />
       <Route path="/profile" element={
         <PlayerRoute><ProfilePage /></PlayerRoute>
+      } />
+      <Route path="/help" element={
+        <PublicPlayerRoute><HelpPage /></PublicPlayerRoute>
       } />
 
       {/* Admin */}

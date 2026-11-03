@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getProfile, updateProfile } from '../../api/auth'
 import Layout from '../../components/layout/Layout'
@@ -10,6 +10,8 @@ import {
   UserCircleIcon,
   CheckCircleIcon,
   ArrowRightOnRectangleIcon,
+  QuestionMarkCircleIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
 
 const GENDERS      = ['Male', 'Female']
@@ -206,6 +208,20 @@ export default function ProfilePage() {
 
         {/* Change Password — separate card, outside the profile form */}
         {!loading && <ChangePasswordCard />}
+
+        <Link
+          to="/help"
+          className="card p-4 mt-6 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors"
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <QuestionMarkCircleIcon className="h-5 w-5 text-primary-600 shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-gray-900">Help &amp; Contact</span>
+              <span className="block text-xs text-gray-500">Who to contact about bookings, payments and your account</span>
+            </span>
+          </span>
+          <ChevronRightIcon className="h-4 w-4 text-gray-400 shrink-0" />
+        </Link>
 
         <button
           type="button"

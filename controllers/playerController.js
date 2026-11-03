@@ -405,7 +405,7 @@ const getMyBookings = async (req, res, next) => {
 
     const bookings = await Booking.find({ playerId })
       .sort({ createdAt: -1 })
-      .populate('venueId', 'name area address')
+      .populate('venueId', 'name area address phone')
       .populate('courtId', 'courtNumber');
 
     // Fetch all reviews this player has written (for efficient per-booking lookup)

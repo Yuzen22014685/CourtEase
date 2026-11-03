@@ -18,6 +18,8 @@ export default function Layout({ children }) {
       <footer className="mt-auto py-4 pb-20 sm:pb-4 px-4 text-center text-xs text-gray-400 border-t border-gray-200 bg-gray-50">
         © 2026 CourtEase
         {' · '}
+        <Link to="/help" className="hover:text-gray-600">Help &amp; Contact</Link>
+        {' · '}
         <Link to="/privacy" state={{ from: location.pathname }} className="hover:text-gray-600">Privacy Notice</Link>
         {' · '}
         <Link to="/terms" state={{ from: location.pathname }} className="hover:text-gray-600">Terms of Use</Link>
