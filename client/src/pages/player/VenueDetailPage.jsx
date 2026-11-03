@@ -857,7 +857,7 @@ export default function VenueDetailPage() {
 
       {/* ── Mobile cart bottom bar ── */}
       {isMobileBarVisible && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-elevated px-4 py-3">
+        <div className="lg:hidden fixed bottom-16 sm:bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 shadow-elevated px-4 py-3">
           <button
             id="mobile-cart-btn"
             onClick={() => setMobileCartOpen(true)}

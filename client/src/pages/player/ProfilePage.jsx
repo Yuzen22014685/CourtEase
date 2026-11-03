@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { getProfile, updateProfile } from '../../api/auth'
 import Layout from '../../components/layout/Layout'
@@ -8,13 +9,15 @@ import ChangePasswordCard from '../../components/account/ChangePasswordCard'
 import {
   UserCircleIcon,
   CheckCircleIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline'
 
 const GENDERS      = ['Male', 'Female']
 const SKILL_LEVELS = ['Beginner', 'Pro', 'Athlete']
 
 export default function ProfilePage() {
-  const { user, updateUser } = useAuth()
+  const { user, updateUser, logoutUser } = useAuth()
+  const navigate = useNavigate()
 
   // ── Personal details ─────────────────────────────────────────
   const [fullName, setFullName]     = useState('')
@@ -203,6 +206,18 @@ export default function ProfilePage() {
 
         {/* Change Password — separate card, outside the profile form */}
         {!loading && <ChangePasswordCard />}
+
+        <button
+          type="button"
+          onClick={() => {
+            logoutUser()
+            navigate('/login')
+          }}
+          className="btn-secondary w-full mt-6 sm:hidden text-red-600"
+        >
+          <ArrowRightOnRectangleIcon className="h-4 w-4" />
+          Log out
+        </button>
       </div>
     </Layout>
   )

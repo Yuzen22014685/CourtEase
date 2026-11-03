@@ -7,7 +7,7 @@ import {
   BellIcon,
   ChevronRightIcon,
   Bars3Icon,
-  XMarkIcon,
+
 } from '@heroicons/react/24/outline'
 import { getUnreadCount, getNotifications, markNotificationRead } from '../../api/notifications'
 import { formatDistanceToNow } from 'date-fns'
@@ -20,12 +20,17 @@ const desktopNavLinkClass = ({ isActive }) =>
       : 'text-gray-600 hover:text-primary-700 hover:bg-primary-50'
   }`
 
-const mobileNavLinkClass = ({ isActive }) =>
-  `block px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-    isActive
-      ? 'text-primary-700 bg-primary-50 font-semibold'
-      : 'text-gray-600 hover:text-primary-700 hover:bg-primary-50'
-  }`
+
+
+
+
+
+
+
+
+
+
+
 
 export default function Navbar({ onMenuClick, pendingCount = 0 }) {
   const { user, logoutUser, isAdmin, isOwner, isStaff } = useAuth()
@@ -34,43 +39,9 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
 
   const [unreadCount, setUnreadCount] = useState(0)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
   const [notifications, setNotifications] = useState([])
   const dropdownRef = useRef(null)
-  const mobileMenuRef = useRef(null)
-  const mobileBtnRef = useRef(null)
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setIsMobileMenuOpen(false)
-  }, [location])
-
-  // Close mobile menu on Escape key or outside click
-  useEffect(() => {
-    if (!isMobileMenuOpen) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setIsMobileMenuOpen(false)
-    }
-
-    const handleClickOutside = (e) => {
-      if (
-        mobileMenuRef.current &&
-        !mobileMenuRef.current.contains(e.target) &&
-        mobileBtnRef.current &&
-        !mobileBtnRef.current.contains(e.target)
-      ) {
-        setIsMobileMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isMobileMenuOpen])
 
   useEffect(() => {
     if (!user || isStaff) return
@@ -92,6 +63,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
         setIsDropdownOpen(false)
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
@@ -103,7 +75,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
 
   const toggleDropdown = () => {
     if (!isDropdownOpen) {
-      setIsMobileMenuOpen(false)
+
       getNotifications().then(res => {
         if (res.success) setNotifications(res.data)
       }).catch(console.error)
@@ -111,12 +83,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
     setIsDropdownOpen(!isDropdownOpen)
   }
 
-  const toggleMobileMenu = () => {
-    if (!isMobileMenuOpen) {
-      setIsDropdownOpen(false)
-    }
-    setIsMobileMenuOpen(prev => !prev)
-  }
+
 
   const handleNotificationClick = async (notif) => {
     if (!notif.isRead) {
@@ -312,141 +279,22 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
                 <span className="hidden sm:inline">Logout</span>
               </button>
 
-              {/* Mobile hamburger button (players only) */}
-              {!isStaff && (
-                <button
-                  ref={mobileBtnRef}
-                  type="button"
-                  onClick={toggleMobileMenu}
-                  className="sm:hidden p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-                  aria-expanded={isMobileMenuOpen}
-                >
-                  {isMobileMenuOpen ? (
-                    <XMarkIcon className="h-6 w-6" />
-                  ) : (
-                    <Bars3Icon className="h-6 w-6" />
-                  )}
-                </button>
-              )}
+
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <Link
                 to="/login"
                 state={{ from: location.pathname + location.search }}
-                className="btn-secondary btn-sm"
+                className="btn-secondary btn-sm hidden sm:inline-flex"
               >
                 Login
               </Link>
               <Link to="/register" className="btn-primary btn-sm">Register</Link>
-
-              {/* Mobile hamburger button (guests) */}
-              <button
-                ref={mobileBtnRef}
-                type="button"
-                onClick={toggleMobileMenu}
-                className="sm:hidden p-2 text-gray-500 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
-                aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-                aria-expanded={isMobileMenuOpen}
-              >
-                {isMobileMenuOpen ? (
-                  <XMarkIcon className="h-6 w-6" />
-                ) : (
-                  <Bars3Icon className="h-6 w-6" />
-                )}
-              </button>
             </div>
           )}
         </div>
       </div>
-
-      {/* Mobile dropdown panel (players + guests) */}
-      {!isStaff && isMobileMenuOpen && (
-        <div
-          ref={mobileMenuRef}
-          className="sm:hidden border-t border-gray-100 bg-white/95 backdrop-blur-sm animate-fadeIn"
-        >
-          <div className="max-w-7xl mx-auto px-4 py-3 space-y-1">
-            <NavLink
-              to="/venues"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={mobileNavLinkClass}
-            >
-              Venues
-            </NavLink>
-            <NavLink
-              to="/events"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={mobileNavLinkClass}
-            >
-              Events
-            </NavLink>
-            {user ? (
-              <>
-                <NavLink
-                  to="/my-bookings"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={mobileNavLinkClass}
-                >
-                  My Bookings
-                </NavLink>
-                <NavLink
-                  to="/profile"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={mobileNavLinkClass}
-                >
-                  Profile
-                </NavLink>
-
-                {/* User info & Logout */}
-                <div className="pt-3 mt-2 border-t border-gray-100 flex items-center justify-between px-3">
-                  <Link
-                    to={userAccountPath}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    title={userAccountLabel}
-                    aria-label={userAccountLabel}
-                    className="flex items-center gap-2 text-xs text-gray-700 hover:text-primary-700 hover:bg-gray-50 px-2 py-1 -ml-2 rounded-lg transition-colors min-w-0 group"
-                  >
-                    <UserCircleIcon className="h-4 w-4 text-gray-400 group-hover:text-primary-600 transition-colors shrink-0" />
-                    <span className="font-medium truncate">{user.fullName}</span>
-                  </Link>
-                  <button
-                    id="mobile-logout-btn"
-                    type="button"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false)
-                      handleLogout()
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <ArrowRightOnRectangleIcon className="h-4 w-4" />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="pt-3 mt-2 border-t border-gray-100 flex items-center gap-2 px-3">
-                <Link
-                  to="/login"
-                  state={{ from: location.pathname + location.search }}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="btn-secondary btn-sm flex-1 text-center justify-center"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="btn-primary btn-sm flex-1 text-center justify-center"
-                >
-                  Register
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </header>
   )
 }

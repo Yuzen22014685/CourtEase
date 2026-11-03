@@ -34,8 +34,8 @@ export default function ChatWidget() {
 
   // Raise button only on small screens below lg to avoid the mobile cart checkout bar
   const buttonPositionClass = isVenueDetailPage
-    ? 'bottom-20 right-4 lg:bottom-6 lg:right-6'
-    : 'bottom-4 right-4 sm:bottom-6 sm:right-6'
+    ? 'bottom-36 right-4 sm:bottom-20 lg:bottom-6 lg:right-6'
+    : 'bottom-20 right-4 sm:bottom-6 sm:right-6'
 
   // Close panel on Escape key
   useEffect(() => {
