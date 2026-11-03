@@ -16,8 +16,13 @@ import {
   ArrowUpTrayIcon,
   ArrowPathIcon,
   StarIcon as StarOutline,
+  PhoneIcon,
+  EnvelopeIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid'
+import { Link } from 'react-router-dom'
+import { SUPPORT_EMAIL } from '../../content/legal'
 
 const TERMINAL_STATUSES = ['cancelled', 'rejected', 'expired']
 
@@ -110,6 +115,16 @@ export default function OrderCard({
 
   // Highlight check
   const isCardHighlighted = sortedBookings.some((b) => b._id === highlightedBookingId)
+
+  // Help row: call the venue (only if it has a phone) or email CourtEase support with the reference filled in
+  const venuePhone = (firstBooking.venueId?.phone || '').trim()
+  const orderRef = formatPaymentRef(firstBooking)
+  const sessionLines = sortedBookings
+    .map((b) => `Court ${b.courtId?.courtNumber ?? '—'} · ${formatDate(b.date)} · ${formatTime(b.startTime)}–${formatTime(b.endTime)}`)
+    .join('\n')
+  const reportSubject = `Problem with booking ${orderRef}`
+  const reportBody = `Booking reference: ${orderRef}\nVenue: ${venueName}${venueArea ? ` (${venueArea})` : ''}\nSessions:\n${sessionLines}\n\nWhat happened:\n`
+  const reportHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(reportSubject)}&body=${encodeURIComponent(reportBody)}`
 
   return (
     <div
@@ -363,6 +378,37 @@ export default function OrderCard({
           ) : null}
         </div>
       )}
+
+      {/* ── Help row: collapsed by default ── */}
+      <div className="pt-3 border-t border-gray-100">
+        <details className="group">
+          <summary className="list-none cursor-pointer flex items-center justify-between gap-2 text-xs font-medium text-gray-500">
+            Need help with this booking?
+            <ChevronDownIcon className="h-4 w-4 text-gray-400 shrink-0 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap sm:items-center">
+            {venuePhone && (
+              <a
+                href={`tel:${venuePhone.replace(/[^\d+]/g, '')}`}
+                className="btn-secondary btn-sm text-xs w-full sm:w-auto justify-center inline-flex items-center gap-1.5"
+              >
+                <PhoneIcon className="h-3.5 w-3.5" />
+                Call venue · {venuePhone}
+              </a>
+            )}
+            <a
+              href={reportHref}
+              className="btn-secondary btn-sm text-xs w-full sm:w-auto justify-center inline-flex items-center gap-1.5"
+            >
+              <EnvelopeIcon className="h-3.5 w-3.5" />
+              Report a problem
+            </a>
+            <Link to="/help" className="text-xs text-primary-700 text-center sm:ml-1 hover:underline py-1">
+              Who to contact?
+            </Link>
+          </div>
+        </details>
+      </div>
     </div>
   )
 }
