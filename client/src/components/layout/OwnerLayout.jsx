@@ -15,6 +15,7 @@ import {
   ShoppingBagIcon,
   MegaphoneIcon,
 } from '@heroicons/react/24/outline'
+  import LogoMark from '../ui/LogoMark'
 
 const tabs = [
   { to: '/owner/today', label: 'Today', icon: SparklesIcon },
@@ -102,10 +103,10 @@ export default function OwnerLayout() {
             {/* Left: Brand + Venue Name / Switcher */}
             <div className="flex items-center gap-3 sm:gap-6 min-w-0">
               <Link to="/owner/today" className="flex items-center gap-2 shrink-0">
-                <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white text-base">
-                  🏸
+                <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                  <LogoMark className="h-8 w-8" />
                 </div>
-                <span className="font-bold text-gray-900 text-base sm:text-lg tracking-tight hidden sm:inline">
+                <span className="font-bold text-court-blue text-base sm:text-lg tracking-tight hidden sm:inline">
                   Court<span className="text-primary-600">Ease</span>
                 </span>
               </Link>
@@ -220,7 +221,7 @@ export default function OwnerLayout() {
         ) : venues.length === 0 ? (
           <div className="max-w-md mx-auto py-20 px-4 text-center animate-fadeIn">
             <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm">
-              🏸
+              <LogoMark className="h-8 w-8" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">No venue assigned yet</h2>
             <p className="text-sm text-gray-500 leading-relaxed mb-6">

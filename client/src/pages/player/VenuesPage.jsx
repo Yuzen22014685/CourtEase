@@ -17,6 +17,7 @@ import {
 import { StarIcon } from '@heroicons/react/24/solid'
 import { getImageUrl, formatPriceRange } from '../../utils/format'
 import { sortVenuesByDistance, formatDistance } from '../../utils/distance'
+import LogoMark from '../../components/ui/LogoMark'
 
 const AREA_COLOURS = {
   'Bayan Lepas': 'bg-blue-100 text-blue-700',
@@ -241,7 +242,7 @@ export default function VenuesPage() {
           </div>
         ) : venues.length === 0 ? (
           <EmptyState
-            icon="🏸"
+            icon={<LogoMark className="h-9 w-9" />}
             title="No venues found"
             description={
               searchQuery.trim()

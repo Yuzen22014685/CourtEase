@@ -12,6 +12,7 @@ import {
 import { getUnreadCount, getNotifications, markNotificationRead } from '../../api/notifications'
 import { formatDistanceToNow } from 'date-fns'
 import { homePathForRole } from '../../utils/routes'
+import LogoMark from '../ui/LogoMark'
 
 const desktopNavLinkClass = ({ isActive }) =>
   `px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -140,11 +141,11 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
 
             {/* Logo */}
             <Link to={homeLink} className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center
-                              group-hover:bg-primary-700 transition-colors">
-                <span className="text-white text-lg" aria-hidden>🏸</span>
+              <div className="w-8 h-8 flex items-center justify-center
+                              shrink-0">
+                <LogoMark className="h-8 w-8" />
               </div>
-              <span className="font-bold text-gray-900 text-lg tracking-tight">
+              <span className="font-bold text-court-blue text-lg tracking-tight">
                 Court<span className="text-primary-600">Ease</span>
               </span>
             </Link>

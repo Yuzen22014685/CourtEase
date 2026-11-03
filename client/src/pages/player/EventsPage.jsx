@@ -13,6 +13,7 @@ import {
   MapPinIcon,
 } from '@heroicons/react/24/outline'
 import { formatDate, formatTime, getImageUrl } from '../../utils/format'
+import LogoMark from '../../components/ui/LogoMark'
 
 export default function EventsPage() {
   const [selectedArea, setSelectedArea] = useState('')
@@ -105,7 +106,7 @@ export default function EventsPage() {
           </div>
         ) : events.length === 0 ? (
           <EmptyState
-            icon="🏸"
+            icon={<LogoMark className="h-9 w-9" />}
             title={selectedArea ? 'No events found' : 'No upcoming events'}
             description={
               selectedArea
