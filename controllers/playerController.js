@@ -180,6 +180,11 @@ const createBooking = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'startTime must be before endTime' });
     }
 
+    // Bookings are single one-hour slots starting on the hour (matches generateSlots in utils/availability.js).
+    if (!startTime.endsWith(':00') || toMinutes(endTime) - toMinutes(startTime) !== 60) {
+      return res.status(400).json({ success: false, message: 'Bookings must be a single one-hour slot starting on the hour.' });
+    }
+
     // ── Past-slot guard ──────────────────────────────────────────────────────
     const slotStart = new Date(`${date}T${startTime}:00+08:00`);
     if (slotStart <= new Date()) {
@@ -372,22 +377,31 @@ const createBooking = async (req, res, next) => {
     const amount = computeCourtAmount(venue, date, startTime, endTime);
     const receiptId = `RCP-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
 
-    const booking = await Booking.create({
-      playerId: req.user._id,
-      venueId,
-      courtId,
-      date,
-      startTime,
-      endTime,
-      paymentMethod,
-      amount,
-      receiptId,
-      paymentRef: finalPaymentRef,
-      status: 'pending',    // awaits admin approval — see approveBooking / rejectBooking
-      paymentStatus: 'pending',
-      items: processedItems,
-      itemsTotal,
-    });
+    let booking;
+    try {
+      booking = await Booking.create({
+        playerId: req.user._id,
+        venueId,
+        courtId,
+        date,
+        startTime,
+        endTime,
+        paymentMethod,
+        amount,
+        receiptId,
+        paymentRef: finalPaymentRef,
+        status: 'pending',    // awaits admin approval — see approveBooking / rejectBooking
+        paymentStatus: 'pending',
+        items: processedItems,
+        itemsTotal,
+      });
+    } catch (err) {
+      // Duplicate key on uniq_active_slot = another request took this slot first.
+      if (err && err.code === 11000 && err.keyPattern && err.keyPattern.startTime) {
+        return res.status(409).json({ success: false, message: 'Court is already booked for this time slot' });
+      }
+      throw err;
+    }
 
     res.status(201).json({ success: true, data: booking });
   } catch (err) {
@@ -533,6 +547,11 @@ const rescheduleBooking = async (req, res, next) => {
     const newEndM = String(newEndMins % 60).padStart(2, '0');
     const newEnd = `${newEndH}:${newEndM}`;
 
+    // Bookings are single one-hour slots starting on the hour (matches generateSlots in utils/availability.js).
+    if (!newStart.endsWith(':00') || toMinutes(newEnd) - toMinutes(newStart) !== 60) {
+      return res.status(400).json({ success: false, message: 'Reschedule must be to a single one-hour slot starting on the hour.' });
+    }
+
     // New slot must not be in the past
     const newSlotStart = new Date(`${newDate}T${newStart}:00+08:00`);
     if (newSlotStart <= new Date()) {
@@ -604,7 +623,15 @@ const rescheduleBooking = async (req, res, next) => {
     booking.endTime = newEnd;
     booking.courtId = newCourtId;
     booking.rescheduleCount = (booking.rescheduleCount || 0) + 1;
-    await booking.save();
+    try {
+      await booking.save();
+    } catch (err) {
+      // Duplicate key on uniq_active_slot = another request took this slot first.
+      if (err && err.code === 11000 && err.keyPattern && err.keyPattern.startTime) {
+        return res.status(409).json({ success: false, message: 'That time slot is no longer available.' });
+      }
+      throw err;
+    }
 
     // Create notification
     const venueName = venue.name;

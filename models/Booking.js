@@ -68,6 +68,19 @@ const bookingSchema = new mongoose.Schema({
 bookingSchema.index({ playerId: 1, createdAt: -1 });
 bookingSchema.index({ venueId: 1, date: 1, courtId: 1 });
 
+// Concurrency guard (Objective 1): at most ONE slot-holding booking per court, date and start time.
+// Enforced by MongoDB itself, so two simultaneous requests cannot both be stored.
+// Cancelled / rejected / expired bookings are outside the filter, so they free the slot automatically.
+// Keep this status list in sync with SLOT_BLOCKING_STATUSES in config/bookingPolicy.js.
+bookingSchema.index(
+  { courtId: 1, date: 1, startTime: 1 },
+  {
+    unique: true,
+    name: 'uniq_active_slot',
+    partialFilterExpression: { status: { $in: ['pending', 'confirmed', 'completed'] } },
+  }
+);
+
 // Receipt images are private: API responses carry a short-lived signed URL, never the raw path.
 bookingSchema.set('toJSON', {
   transform: (doc, ret) => {
