@@ -81,7 +81,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600
+    <div className="min-h-screen bg-gradient-to-br from-primary-800 via-primary-700 to-court-blue
                     flex items-center justify-center p-4">
       <div className="absolute inset-0 opacity-10"
            style={{ backgroundImage: 'radial-gradient(circle at 25% 25%, white 2px, transparent 0), radial-gradient(circle at 75% 75%, white 2px, transparent 0)', backgroundSize: '50px 50px' }} />

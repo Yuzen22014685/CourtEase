@@ -115,47 +115,46 @@ export default function VenuesPage() {
 
   return (
     <Layout>
-      <div className="page-container">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-primary-600 text-sm font-medium mb-2">
-            <BuildingOffice2Icon className="h-4 w-4" />
-            Penang Badminton Venues
-          </div>
-          <h1 className="page-title text-3xl mb-3">Find Your Court</h1>
-          <p className="text-gray-500 text-sm max-w-lg">
-            Book hourly slots at premium badminton venues across Penang.
-            Search by name, area or facility, or pick an area.
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary-800 via-primary-700 to-court-blue">
+        <LogoMark className="pointer-events-none absolute -right-16 -bottom-20 h-80 w-80 sm:h-[26rem] sm:w-[26rem] brightness-0 invert opacity-10" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight max-w-xl">
+            Find a court. Book your game.
+          </h1>
+          <p className="mt-2 text-sm sm:text-base text-white/90 max-w-lg">
+            Check which courts are free and book the time that suits you.
           </p>
-        </div>
 
+          {/* Search */}
+          <div className="relative w-full sm:max-w-md mt-5">
+            <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="venue-search"
+              type="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search venues, areas or facilities"
+              aria-label="Search venues"
+              className="input rounded-full py-2.5 pl-10 pr-10 w-full text-base sm:text-sm placeholder:text-sm border-transparent shadow-elevated focus:ring-white/70 focus:border-transparent [&::-webkit-search-cancel-button]:hidden"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <XMarkIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+      <div className="page-container">
         {/* Area filter & Near me */}
-        {/* Search */}
-        <div className="relative w-full sm:max-w-sm mb-3">
-          <MagnifyingGlassIcon className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            id="venue-search"
-            type="search"
-            enterKeyHint="search"
-            autoComplete="off"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search venues or facilities"
-            aria-label="Search venues"
-            className="input rounded-full py-1.5 pl-9 pr-9 w-full text-base sm:text-sm placeholder:text-sm [&::-webkit-search-cancel-button]:hidden"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <button
             type="button"
