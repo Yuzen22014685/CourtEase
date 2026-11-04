@@ -34,7 +34,7 @@ try { ({ buildAvailabilityMatrix } = require('../utils/availability')); } catch 
 
 const LIVE_DB = 'courtease_live';
 const DEMO_EMAIL_RE = /^courtease\.demo\.\d+@example\.com$/;
-const PAST_DAYS = 29;   // yesterday back to 29 days ago
+const PAST_DAYS = 59;   // yesterday back to 59 days ago (two full months, so month-on-month comparisons are realistic)
 const FUTURE_DAYS = 10; // tomorrow up to 10 days ahead (plus later today)
 
 const DEMO_PLAYERS = [
@@ -161,7 +161,11 @@ const main = async () => {
       const used = new Set();
       const free = (court, slot) => slot.available && !used.has(`${court.courtId}|${slot.start}`);
 
-      let target = when === 'past' ? (isWeekend(date) ? randInt(6, 10) : randInt(3, 7)) : randInt(1, 3);
+      // Busier venues have more courts: daily sessions scale with the number of active courts
+      const c = courts.length;
+      let target = when === 'past'
+        ? (isWeekend(date) ? randInt(Math.ceil(c * 0.9), Math.ceil(c * 1.5)) : randInt(Math.ceil(c * 0.4), Math.ceil(c * 0.9)))
+        : randInt(1, Math.max(1, Math.ceil(c * 0.4)));
       let guard = 0;
       while (target > 0 && guard++ < 200) {
         const court = pick(courts);
@@ -232,7 +236,7 @@ const main = async () => {
           }
         });
 
-        if (status === 'completed' && rand() < 0.18) {
+        if (status === 'completed' && rand() < 0.08) {
           const r = rand();
           const rating = r < 0.5 ? 5 : r < 0.85 ? 4 : r < 0.97 ? 3 : 2;
           reviews.push({
