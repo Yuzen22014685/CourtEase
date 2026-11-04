@@ -45,7 +45,7 @@ export default function CheckEmailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-800 via-primary-700 to-primary-600
+    <div className="min-h-screen bg-gradient-to-br from-primary-800 via-primary-700 to-court-blue
                     flex items-center justify-center p-4">
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10"
@@ -58,7 +58,7 @@ export default function CheckEmailPage() {
             <LogoMark className="h-10 w-10" />
           </div>
           <h1 className="text-3xl font-bold text-white">CourtEase</h1>
-          <p className="text-primary-200 text-sm mt-1">Penang's badminton booking platform</p>
+          <p className="text-primary-200 text-sm mt-1">Find a court. Book your game.</p>
         </div>
 
         {/* Card */}

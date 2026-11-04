@@ -121,6 +121,7 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-100 shadow-sm">
+      <div aria-hidden="true" className="h-[3px] bg-gradient-to-r from-primary-700 via-primary-500 to-court-blue" />
       <div className={isStaff ? 'px-4 sm:px-6 lg:px-8' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'}>
         <div className="flex items-center justify-between h-16">
           {/* Brand & Admin Hamburger */}
@@ -143,9 +144,9 @@ export default function Navbar({ onMenuClick, pendingCount = 0 }) {
             <Link to={homeLink} className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 flex items-center justify-center
                               shrink-0">
-                <LogoMark className="h-8 w-8" />
+                <LogoMark className="h-9 w-9" />
               </div>
-              <span className="font-bold text-court-blue text-lg tracking-tight">
+              <span className="font-bold text-court-blue text-xl tracking-tight">
                 Court<span className="text-primary-600">Ease</span>
               </span>
             </Link>

@@ -98,6 +98,7 @@ export default function OwnerLayout() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* ── Main Owner Header ── */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+        <div aria-hidden="true" className="h-[3px] bg-gradient-to-r from-primary-700 via-primary-500 to-court-blue" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Left: Brand + Venue Name / Switcher */}
